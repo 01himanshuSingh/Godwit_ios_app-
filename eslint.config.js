@@ -13,7 +13,10 @@ module.exports = defineConfig([
         'error',
         {
           paths: [
-            { name: 'firebase', message: 'Firebase client SDK is forbidden; use the BFF /v1 API.' },
+            {
+              name: 'firebase',
+              message: 'Use @react-native-firebase/* on native, not the web firebase JS SDK.',
+            },
             {
               name: 'axios',
               message: 'Use the shared HTTP client in src/api instead of axios.',
@@ -28,11 +31,7 @@ module.exports = defineConfig([
           patterns: [
             {
               group: ['firebase/*'],
-              message: 'Firebase client SDK is forbidden; use the BFF /v1 API.',
-            },
-            {
-              group: ['@react-native-firebase/*'],
-              message: 'React Native Firebase is forbidden; use the BFF /v1 API.',
+              message: 'Use @react-native-firebase/* on native, not the web firebase JS SDK.',
             },
           ],
         },

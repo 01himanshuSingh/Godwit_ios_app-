@@ -9,6 +9,10 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Firebase (download from Firebase Console; do not commit production keys)
+GoogleService-Info.plist
+google-services.json
+
 # Native
 .kotlin/
 *.orig.*

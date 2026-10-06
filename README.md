@@ -14,16 +14,20 @@ cp .env.example .env
 npm install
 ```
 
+## Styling (NativeWind / Tailwind)
+
+Utility classes via [`className`](https://www.nativewind.dev/) on React Native components. Theme tokens live in `tailwind.config.js`; global entry is `global.css` (imported in `src/app/_layout.tsx`). After config changes, restart with `npx expo start --clear`.
+
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm start` | Expo dev server |
-| `npm run ios` | Open iOS simulator |
-| `npm run typecheck` | TypeScript |
-| `npm run lint` | ESLint |
-| `npm test` | Jest (jest-expo) |
-| `npm run doctor` | expo-doctor |
+| Command             | Description        |
+| ------------------- | ------------------ |
+| `npm start`         | Expo dev server    |
+| `npm run ios`       | Open iOS simulator |
+| `npm run typecheck` | TypeScript         |
+| `npm run lint`      | ESLint             |
+| `npm test`          | Jest (jest-expo)   |
+| `npm run doctor`    | expo-doctor        |
 
 ## Documentation
 

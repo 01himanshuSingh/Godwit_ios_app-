@@ -59,7 +59,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-router',
       'expo-secure-store',
       'expo-apple-authentication',
-      'expo-build-properties',
+      [
+        'expo-build-properties',
+        {
+          ios: {
+            useFrameworks: 'static',
+          },
+        },
+      ],
+      '@react-native-firebase/app',
+      '@react-native-firebase/auth',
       [
         'expo-image-picker',
         {

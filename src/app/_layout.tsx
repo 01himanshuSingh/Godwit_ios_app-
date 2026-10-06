@@ -1,3 +1,5 @@
+import '../../global.css';
+
 import 'react-native-gesture-handler';
 
 import { Stack, type ErrorBoundaryProps } from 'expo-router';

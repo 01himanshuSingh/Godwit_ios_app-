@@ -46,16 +46,19 @@ export default function TempTestHomeScreen() {
         gap: 8,
       }}
     >
-      <Text style={{ fontSize: 22, fontWeight: '600' }} accessibilityRole="header">
+      <Text className="text-2xl font-semibold text-neutral-900" accessibilityRole="header">
         Godwit - Home (test)
       </Text>
-      <Text>APP_ENV: {env.appEnv}</Text>
-      <Text>API base URL: {env.apiBaseUrl}</Text>
-      <Text>App version: {version}</Text>
-      <View style={{ marginTop: 16, gap: 6 }}>
-        <Text style={{ fontWeight: '600' }}>Smoke checks</Text>
+      <Text className="text-base text-neutral-700">APP_ENV: {env.appEnv}</Text>
+      <Text className="text-base text-neutral-700">API base URL: {env.apiBaseUrl}</Text>
+      <Text className="text-base text-neutral-700">App version: {version}</Text>
+      <View className="mt-4 gap-1.5">
+        <Text className="font-semibold text-neutral-900">Smoke checks</Text>
         <SmokeRow label="Zod sample parse" pass={zodOk} />
-        <SmokeRow label="React Query mounted" pass={query.isSuccess && query.data === 'react-query-mounted'} />
+        <SmokeRow
+          label="React Query mounted"
+          pass={query.isSuccess && query.data === 'react-query-mounted'}
+        />
         <SmokeRow label="expo-secure-store available" pass={secureStoreOk === true} />
       </View>
     </ScrollView>
