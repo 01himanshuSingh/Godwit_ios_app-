@@ -1,0 +1,21 @@
+---
+description: Security, compliance, and App Store constraints
+alwaysApply: true
+---
+
+# Security and App Store
+
+Hard rules (App Review and tenant isolation):
+
+1. **No Firebase on device** — no `firebase`, no `@react-native-firebase/*`, no direct Firestore. All data via BFF `/v1/*` scoped by server-side `clientId`.
+2. **Tokens in Keychain only** — use `expo-secure-store` (via `src/lib/storage` when implemented). Never `@react-native-async-storage/async-storage` for tokens.
+3. **No secrets in the bundle** — `EXPO_PUBLIC_*` is public. No API keys, service accounts, or OAuth secrets in the repo.
+4. **No Phase 2 code in Phase 1 builds** — `features/hotels` and `features/private-jets` are README + `.gitkeep` only until Phase 2.
+5. **Dev-only behavior** — demo logins, mocks, or bypasses must be gated by `__DEV__` **and** `APP_ENV !== 'production'`.
+6. **No tracking / ads SDKs** — nothing that triggers App Tracking Transparency without product approval.
+7. **New dependencies** — must pass `npx expo-doctor`, be MIT/Apache-2.0/BSD, App Store safe, and get a row in `docs/DEPENDENCIES.md`.
+8. **Logging** — strip PII, tokens, and refresh tokens from logs and crash breadcrumbs.
+
+Forbidden imports (enforced by ESLint): `firebase`, `axios`, `moment`, `redux`, `@reduxjs/toolkit`, `@react-native-firebase/*`.
+
+See `docs/APP_STORE_CHECKLIST.md` before release.

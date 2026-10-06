@@ -1,0 +1,25 @@
+---
+description: BFF /v1 contract and ID naming
+globs: src/api/**/*
+alwaysApply: false
+---
+
+# Firebase BFF contract
+
+The mobile app talks to **`/v1/*` HTTPS Cloud Functions only**. Tenant root on the server is `admins/{adminId}`; every call is scoped by the signed-in user's `clientId`.
+
+## ID mapping (use in DTOs and routes)
+
+| App concept | API / CRM ID |
+|-------------|----------------|
+| Client | `clientId` |
+| Traveller | `travellerId` (= `customerId`) |
+| Trip / booking | `bookingId` = `tripId` = `customerVisitId` |
+| Quote | `quoteId` = `quotationId` |
+| Request | `requestId` = `enquiryId` |
+
+## Contracts
+
+- Request/response shapes live in `src/api/contracts` as Zod schemas + inferred TypeScript types.
+- Do not invent endpoints; backend owns the endpoint list.
+- Collection and module mapping: `docs/FIREBASE_MAP.md`.

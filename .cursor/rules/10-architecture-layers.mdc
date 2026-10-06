@@ -1,0 +1,31 @@
+---
+description: Layering, dependency direction, and data flow
+globs: src/**/*
+alwaysApply: false
+---
+
+# Architecture layers
+
+**Dependency direction:** `src/app` → `src/features` → `src/api` / `src/ui` / `src/lib` / `src/config`.
+
+## Routes (`src/app`)
+
+Route files stay **thin**: import a screen from a feature (or auth) module and render it. No business logic, no direct API calls, no Zod parsing in route files.
+
+## Features (`src/features/*`, `src/auth`)
+
+- Features **must not** import another feature's internals. Cross-feature use goes through a feature's public `index.ts` export surface only.
+- Server state lives in **React Query hooks** inside each feature. No global store library.
+- Each feature owns `components/`, `hooks/`, `schemas/`, `screens/` (messages also has `realtime/`).
+
+## API (`src/api`)
+
+- **`ClientApi`** is the app-facing contract. Two adapters: **`mock`** (default until staging switch) and **`http`** (real `/v1`).
+- UI never calls `fetch`. Screens call feature hooks → hooks call `ClientApi` → adapter.
+
+## UI / lib
+
+- `src/ui`: design tokens, primitives, shared components. No network I/O.
+- `src/lib`: query client, Keychain storage, errors, logging, formatting.
+
+See `docs/ARCHITECTURE.md` for the full data-flow diagram and error model.

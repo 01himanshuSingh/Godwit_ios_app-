@@ -1,0 +1,15 @@
+---
+description: Godwit Client iOS — project context and phase scope
+alwaysApply: true
+---
+
+# Godwit Client (iOS)
+
+Luxury travel agency **client-account** app for signed-in CRM clients (invite-only). Not staff, not partners.
+
+- **Stack:** React Native, Expo SDK, TypeScript (strict), Expo Router, React Query, Zod, EAS Build.
+- **Platform:** iOS only, iPhone only (small and large). No Android, web, or iPad targets in Phase 1.
+- **Backend:** Firebase behind a BFF. The app calls HTTPS Cloud Functions at `/v1/*` only. **Never** import Firebase client SDKs or read/write Firestore on device.
+- **Phase 1:** 24 screens, 16 modules (Home, Trips, Messages, Profile tabs). **Phase 2:** Hotels (Sabre), Private Jets (Avinode) — folders exist but no Phase 1 code.
+
+Architecture, auth, routes, Firebase mapping, dependencies, and App Store checklist live under `docs/`. Read those before adding features.

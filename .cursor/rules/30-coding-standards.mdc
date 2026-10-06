@@ -1,0 +1,17 @@
+---
+description: TypeScript, naming, UI states, accessibility
+globs: src/**/*
+alwaysApply: false
+---
+
+# Coding standards
+
+- **TypeScript:** `strict: true`. No `any`. Prefer Zod-inferred types for API DTOs.
+- **API boundary:** Zod-validate every response in the HTTP adapter before it reaches hooks/UI.
+- **Money:** Display server-formatted amounts; no FX math in the app.
+- **Exports:** Named exports for components and hooks unless a route file requires default export.
+- **Naming:** kebab-case folders; PascalCase React components; camelCase functions and hooks.
+- **Screens:** Every screen implements **loading**, **empty**, **error**, and **permission-denied** states where applicable.
+- **Accessibility:** `accessibilityLabel` on interactive controls; support Dynamic Type (avoid fixed font sizes that block scaling).
+
+Use path alias `@/*` → `src/*`.
