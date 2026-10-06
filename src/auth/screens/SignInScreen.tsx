@@ -77,7 +77,7 @@ export function SignInScreen() {
         onPress={() => void onSendLink()}
         disabled={submitting}
         accessibilityRole="button"
-        accessibilityLabel="Send magic link"
+        accessibilityLabel="Send the magic link"
       >
         {submitting ? (
           <ActivityIndicator color="#fff" />
