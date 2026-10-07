@@ -1,9 +1,6 @@
 import {
   collection,
-  collectionGroup,
   getDocs,
-  query,
-  where,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
@@ -11,7 +8,7 @@ import {
 import { db } from '@/lib/firebase/firestore';
 import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 
-/** CRM: visitType 0 = sale / booking. */
+/** CRM: visitType 0 = sale / booking; Instant Sale v1 often omits the field entirely. */
 const VISIT_TYPE_SALE = 0;
 
 export type ClientTripSummary = {
@@ -20,6 +17,8 @@ export type ClientTripSummary = {
   documentPath: string;
   travelDate: string | null;
   travelDateKey: string | null;
+  /** CRM `date` on sales docs — used for sort when travel dates missing. */
+  createdDate: string | null;
   clientName: string | null;
   hotelBrand: string | null;
   saleStatus: boolean | null;
@@ -72,7 +71,6 @@ function travelDateMs(isoOrKey: string | null): number | null {
   if (!Number.isNaN(parsed)) {
     return parsed;
   }
-  // travelDateKey often YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(isoOrKey)) {
     return Date.parse(`${isoOrKey}T00:00:00.000Z`);
   }
@@ -90,7 +88,7 @@ function bucketForTravelDate(
 
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
-  const endMs = startMs + dayMs; // no end date on many visits — treat travel day as current window
+  const endMs = startMs + dayMs;
 
   if (now < startMs) {
     return 'upcoming';
@@ -99,6 +97,26 @@ function bucketForTravelDate(
     return 'current';
   }
   return 'past';
+}
+
+function firstTravellerId(data: DocumentData): string | null {
+  const travellers = data.travellers;
+  if (!Array.isArray(travellers) || travellers.length === 0) {
+    return null;
+  }
+  const first = travellers[0];
+  if (typeof first === 'string') {
+    return readOptionalString(first);
+  }
+  if (first && typeof first === 'object') {
+    const row = first as Record<string, unknown>;
+    return readOptionalString(row.id) ?? readOptionalString(row.customerId);
+  }
+  return null;
+}
+
+function isSaleOrUnspecifiedVisit(data: DocumentData): boolean {
+  return data.visitType === VISIT_TYPE_SALE || data.visitType === undefined;
 }
 
 function mapVisitDoc(
@@ -117,75 +135,110 @@ function mapVisitDoc(
     documentPath: docSnap.ref.path,
     travelDate,
     travelDateKey,
+    createdDate: firestoreDateToIso(data.date),
     clientName: readOptionalString(data.clientName),
     hotelBrand: readOptionalString(data.hotelBrand),
     saleStatus: typeof data.saleStatus === 'boolean' ? data.saleStatus : null,
-    customerId: readOptionalString(data.customerId),
+    customerId:
+      readOptionalString(data.customerId) ??
+      firstTravellerId(data) ??
+      (source === 'customerServices' ? (docSnap.ref.parent.parent?.id ?? null) : null),
     bucket: bucketForTravelDate(travelDate, travelDateKey),
   };
 }
 
-/** Instant sales under `admins/{adminId}/clients/{clientId}/sales`. */
+/**
+ * Instant sales — same as CRM client profile: load whole `sales` collection,
+ * then keep sale/booking docs in memory (missing visitType is Instant Sale v1).
+ */
 export async function getClientInstantSales(
   adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
   clientId: string = TEST_CLIENT_LOOKUP_ID,
 ): Promise<ClientTripSummary[]> {
   const ref = collection(db, 'admins', adminId, 'clients', clientId, 'sales');
+  const snap = await getDocs(ref);
 
-  try {
-    const q = query(ref, where('visitType', '==', VISIT_TYPE_SALE));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => mapVisitDoc(d, 'sales'));
-  } catch (error) {
-    console.warn('[testing] sales filtered query failed, reading collection:', error);
-    const snap = await getDocs(ref);
-    return snap.docs
-      .filter((d) => d.data().visitType === VISIT_TYPE_SALE || d.data().visitType === undefined)
-      .map((d) => mapVisitDoc(d, 'sales'));
-  }
+  return snap.docs
+    .filter((d) => isSaleOrUnspecifiedVisit(d.data()))
+    .map((d) => mapVisitDoc(d, 'sales'));
 }
 
-/** Bookings via collection group `customerServices` for this admin + client. */
-export async function getClientCustomerServices(
+/**
+ * Travellers for this client — `admins/{adminId}/customers` filtered in memory.
+ */
+export async function getTravellerIdsForClient(
+  adminId: string,
+  clientId: string,
+): Promise<string[]> {
+  const customersRef = collection(db, 'admins', adminId, 'customers');
+  const snap = await getDocs(customersRef);
+  const ids = new Set<string>();
+
+  for (const customerDoc of snap.docs) {
+    const data = customerDoc.data();
+    if (data.clientId === clientId) {
+      ids.add(customerDoc.id);
+      continue;
+    }
+    if (Array.isArray(data.clientIds) && data.clientIds.includes(clientId)) {
+      ids.add(customerDoc.id);
+    }
+  }
+
+  return [...ids];
+}
+
+/**
+ * Legacy visits — path reads only (no collectionGroup indexes).
+ */
+export async function getClientCustomerServicesViaTravellers(
   adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
   clientId: string = TEST_CLIENT_LOOKUP_ID,
 ): Promise<ClientTripSummary[]> {
-  try {
-    const q = query(
-      collectionGroup(db, 'customerServices'),
-      where('adminId', '==', adminId),
-      where('clientId', '==', clientId),
-      where('visitType', '==', VISIT_TYPE_SALE),
+  const travellerIds = await getTravellerIdsForClient(adminId, clientId);
+  const trips: ClientTripSummary[] = [];
+
+  for (const customerId of travellerIds) {
+    const servicesRef = collection(
+      db,
+      'admins',
+      adminId,
+      'customers',
+      customerId,
+      'customerServices',
     );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => mapVisitDoc(d, 'customerServices'));
-  } catch (error) {
-    console.warn('[testing] customerServices composite query failed:', error);
-    // Fallback: clientId only (may need index or return broader set).
-    const q = query(collectionGroup(db, 'customerServices'), where('clientId', '==', clientId));
-    const snap = await getDocs(q);
-    return snap.docs
-      .filter((d) => {
-        const data = d.data();
-        const adminOk = !data.adminId || data.adminId === adminId;
-        const typeOk = data.visitType === VISIT_TYPE_SALE || data.visitType === undefined;
-        return adminOk && typeOk;
-      })
-      .map((d) => mapVisitDoc(d, 'customerServices'));
+    const snap = await getDocs(servicesRef);
+
+    for (const serviceDoc of snap.docs) {
+      const data = serviceDoc.data();
+      const clientOk = !data.clientId || data.clientId === clientId;
+      if (isSaleOrUnspecifiedVisit(data) && clientOk) {
+        trips.push(mapVisitDoc(serviceDoc, 'customerServices'));
+      }
+    }
   }
+
+  return trips;
 }
 
 function sortTripsNewestFirst(trips: ClientTripSummary[]): ClientTripSummary[] {
   return [...trips].sort((a, b) => {
-    const aMs = travelDateMs(a.travelDate) ?? travelDateMs(a.travelDateKey) ?? 0;
-    const bMs = travelDateMs(b.travelDate) ?? travelDateMs(b.travelDateKey) ?? 0;
+    const aMs =
+      travelDateMs(a.travelDate) ??
+      travelDateMs(a.travelDateKey) ??
+      travelDateMs(a.createdDate) ??
+      0;
+    const bMs =
+      travelDateMs(b.travelDate) ??
+      travelDateMs(b.travelDateKey) ??
+      travelDateMs(b.createdDate) ??
+      0;
     return bMs - aMs;
   });
 }
 
 /**
- * Merge sales + customerServices; dedupe by customerVisitId (doc id).
- * Prefer `sales` when the same id appears in both.
+ * Merge instant sales + traveller customerServices; dedupe by visit id (sales wins).
  */
 export async function getClientTrips(
   adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
@@ -195,6 +248,8 @@ export async function getClientTrips(
   salesError: string | null;
   servicesError: string | null;
 }> {
+  console.log('[testing] getClientTrips v3 sales-all + travellers', { adminId, clientId });
+
   let sales: ClientTripSummary[] = [];
   let services: ClientTripSummary[] = [];
   let salesError: string | null = null;
@@ -202,16 +257,19 @@ export async function getClientTrips(
 
   try {
     sales = await getClientInstantSales(adminId, clientId);
+    console.log('[testing] sales bookings:', sales.length);
   } catch (error) {
     salesError = error instanceof Error ? error.message : 'Failed to load sales';
     console.error('[testing] getClientInstantSales failed:', error);
   }
 
   try {
-    services = await getClientCustomerServices(adminId, clientId);
+    services = await getClientCustomerServicesViaTravellers(adminId, clientId);
+    console.log('[testing] traveller customerServices:', services.length);
   } catch (error) {
-    servicesError = error instanceof Error ? error.message : 'Failed to load customerServices';
-    console.error('[testing] getClientCustomerServices failed:', error);
+    servicesError =
+      error instanceof Error ? error.message : 'Failed to load traveller customerServices';
+    console.warn('[testing] getClientCustomerServicesViaTravellers failed:', error);
   }
 
   const byId = new Map<string, ClientTripSummary>();
@@ -219,7 +277,7 @@ export async function getClientTrips(
     byId.set(trip.id, trip);
   }
   for (const trip of sales) {
-    byId.set(trip.id, trip); // sales wins on duplicate visit id
+    byId.set(trip.id, trip);
   }
 
   return {

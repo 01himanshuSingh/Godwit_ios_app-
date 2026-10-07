@@ -101,22 +101,28 @@ function ClientWithEmailRow({ client }: { client: ClientEmailSummary }) {
 }
 
 function TripRow({ trip }: { trip: ClientTripSummary }) {
+  const title = trip.hotelBrand ?? trip.clientName ?? `Booking ${trip.id.slice(0, 8)}`;
+  const when = trip.travelDate ?? trip.travelDateKey ?? trip.createdDate ?? '— no travel date —';
+
   return (
     <View style={styles.clientRow}>
       <Text style={styles.clientName} selectable>
-        {trip.hotelBrand ?? trip.clientName ?? trip.id}
+        {title}
       </Text>
       <Text style={styles.clientMeta} selectable>
-        travelDate: {trip.travelDate ?? trip.travelDateKey ?? '—'}
+        date: {when}
       </Text>
       <Text style={styles.clientMeta} selectable>
-        bucket: {trip.bucket} · source: {trip.source}
+        {trip.bucket} · {trip.source}
+        {trip.saleStatus === false ? ' · cancelled' : ''}
       </Text>
       <Text style={styles.clientMeta} selectable>
         visitId: {trip.id}
       </Text>
-      {trip.saleStatus === false ? (
-        <Text style={styles.clientMeta}>saleStatus: cancelled</Text>
+      {trip.customerId ? (
+        <Text style={styles.clientMeta} selectable>
+          travellerId: {trip.customerId}
+        </Text>
       ) : null}
     </View>
   );
@@ -124,7 +130,13 @@ function TripRow({ trip }: { trip: ClientTripSummary }) {
 
 export function TestingClientsScreen() {
   const { data, isPending, isFetching, refetch } = useQuery({
-    queryKey: ['testing', 'clients-trips', TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID],
+    queryKey: [
+      'testing',
+      'clients-trips',
+      'v3-sales-all',
+      TEST_CLIENT_LOOKUP_ADMIN_ID,
+      TEST_CLIENT_LOOKUP_ID,
+    ],
     queryFn: fetchTestingClientsData,
   });
 
@@ -207,7 +219,7 @@ export function TestingClientsScreen() {
                 )}
 
                 <Text style={styles.sectionLabel}>
-                  TRIPS ({trips.length}) · {TEST_CLIENT_LOOKUP_ID}
+                  BOOKINGS ({trips.length}) · {TEST_CLIENT_LOOKUP_ID}
                 </Text>
                 {tripsNote ? <Text style={styles.emptyText}>{tripsNote}</Text> : null}
                 {trips.length === 0 ? (
