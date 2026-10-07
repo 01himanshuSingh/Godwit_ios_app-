@@ -6,8 +6,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   checkFirebaseConnection,
   getAllClientEmailsSafe,
+  getClientByAdminAndClientIdSafe,
   type ClientEmailSummary,
+  type ClientNameEmail,
 } from '@/lib/firebase/testing/getClientByEmail';
+import {
+  getClientTrips,
+  type ClientTripSummary,
+} from '../../../lib/firebase/testing/getClientTrips';
+import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -17,26 +24,61 @@ type TestingClientsData = {
   connected: boolean;
   message: string;
   clients: ClientEmailSummary[];
+  pinnedClient: ClientNameEmail | null;
+  pinnedError: string | null;
+  trips: ClientTripSummary[];
+  tripsNote: string | null;
 };
 
 async function fetchTestingClientsData(): Promise<TestingClientsData> {
   const status = await checkFirebaseConnection();
 
   if (!status.connected) {
-    return { connected: false, message: status.message, clients: [] };
-  }
-
-  const { clients, errorMessage } = await getAllClientEmailsSafe();
-
-  if (errorMessage) {
     return {
       connected: false,
-      message: `Firestore reachable, but client load failed: ${errorMessage}`,
+      message: status.message,
       clients: [],
+      pinnedClient: null,
+      pinnedError: null,
+      trips: [],
+      tripsNote: null,
     };
   }
 
-  return { connected: true, message: status.message, clients };
+  const [emailList, pinned, tripsResult] = await Promise.all([
+    getAllClientEmailsSafe(),
+    getClientByAdminAndClientIdSafe(),
+    getClientTrips(),
+  ]);
+
+  const tripsNoteParts = [
+    tripsResult.salesError ? `sales: ${tripsResult.salesError}` : null,
+    tripsResult.servicesError ? `customerServices: ${tripsResult.servicesError}` : null,
+  ].filter(Boolean);
+
+  if (emailList.errorMessage && !pinned.client) {
+    return {
+      connected: false,
+      message: `Firestore reachable, but client load failed: ${emailList.errorMessage}`,
+      clients: [],
+      pinnedClient: null,
+      pinnedError: pinned.errorMessage,
+      trips: tripsResult.trips,
+      tripsNote: tripsNoteParts.length > 0 ? tripsNoteParts.join(' · ') : null,
+    };
+  }
+
+  return {
+    connected: true,
+    message: pinned.client
+      ? `Loaded ${pinned.client.name ?? pinned.client.clientId}`
+      : status.message,
+    clients: emailList.clients,
+    pinnedClient: pinned.client,
+    pinnedError: pinned.errorMessage,
+    trips: tripsResult.trips,
+    tripsNote: tripsNoteParts.length > 0 ? tripsNoteParts.join(' · ') : null,
+  };
 }
 
 function ClientWithEmailRow({ client }: { client: ClientEmailSummary }) {
@@ -58,9 +100,31 @@ function ClientWithEmailRow({ client }: { client: ClientEmailSummary }) {
   );
 }
 
+function TripRow({ trip }: { trip: ClientTripSummary }) {
+  return (
+    <View style={styles.clientRow}>
+      <Text style={styles.clientName} selectable>
+        {trip.hotelBrand ?? trip.clientName ?? trip.id}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        travelDate: {trip.travelDate ?? trip.travelDateKey ?? '—'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        bucket: {trip.bucket} · source: {trip.source}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        visitId: {trip.id}
+      </Text>
+      {trip.saleStatus === false ? (
+        <Text style={styles.clientMeta}>saleStatus: cancelled</Text>
+      ) : null}
+    </View>
+  );
+}
+
 export function TestingClientsScreen() {
   const { data, isPending, isFetching, refetch } = useQuery({
-    queryKey: ['testing', 'clients-with-email'],
+    queryKey: ['testing', 'clients-trips', TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID],
     queryFn: fetchTestingClientsData,
   });
 
@@ -68,6 +132,10 @@ export function TestingClientsScreen() {
   const connected = data?.connected ?? false;
   const message = data?.message ?? '';
   const clientsWithEmail = data?.clients ?? [];
+  const pinnedClient = data?.pinnedClient ?? null;
+  const pinnedError = data?.pinnedError ?? null;
+  const trips = data?.trips ?? [];
+  const tripsNote = data?.tripsNote ?? null;
 
   return (
     <View style={styles.root}>
@@ -78,7 +146,7 @@ export function TestingClientsScreen() {
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Refresh clients with email"
+            accessibilityLabel="Refresh testing data"
             onPress={() => void refetch()}
             disabled={isFetching}
             style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed]}
@@ -104,6 +172,24 @@ export function TestingClientsScreen() {
 
             {connected ? (
               <>
+                <Text style={styles.sectionLabel}>TEST CLIENT</Text>
+                {pinnedClient ? (
+                  <View style={[styles.clientRow, styles.highlightRow]}>
+                    <Text style={styles.clientName} selectable>
+                      {pinnedClient.name ?? '— no name —'}
+                    </Text>
+                    <Text style={styles.clientMeta} selectable>
+                      {pinnedClient.contactEmail ?? '— no email —'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>
+                    {pinnedError
+                      ? `Could not load client: ${pinnedError}`
+                      : `Not found at admins/${TEST_CLIENT_LOOKUP_ADMIN_ID}/clients/${TEST_CLIENT_LOOKUP_ID}`}
+                  </Text>
+                )}
+
                 <Text style={styles.sectionLabel}>
                   CLIENTS WITH EMAIL ({clientsWithEmail.length})
                 </Text>
@@ -118,6 +204,18 @@ export function TestingClientsScreen() {
                       client={client}
                     />
                   ))
+                )}
+
+                <Text style={styles.sectionLabel}>
+                  TRIPS ({trips.length}) · {TEST_CLIENT_LOOKUP_ID}
+                </Text>
+                {tripsNote ? <Text style={styles.emptyText}>{tripsNote}</Text> : null}
+                {trips.length === 0 ? (
+                  <Text style={styles.emptyText}>
+                    No sales / customerServices visits for this client (or rules blocked reads).
+                  </Text>
+                ) : (
+                  trips.map((trip) => <TripRow key={`${trip.source}-${trip.id}`} trip={trip} />)
                 )}
               </>
             ) : null}
@@ -202,6 +300,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 14,
     gap: 6,
+  },
+  highlightRow: {
+    borderColor: colors.forest,
+    borderWidth: 1,
   },
   clientName: {
     fontFamily: fontFamily.manrope.semibold,

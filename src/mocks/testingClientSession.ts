@@ -14,6 +14,10 @@ export type TestingClientSession = {
 /** Email used by `testGetClientByEmail` — change for other test users. */
 export const TEST_CLIENT_LOOKUP_EMAIL = 'hr1411687@gmail.com';
 
+/** Direct path: `admins/{adminId}/clients/{clientId}`. */
+export const TEST_CLIENT_LOOKUP_ADMIN_ID = '11EzdfcBKxrLQGULPBfY';
+export const TEST_CLIENT_LOOKUP_ID = 'dW7BJQMTJoA54JcWO4Cv';
+
 /**
  * In-memory values filled by `testGetClientByEmail()` (or paste manually after one successful run).
  * Prefer `getTestingClientSession()` when you need clientId/adminId in features during dev.

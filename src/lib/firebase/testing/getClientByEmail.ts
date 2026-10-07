@@ -1,5 +1,7 @@
 import {
   collectionGroup,
+  doc,
+  getDoc,
   getDocs,
   limit,
   query,
@@ -11,7 +13,9 @@ import {
 import { db } from '@/lib/firebase/firestore';
 import {
   setTestingClientSession,
+  TEST_CLIENT_LOOKUP_ADMIN_ID,
   TEST_CLIENT_LOOKUP_EMAIL,
+  TEST_CLIENT_LOOKUP_ID,
   type TestingClientSession,
 } from '@/mocks/testingClientSession';
 
@@ -75,6 +79,53 @@ export type ClientEmailSummary = {
   contactEmail: string;
   name: string | null;
 };
+
+/** Name + email only from `admins/{adminId}/clients/{clientId}`. */
+export type ClientNameEmail = {
+  adminId: string;
+  clientId: string;
+  name: string | null;
+  contactEmail: string | null;
+};
+
+export async function getClientByAdminAndClientId(
+  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
+  clientId: string = TEST_CLIENT_LOOKUP_ID,
+): Promise<ClientNameEmail | null> {
+  const ref = doc(db, 'admins', adminId, 'clients', clientId);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) {
+    console.log('Client not found at', ref.path);
+    return null;
+  }
+
+  const data = snap.data();
+  const contactEmail = readNonEmptyString(data.contactEmail);
+  const name = readNonEmptyString(data.name);
+
+  setTestingClientSession({
+    clientId,
+    adminId,
+    contactEmail: contactEmail ?? '',
+  });
+
+  return { adminId, clientId, name, contactEmail };
+}
+
+export async function getClientByAdminAndClientIdSafe(
+  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
+  clientId: string = TEST_CLIENT_LOOKUP_ID,
+): Promise<{ client: ClientNameEmail | null; errorMessage: string | null }> {
+  try {
+    const client = await getClientByAdminAndClientId(adminId, clientId);
+    return { client, errorMessage: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown Firestore error';
+    console.error('[testing] getClientByAdminAndClientId failed:', error);
+    return { client: null, errorMessage: message };
+  }
+}
 
 function mapDocToClientWithEmail(
   doc: QueryDocumentSnapshot<DocumentData>,
@@ -205,6 +256,8 @@ export async function fetchAllClientsSafe(): Promise<FetchAllClientsResult> {
     return { records: [], errorMessage: message };
   }
 }
+
+export { getClientTrips, type ClientTripSummary } from './getClientTrips';
 
 /**
  * Read-only: resolve client + admin ids for a CRM email.

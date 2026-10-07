@@ -1,3 +1,5 @@
+/// <reference path="./firebase-auth-react-native.d.ts" />
+
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuth, getReactNativePersistence, initializeAuth, type Auth } from 'firebase/auth';
 
