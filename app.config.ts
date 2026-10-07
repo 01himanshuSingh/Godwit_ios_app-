@@ -67,8 +67,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           },
         },
       ],
-      '@react-native-firebase/app',
-      '@react-native-firebase/auth',
       [
         'expo-image-picker',
         {

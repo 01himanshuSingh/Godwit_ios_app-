@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 
 import { env } from '@/config/env';
-import { type AuthSession, storeSession } from '@/lib/firebase/auth';
+import { type AuthSession, storeSession } from '@/lib/session/bffSession';
 
 export type CompleteMagicLinkInput = {
   email: string;
@@ -44,11 +44,13 @@ export async function completeMagicLink({
   const data = (await response.json()) as {
     accessToken: string;
     refreshToken: string;
+    clientId: string;
   };
 
   const session: AuthSession = {
     accessToken: data.accessToken,
     refreshToken: data.refreshToken,
+    clientId: data.clientId,
   };
 
   await storeSession(session);

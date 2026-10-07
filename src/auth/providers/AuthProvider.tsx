@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { useMagicLinkHandler } from '@/auth/hooks/useMagicLinkHandler';
 import { sendMagicLink } from '@/auth/services/magicLink/sendMagicLink';
-import { clearStoredSession, getStoredSession, type AuthSession } from '@/lib/firebase/auth';
+import { clearStoredSession, getStoredSession, type AuthSession } from '@/lib/session/bffSession';
 
 type AuthContextValue = {
   session: AuthSession | null;
