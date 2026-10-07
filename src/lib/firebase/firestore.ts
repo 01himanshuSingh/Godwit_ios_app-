@@ -1,6 +1,11 @@
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 
 import { getFirebaseApp } from './app';
 
-/** Direct Firestore reads — use sparingly; prefer callable Functions / BFF when possible. */
-export const db = getFirestore(getFirebaseApp());
+/**
+ * Expo Go / React Native: default WebChannel often flakes on cold start
+ * ("client is offline"). Auto long-polling is the supported workaround for the JS SDK.
+ */
+export const db = initializeFirestore(getFirebaseApp(), {
+  experimentalAutoDetectLongPolling: true,
+});

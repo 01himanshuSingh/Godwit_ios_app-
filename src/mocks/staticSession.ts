@@ -13,5 +13,6 @@ export const USE_STATIC_SESSION = true;
 export const staticAuthSession: AuthSession = {
   accessToken: 'dev-static-access-token',
   refreshToken: 'dev-static-refresh-token',
-  clientId: 'replace-with-your-client-id',
+  /** Aligned with Testing pinned client for local Expo Go sessions. */
+  clientId: 'dW7BJQMTJoA54JcWO4Cv',
 };

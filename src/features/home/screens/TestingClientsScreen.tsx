@@ -5,8 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   checkFirebaseConnection,
-  getAllClientEmailsSafe,
   getClientByAdminAndClientIdSafe,
+  getClientEmailsForAdminSafe,
   type ClientEmailSummary,
   type ClientNameEmail,
 } from '@/lib/firebase/testing/getClientByEmail';
@@ -30,48 +30,38 @@ type TestingClientsData = {
   tripsNote: string | null;
 };
 
+/**
+ * Sequential + retries: Expo Go Firestore often fails when many heavy reads
+ * race on cold start. Critical path = pinned client + sales bookings first.
+ */
 async function fetchTestingClientsData(): Promise<TestingClientsData> {
   const status = await checkFirebaseConnection();
 
   if (!status.connected) {
-    return {
-      connected: false,
-      message: status.message,
-      clients: [],
-      pinnedClient: null,
-      pinnedError: null,
-      trips: [],
-      tripsNote: null,
-    };
+    // Throw so React Query retries instead of caching an empty "offline" result.
+    throw new Error(status.message);
   }
 
-  const [emailList, pinned, tripsResult] = await Promise.all([
-    getAllClientEmailsSafe(),
-    getClientByAdminAndClientIdSafe(),
-    getClientTrips(),
-  ]);
+  const pinned = await getClientByAdminAndClientIdSafe();
+  const tripsResult = await getClientTrips();
+
+  // Soft fail: sales empty + salesError should retry the whole fetch.
+  if (tripsResult.salesError && tripsResult.trips.length === 0) {
+    throw new Error(tripsResult.salesError);
+  }
+
+  const emailList = await getClientEmailsForAdminSafe(TEST_CLIENT_LOOKUP_ADMIN_ID);
 
   const tripsNoteParts = [
     tripsResult.salesError ? `sales: ${tripsResult.salesError}` : null,
     tripsResult.servicesError ? `customerServices: ${tripsResult.servicesError}` : null,
+    emailList.errorMessage ? `emails: ${emailList.errorMessage}` : null,
   ].filter(Boolean);
-
-  if (emailList.errorMessage && !pinned.client) {
-    return {
-      connected: false,
-      message: `Firestore reachable, but client load failed: ${emailList.errorMessage}`,
-      clients: [],
-      pinnedClient: null,
-      pinnedError: pinned.errorMessage,
-      trips: tripsResult.trips,
-      tripsNote: tripsNoteParts.length > 0 ? tripsNoteParts.join(' · ') : null,
-    };
-  }
 
   return {
     connected: true,
     message: pinned.client
-      ? `Loaded ${pinned.client.name ?? pinned.client.clientId}`
+      ? `Session: ${pinned.client.name ?? pinned.client.clientId}`
       : status.message,
     clients: emailList.clients,
     pinnedClient: pinned.client,
@@ -129,20 +119,23 @@ function TripRow({ trip }: { trip: ClientTripSummary }) {
 }
 
 export function TestingClientsScreen() {
-  const { data, isPending, isFetching, refetch } = useQuery({
+  const { data, isPending, isFetching, isError, error, refetch } = useQuery({
     queryKey: [
       'testing',
       'clients-trips',
-      'v3-sales-all',
+      'v4-retry-sales-first',
       TEST_CLIENT_LOOKUP_ADMIN_ID,
       TEST_CLIENT_LOOKUP_ID,
     ],
     queryFn: fetchTestingClientsData,
+    retry: 4,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
   const loading = isPending;
   const connected = data?.connected ?? false;
-  const message = data?.message ?? '';
+  const message =
+    data?.message ?? (isError ? (error instanceof Error ? error.message : 'Load failed') : '');
   const clientsWithEmail = data?.clients ?? [];
   const pinnedClient = data?.pinnedClient ?? null;
   const pinnedError = data?.pinnedError ?? null;
@@ -179,12 +172,14 @@ export function TestingClientsScreen() {
                 size={28}
                 color={connected ? colors.forest : colors.muted}
               />
-              <Text style={styles.statusText}>{message}</Text>
+              <Text style={styles.statusText}>
+                {isFetching && !loading ? `${message} · refreshing…` : message}
+              </Text>
             </View>
 
             {connected ? (
               <>
-                <Text style={styles.sectionLabel}>TEST CLIENT</Text>
+                <Text style={styles.sectionLabel}>TEST CLIENT · STORED IN SESSION</Text>
                 {pinnedClient ? (
                   <View style={[styles.clientRow, styles.highlightRow]}>
                     <Text style={styles.clientName} selectable>
@@ -192,6 +187,9 @@ export function TestingClientsScreen() {
                     </Text>
                     <Text style={styles.clientMeta} selectable>
                       {pinnedClient.contactEmail ?? '— no email —'}
+                    </Text>
+                    <Text style={styles.clientMeta} selectable>
+                      Home will greet this name · avatar uses first letter
                     </Text>
                   </View>
                 ) : (

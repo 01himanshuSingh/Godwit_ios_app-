@@ -1,4 +1,5 @@
 import {
+  collection,
   collectionGroup,
   doc,
   getDoc,
@@ -11,8 +12,9 @@ import {
 } from 'firebase/firestore';
 
 import { db } from '@/lib/firebase/firestore';
+import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
+import { setActiveClientProfile } from '@/lib/session/activeClientProfile';
 import {
-  setTestingClientSession,
   TEST_CLIENT_LOOKUP_ADMIN_ID,
   TEST_CLIENT_LOOKUP_EMAIL,
   TEST_CLIENT_LOOKUP_ID,
@@ -92,25 +94,28 @@ export async function getClientByAdminAndClientId(
   adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
   clientId: string = TEST_CLIENT_LOOKUP_ID,
 ): Promise<ClientNameEmail | null> {
-  const ref = doc(db, 'admins', adminId, 'clients', clientId);
-  const snap = await getDoc(ref);
+  return withFirestoreRetry('getClientByAdminAndClientId', async () => {
+    const ref = doc(db, 'admins', adminId, 'clients', clientId);
+    const snap = await getDoc(ref);
 
-  if (!snap.exists()) {
-    console.log('Client not found at', ref.path);
-    return null;
-  }
+    if (!snap.exists()) {
+      console.log('Client not found at', ref.path);
+      return null;
+    }
 
-  const data = snap.data();
-  const contactEmail = readNonEmptyString(data.contactEmail);
-  const name = readNonEmptyString(data.name);
+    const data = snap.data();
+    const contactEmail = readNonEmptyString(data.contactEmail);
+    const name = readNonEmptyString(data.name);
 
-  setTestingClientSession({
-    clientId,
-    adminId,
-    contactEmail: contactEmail ?? '',
+    await setActiveClientProfile({
+      clientId,
+      adminId,
+      name: name ?? '',
+      contactEmail: contactEmail ?? '',
+    });
+
+    return { adminId, clientId, name, contactEmail };
   });
-
-  return { adminId, clientId, name, contactEmail };
 }
 
 export async function getClientByAdminAndClientIdSafe(
@@ -179,10 +184,18 @@ export type FirebaseConnectionStatus = {
   message: string;
 };
 
-/** Lightweight read to verify the app can reach Firestore (no data changes). */
+export type GetAllClientEmailsResult = {
+  clients: ClientEmailSummary[];
+  errorMessage: string | null;
+};
+
+/** Lightweight read — known path, not a collection-group scan. */
 export async function checkFirebaseConnection(): Promise<FirebaseConnectionStatus> {
   try {
-    await getDocs(query(collectionGroup(db, 'clients'), limit(1)));
+    await withFirestoreRetry('checkFirebaseConnection', async () => {
+      const ref = doc(db, 'admins', TEST_CLIENT_LOOKUP_ADMIN_ID, 'clients', TEST_CLIENT_LOOKUP_ID);
+      await getDoc(ref);
+    });
     return { connected: true, message: 'Firebase connected successfully' };
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown error';
@@ -193,23 +206,52 @@ export async function checkFirebaseConnection(): Promise<FirebaseConnectionStatu
   }
 }
 
-/** Full collection-group scan — only clients with non-empty `contactEmail` in DB. */
-export async function getAllClientEmails(): Promise<ClientEmailSummary[]> {
-  const snapshot = await getDocs(collectionGroup(db, 'clients'));
+/**
+ * Clients with email under one admin — path query (much more reliable than
+ * full `collectionGroup('clients')` on Expo Go cold start).
+ */
+export async function getClientEmailsForAdmin(
+  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
+): Promise<ClientEmailSummary[]> {
+  return withFirestoreRetry('getClientEmailsForAdmin', async () => {
+    const snapshot = await getDocs(collection(db, 'admins', adminId, 'clients'));
 
-  const clients = snapshot.docs
-    .map(mapDocToClientWithEmail)
-    .filter((row): row is ClientEmailSummary => row !== null);
+    const clients = snapshot.docs
+      .map(mapDocToClientWithEmail)
+      .filter((row): row is ClientEmailSummary => row !== null);
 
-  clients.sort((a, b) => a.contactEmail.localeCompare(b.contactEmail));
-
-  return clients;
+    clients.sort((a, b) => a.contactEmail.localeCompare(b.contactEmail));
+    return clients;
+  });
 }
 
-export type GetAllClientEmailsResult = {
-  clients: ClientEmailSummary[];
-  errorMessage: string | null;
-};
+export async function getClientEmailsForAdminSafe(
+  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
+): Promise<GetAllClientEmailsResult> {
+  try {
+    const clients = await getClientEmailsForAdmin(adminId);
+    return { clients, errorMessage: null };
+  } catch (error) {
+    console.error('Failed to load admin client emails:', error);
+    const message = error instanceof Error ? error.message : 'Unknown Firestore error';
+    return { clients: [], errorMessage: message };
+  }
+}
+
+/** Full collection-group scan — only clients with non-empty `contactEmail` in DB. */
+export async function getAllClientEmails(): Promise<ClientEmailSummary[]> {
+  return withFirestoreRetry('getAllClientEmails', async () => {
+    const snapshot = await getDocs(collectionGroup(db, 'clients'));
+
+    const clients = snapshot.docs
+      .map(mapDocToClientWithEmail)
+      .filter((row): row is ClientEmailSummary => row !== null);
+
+    clients.sort((a, b) => a.contactEmail.localeCompare(b.contactEmail));
+
+    return clients;
+  });
+}
 
 export async function getAllClientEmailsSafe(): Promise<GetAllClientEmailsResult> {
   try {
@@ -279,7 +321,12 @@ export async function testGetClientByEmail(
       contactEmail: hit.contactEmail,
     };
 
-    setTestingClientSession(result);
+    await setActiveClientProfile({
+      clientId: result.clientId,
+      adminId: result.adminId,
+      name: hit.name ?? '',
+      contactEmail: result.contactEmail,
+    });
 
     console.log('[testingClientSession] Client ID:', result.clientId);
     console.log('[testingClientSession] Admin ID:', result.adminId);

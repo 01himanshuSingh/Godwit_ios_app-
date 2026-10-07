@@ -9,6 +9,8 @@ export type TestingClientSession = {
   /** Tenant admin id (`admins/{adminId}` parent of the client doc). */
   adminId: string;
   contactEmail: string;
+  /** CRM `clients.name` — mirrored from active client profile when loaded. */
+  name: string;
 };
 
 /** Email used by `testGetClientByEmail` — change for other test users. */
@@ -26,6 +28,7 @@ export const testingClientSession: TestingClientSession = {
   clientId: '',
   adminId: '',
   contactEmail: TEST_CLIENT_LOOKUP_EMAIL,
+  name: '',
 };
 
 export function setTestingClientSession(partial: Partial<TestingClientSession>): void {

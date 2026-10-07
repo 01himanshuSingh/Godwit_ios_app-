@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 
 import { db } from '@/lib/firebase/firestore';
+import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
 import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 
 /** CRM: visitType 0 = sale / booking; Instant Sale v1 often omits the field entirely. */
@@ -155,12 +156,14 @@ export async function getClientInstantSales(
   adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
   clientId: string = TEST_CLIENT_LOOKUP_ID,
 ): Promise<ClientTripSummary[]> {
-  const ref = collection(db, 'admins', adminId, 'clients', clientId, 'sales');
-  const snap = await getDocs(ref);
+  return withFirestoreRetry('getClientInstantSales', async () => {
+    const ref = collection(db, 'admins', adminId, 'clients', clientId, 'sales');
+    const snap = await getDocs(ref);
 
-  return snap.docs
-    .filter((d) => isSaleOrUnspecifiedVisit(d.data()))
-    .map((d) => mapVisitDoc(d, 'sales'));
+    return snap.docs
+      .filter((d) => isSaleOrUnspecifiedVisit(d.data()))
+      .map((d) => mapVisitDoc(d, 'sales'));
+  });
 }
 
 /**
@@ -170,22 +173,24 @@ export async function getTravellerIdsForClient(
   adminId: string,
   clientId: string,
 ): Promise<string[]> {
-  const customersRef = collection(db, 'admins', adminId, 'customers');
-  const snap = await getDocs(customersRef);
-  const ids = new Set<string>();
+  return withFirestoreRetry('getTravellerIdsForClient', async () => {
+    const customersRef = collection(db, 'admins', adminId, 'customers');
+    const snap = await getDocs(customersRef);
+    const ids = new Set<string>();
 
-  for (const customerDoc of snap.docs) {
-    const data = customerDoc.data();
-    if (data.clientId === clientId) {
-      ids.add(customerDoc.id);
-      continue;
+    for (const customerDoc of snap.docs) {
+      const data = customerDoc.data();
+      if (data.clientId === clientId) {
+        ids.add(customerDoc.id);
+        continue;
+      }
+      if (Array.isArray(data.clientIds) && data.clientIds.includes(clientId)) {
+        ids.add(customerDoc.id);
+      }
     }
-    if (Array.isArray(data.clientIds) && data.clientIds.includes(clientId)) {
-      ids.add(customerDoc.id);
-    }
-  }
 
-  return [...ids];
+    return [...ids];
+  });
 }
 
 /**
@@ -239,6 +244,7 @@ function sortTripsNewestFirst(trips: ClientTripSummary[]): ClientTripSummary[] {
 
 /**
  * Merge instant sales + traveller customerServices; dedupe by visit id (sales wins).
+ * Sales load first (small path). Traveller scan is best-effort — never blocks bookings.
  */
 export async function getClientTrips(
   adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
@@ -248,7 +254,7 @@ export async function getClientTrips(
   salesError: string | null;
   servicesError: string | null;
 }> {
-  console.log('[testing] getClientTrips v3 sales-all + travellers', { adminId, clientId });
+  console.log('[testing] getClientTrips v4 retry + sales-first', { adminId, clientId });
 
   let sales: ClientTripSummary[] = [];
   let services: ClientTripSummary[] = [];
@@ -263,6 +269,7 @@ export async function getClientTrips(
     console.error('[testing] getClientInstantSales failed:', error);
   }
 
+  // Heavy customers scan — do not race it against sales on cold start.
   try {
     services = await getClientCustomerServicesViaTravellers(adminId, clientId);
     console.log('[testing] traveller customerServices:', services.length);
