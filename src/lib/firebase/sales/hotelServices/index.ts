@@ -3,7 +3,7 @@
  *
  * Keep hotel-only extractors / mappers here.
  * Shared Active Trip fetch stays in `../getActiveTripDetail.ts`.
- * Future: `airServices/`, `vipServices/`, `chauffeurServices/`.
+ * Sibling: `../airServices/`, `../vipServices/`. Future: `chauffeurServices/`.
  */
 
 export {

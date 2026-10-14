@@ -2,7 +2,9 @@
  * Active Trip detail shell — one fetch, then service-specific body.
  *
  *   hotel → features/trips/hotel/HotelActiveTripBody
- *   other → GenericActiveTripBody (until air/vip/chauffeur folders exist)
+ *   air   → features/trips/air/AirActiveTripBody
+ *   vip   → features/trips/vip/VipActiveTripBody
+ *   other → GenericActiveTripBody (until chauffeur folder exists)
  */
 import Feather from '@expo/vector-icons/Feather';
 import { useQuery } from '@tanstack/react-query';
@@ -22,8 +24,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppChromeHeader } from '@/features/home/components/AppChromeHeader';
+import { AirActiveTripBody } from '@/features/trips/air/AirActiveTripBody';
 import { GenericActiveTripBody } from '@/features/trips/components/GenericActiveTripBody';
 import { HotelActiveTripBody } from '@/features/trips/hotel/HotelActiveTripBody';
+import { VipActiveTripBody } from '@/features/trips/vip/VipActiveTripBody';
 import { getClientSaleActiveTripDetailSafe } from '@/lib/firebase/sales/getActiveTripDetail';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -75,6 +79,11 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
   const detail = data?.detail ?? null;
   const loadError = data?.errorMessage ?? (isError ? String(error) : null);
   const isHotel = detail?.serviceType === 'hotel' || detail?.serviceType === 'hotelRoomExtension';
+  const isAir =
+    detail?.serviceType === 'air' ||
+    detail?.serviceType === 'airExtras' ||
+    detail?.serviceType === 'airReissue';
+  const isVip = detail?.serviceType === 'vip';
 
   const bodyLayout = {
     titleSize: layout.titleSize,
@@ -92,11 +101,13 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
           accessibilityRole="button"
           accessibilityLabel="Back to itinerary"
           onPress={() => router.back()}
-          hitSlop={10}
+          hitSlop={12}
           style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}
         >
-          <Feather name="arrow-left" size={20} color={colors.forest} />
-          <Text style={styles.backLabel}>Itinerary</Text>
+          <Feather name="chevron-left" size={22} color={colors.muted} />
+          <Text style={styles.backLabel} numberOfLines={1}>
+            Itinerary
+          </Text>
         </Pressable>
       </View>
 
@@ -127,6 +138,10 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
         >
           {isHotel ? (
             <HotelActiveTripBody detail={detail} layout={bodyLayout} />
+          ) : isAir ? (
+            <AirActiveTripBody detail={detail} layout={bodyLayout} />
+          ) : isVip ? (
+            <VipActiveTripBody detail={detail} layout={bodyLayout} />
           ) : (
             <GenericActiveTripBody detail={detail} layout={bodyLayout} />
           )}

@@ -18,6 +18,7 @@ import {
   saleServiceTypeLabel,
   type SaleServiceType,
 } from '@/lib/firebase/sales/getClientUpcomingSales';
+import { mapAirDetail } from '@/lib/firebase/sales/airServices';
 import {
   applyHotelCancellationTermsToDetail,
   applyHotelConfirmationToDetail,
@@ -25,6 +26,7 @@ import {
   mapHotelDetail,
   readPreferredPartnershipId,
 } from '@/lib/firebase/sales/hotelServices';
+import { mapVipDetail } from '@/lib/firebase/sales/vipServices';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
 
 export type {
@@ -165,47 +167,6 @@ function pushRow(
   }
 }
 
-/** Format VIP / service datetime for DETAILS → TIME. */
-function formatDisplayDateTime(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  const parsed = Date.parse(
-    value.includes('T') || value.includes(' ') ? value : `${value}T12:00:00`,
-  );
-  if (Number.isNaN(parsed)) {
-    return value;
-  }
-  const d = new Date(parsed);
-  const datePart = d.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-  const hours = d.getHours();
-  const mins = d.getMinutes();
-  if (hours === 0 && mins === 0 && !/T\d{2}:\d{2}/.test(value) && !/\d{1,2}:\d{2}/.test(value)) {
-    return datePart;
-  }
-  const timePart = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-  return `${datePart}, ${timePart}`;
-}
-
-/** CRM inclusions often arrive as commas / newlines → "A · B · C". */
-function formatInclusionsLine(raw: string | null): string | null {
-  if (!raw) {
-    return null;
-  }
-  const parts = raw
-    .split(/[\n;|]+|\s*[·•]\s*|\s*,\s*/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (parts.length <= 1) {
-    return raw.trim();
-  }
-  return parts.join(' · ');
-}
-
 function formatRouteArrow(route: string | null): string | null {
   if (!route) {
     return null;
@@ -215,135 +176,6 @@ function formatRouteArrow(route: string | null): string | null {
     .replace(/\s*->\s*/g, ' → ')
     .replace(/\s+to\s+/gi, ' → ')
     .trim();
-}
-
-function parseAirportCity(leg: DocumentData | null, fallbackCity: string | null): string | null {
-  if (!leg) {
-    return fallbackCity;
-  }
-  const city = readString(leg.city) ?? readString(leg.airportCity) ?? fallbackCity;
-  const code = readString(leg.airportCode) ?? readString(leg.code) ?? readString(leg.iata);
-  if (city && code) {
-    return `${city} (${code})`;
-  }
-  return city ?? code;
-}
-
-function formatLegLine(
-  place: string | null,
-  time: string | null,
-  terminal: string | null,
-): string | null {
-  const parts: string[] = [];
-  if (place) {
-    parts.push(place);
-  }
-  if (time) {
-    parts.push(time);
-  }
-  if (terminal) {
-    parts.push(terminal.startsWith('Terminal') ? terminal : `Terminal ${terminal}`);
-  }
-  return parts.length ? parts.join(' · ') : null;
-}
-
-function mapAirDetail(
-  data: DocumentData,
-  walkIn: DocumentData,
-  service: DocumentData | null,
-  base: Omit<ActiveTripDetailBase, 'title' | 'subtitle' | 'detailRows' | 'missingForMockup'>,
-): ActiveTripDetailBase {
-  const route = formatRouteArrow(pickField(walkIn, service, data, ['route']));
-  const cabin = pickField(walkIn, service, data, ['cabinClass', 'cabin']);
-  const travelDate = pickField(walkIn, service, data, ['travelDate', 'travelDateKey']);
-  const returnDate = pickField(walkIn, service, data, ['returnDate']);
-  const flightType = pickField(walkIn, service, data, ['flightType']);
-  const ticket = pickField(walkIn, service, data, ['ticketNumber']);
-  const seats = pickField(walkIn, service, data, ['seats', 'seatNumbers', 'seat']);
-  const baggage = pickField(walkIn, service, data, ['baggage', 'baggageAllowance']);
-  const flightNo = pickField(walkIn, service, data, ['flightNumber', 'flightNo', 'flight']);
-  const airline =
-    pickField(walkIn, service, data, ['hotelAirlines', 'airline', 'carrier']) ||
-    readString(data.serviceName) ||
-    'Flight';
-
-  const airLegs = Array.isArray(walkIn.airLegs) ? walkIn.airLegs : [];
-  const firstLeg = asRecord(airLegs[0]);
-  const lastLeg = asRecord(airLegs[airLegs.length - 1]) ?? firstLeg;
-
-  const departPlace =
-    parseAirportCity(firstLeg, null) ??
-    pickField(walkIn, service, data, ['departureAirport', 'from']);
-  const arrivePlace =
-    parseAirportCity(lastLeg, null) ?? pickField(walkIn, service, data, ['arrivalAirport', 'to']);
-
-  const departTime =
-    readString(firstLeg?.departureTime) ?? pickField(walkIn, service, data, ['departureTime']);
-  const arriveTime =
-    readString(lastLeg?.arrivalTime) ?? pickField(walkIn, service, data, ['arrivalTime']);
-
-  const departTerminal =
-    readString(firstLeg?.departureTerminal) ??
-    readString(firstLeg?.terminal) ??
-    pickField(walkIn, service, data, ['departureTerminal']);
-  const arriveTerminal =
-    readString(lastLeg?.arrivalTerminal) ?? pickField(walkIn, service, data, ['arrivalTerminal']);
-
-  const departs =
-    formatLegLine(departPlace, departTime, departTerminal) ??
-    ([travelDate, departTime].filter(Boolean).join(' · ') || travelDate);
-  const arrives =
-    formatLegLine(arrivePlace, arriveTime, arriveTerminal) ??
-    ([returnDate, arriveTime].filter(Boolean).join(' · ') || returnDate);
-
-  const resolvedFlightNo =
-    flightNo ?? readString(firstLeg?.flightNumber) ?? readString(firstLeg?.flightNo);
-
-  const title =
-    resolvedFlightNo && airline && !airline.toLowerCase().includes(resolvedFlightNo.toLowerCase())
-      ? `${airline} ${resolvedFlightNo}`
-      : resolvedFlightNo
-        ? `${airline} ${resolvedFlightNo}`.trim()
-        : airline;
-
-  const subtitle = route ?? ([departPlace, arrivePlace].filter(Boolean).join(' → ') || null);
-
-  const rows: DetailRow[] = [];
-  pushRow(rows, 'CARRIER', airline);
-  pushRow(rows, 'FLIGHT', resolvedFlightNo);
-  pushRow(rows, 'ROUTE', route);
-  pushRow(rows, 'FLIGHT TYPE', flightType);
-  pushRow(rows, 'DEPARTS', departs);
-  pushRow(rows, 'ARRIVES', arrives);
-  pushRow(rows, 'RETURNS', returnDate && !arrives ? returnDate : null);
-  pushRow(rows, 'CABIN', cabin);
-  pushRow(rows, 'SEATS', seats);
-  pushRow(rows, 'BAGGAGE', baggage);
-  pushRow(rows, 'TICKET', ticket);
-  pushRow(rows, 'BOOKING REF', base.confirmationNo);
-  pushRow(rows, 'TRAVELLERS', base.travellerNames.length ? base.travellerNames.join(', ') : null);
-
-  const missingForMockup: string[] = [];
-  if (!resolvedFlightNo) {
-    missingForMockup.push('flight number');
-  }
-  if (!seats) {
-    missingForMockup.push('seats');
-  }
-  if (!baggage) {
-    missingForMockup.push('baggage');
-  }
-  if (!departTerminal && !arriveTerminal) {
-    missingForMockup.push('terminals');
-  }
-
-  return {
-    ...base,
-    title,
-    subtitle,
-    detailRows: rows,
-    missingForMockup,
-  };
 }
 
 /** Short label for chauffeur subtitle (e.g. CDG, Mandarin Oriental). */
@@ -498,76 +330,6 @@ function mapChauffeurDetail(
     title: 'Chauffeur',
     subtitle,
     serviceTypeLabel: 'Chauffeur',
-    inclusionBadge: base.inclusionBadge ?? 'Included in your trip',
-    detailRows: rows,
-    missingForMockup: [],
-  };
-}
-
-function mapVipDetail(
-  data: DocumentData,
-  walkIn: DocumentData,
-  service: DocumentData | null,
-  base: Omit<ActiveTripDetailBase, 'title' | 'subtitle' | 'detailRows' | 'missingForMockup'>,
-): ActiveTripDetailBase {
-  const description =
-    pickField(walkIn, service, data, ['vipServiceDescription', 'serviceType', 'description']) ||
-    'Meet & assist';
-
-  const airportName = pickField(walkIn, service, data, [
-    'airportName',
-    'airport',
-    'cityName',
-    'destinationCity',
-  ]);
-  const terminal = pickField(walkIn, service, data, [
-    'terminal',
-    'arrivalTerminal',
-    'departureTerminal',
-  ]);
-  const airportLine = [
-    airportName,
-    terminal ? (terminal.startsWith('Terminal') ? terminal : `Terminal ${terminal}`) : null,
-  ]
-    .filter(Boolean)
-    .join(', ');
-
-  const whenRaw = pickField(walkIn, service, data, [
-    'serviceDateTime',
-    'travelDate',
-    'pickUpDateTime',
-    'travelDateKey',
-  ]);
-  const timeOnly = pickField(walkIn, service, data, ['arrivalTime', 'departureTime', 'time']);
-  let when = formatDisplayDateTime(whenRaw);
-  if (when && timeOnly && !when.includes(':')) {
-    when = `${when}, ${timeOnly}`;
-  } else if (!when && timeOnly) {
-    when = timeOnly;
-  }
-
-  const inclusions = formatInclusionsLine(
-    pickField(walkIn, service, data, [
-      'godwitBenefits',
-      'inclusions',
-      'included',
-      'remarks',
-      'specialRequests',
-    ]),
-  );
-
-  const rows: DetailRow[] = [];
-  pushRow(rows, 'AIRPORT', airportLine || airportName);
-  pushRow(rows, 'SERVICE', description);
-  pushRow(rows, 'TIME', when);
-  pushRow(rows, 'INCLUDED', inclusions);
-  pushRow(rows, 'TRAVELLERS', base.travellerNames.length ? base.travellerNames.join(', ') : null);
-
-  return {
-    ...base,
-    title: 'Airport VIP',
-    subtitle: description,
-    serviceTypeLabel: 'Airport VIP',
     inclusionBadge: base.inclusionBadge ?? 'Included in your trip',
     detailRows: rows,
     missingForMockup: [],

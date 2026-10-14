@@ -67,7 +67,7 @@ export function HotelActiveTripBody({ detail, layout }: HotelActiveTripBodyProps
       <ActiveTripDetailsCard
         rows={detailRows}
         detailValueSize={layout.detailValueSize}
-        tone="hotel"
+        tone="soft"
       />
 
       <SpecialRequestsCard lines={detail.specialRequests} />

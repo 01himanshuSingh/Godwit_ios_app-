@@ -115,13 +115,15 @@ export function ActiveTripDetailsCard({
 }: {
   rows: DetailRow[];
   detailValueSize: number;
-  tone?: 'default' | 'hotel';
+  /** Soft sand card — hotel / air mocks */
+  tone?: 'default' | 'soft' | 'hotel';
 }) {
   if (!rows.length) {
     return null;
   }
+  const soft = tone === 'soft' || tone === 'hotel';
   return (
-    <View style={[styles.detailsCard, tone === 'hotel' && styles.detailsCardHotel]}>
+    <View style={[styles.detailsCard, soft && styles.detailsCardSoft]}>
       <Text style={styles.detailsHeading}>DETAILS</Text>
       {rows.map((row) => (
         <View key={`${row.label}-${row.value}`} style={styles.detailBlock}>
@@ -200,7 +202,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     width: '100%',
   },
-  detailsCardHotel: {
+  detailsCardSoft: {
     backgroundColor: '#F8F7F5',
   },
   detailsHeading: {

@@ -1,0 +1,1 @@
+export { VipActiveTripBody } from './VipActiveTripBody';
