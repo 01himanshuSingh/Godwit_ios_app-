@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -14,35 +14,43 @@ export function NewRequestButton({ onPress }: NewRequestButtonProps) {
       accessibilityRole="button"
       accessibilityLabel="New request"
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
     >
-      <Feather name="plus" size={18} color={colors.sand} strokeWidth={2.25} />
-      <Text style={styles.label}>New request</Text>
+      {/* Fill lives on View — Pressable + overflow can drop backgroundColor on RN. */}
+      <View style={styles.button}>
+        <Feather name="plus" size={18} color={colors.sand} strokeWidth={2.25} />
+        <Text style={styles.label}>New request</Text>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  pressable: {
+    alignSelf: 'flex-start',
+    marginHorizontal: 24,
+    marginTop: 22,
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     alignSelf: 'flex-start',
-    gap: 10,
-    marginHorizontal: 24,
-    marginTop: 22,
+    gap: 8,
     minHeight: 46,
-    paddingHorizontal: 26,
+    paddingLeft: 14,
+    paddingRight: 16,
     paddingVertical: 12,
     borderRadius: 23,
-    overflow: 'hidden',
     backgroundColor: colors.forest,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.accent,
   },
   label: {
     fontFamily: fontFamily.manrope.medium,
     fontSize: 15,
     letterSpacing: 0.2,
     color: colors.sand,
+    flexShrink: 0,
   },
   pressed: {
     opacity: 0.88,

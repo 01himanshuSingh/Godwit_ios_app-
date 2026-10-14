@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { HomeViewModel } from '@/features/home/schemas/homeViewModel';
 import { colors } from '@/ui/tokens/colors';
@@ -8,11 +8,17 @@ import { fontFamily } from '@/ui/tokens/typography';
 type HomeHeaderProps = Pick<HomeViewModel, 'notificationsCount' | 'profileInitials'>;
 
 export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderProps) {
+  const { width } = useWindowDimensions();
+  const compact = width < 360;
   const badgeLabel = notificationsCount > 99 ? '99+' : String(notificationsCount);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.wordmark} accessibilityRole="header">
+    <View style={[styles.container, compact && styles.containerCompact]}>
+      <Text
+        style={[styles.wordmark, compact && styles.wordmarkCompact]}
+        accessibilityRole="header"
+        numberOfLines={1}
+      >
         GODWIT
       </Text>
 
@@ -55,12 +61,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
+  containerCompact: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   wordmark: {
     fontFamily: fontFamily.cormorant.regular,
     fontSize: 26,
     letterSpacing: 6,
     color: colors.forest,
     textTransform: 'uppercase',
+    flexShrink: 1,
+  },
+  wordmarkCompact: {
+    fontSize: 22,
+    letterSpacing: 4,
   },
   actions: {
     flexDirection: 'row',

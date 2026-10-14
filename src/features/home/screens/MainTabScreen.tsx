@@ -1,9 +1,11 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { AppChromeHeader } from '@/features/home/components/AppChromeHeader';
 import { HomeTabBar } from '@/features/home/components/HomeTabBar';
 import { HomeScreen } from '@/features/home/screens/HomeScreen';
 import { TestingClientsScreen } from '@/features/home/screens/TestingClientsScreen';
+import { TripsScreen } from '@/features/trips/screens/TripsScreen';
 import { useGodwitFonts } from '@/ui/fonts/useGodwitFonts';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -36,11 +38,15 @@ export function MainTabScreen() {
 
   return (
     <View style={styles.root}>
-      {activeTab === 'home' ? <HomeScreen /> : null}
-      {activeTab === 'testing' ? <TestingClientsScreen /> : null}
-      {activeTab === 'trips' ? <PlaceholderTab title="Trips" /> : null}
-      {activeTab === 'messages' ? <PlaceholderTab title="Messages" /> : null}
-      {activeTab === 'profile' ? <PlaceholderTab title="Profile" /> : null}
+      <AppChromeHeader />
+
+      <View style={styles.body}>
+        {activeTab === 'home' ? <HomeScreen /> : null}
+        {activeTab === 'testing' ? <TestingClientsScreen /> : null}
+        {activeTab === 'trips' ? <TripsScreen /> : null}
+        {activeTab === 'messages' ? <PlaceholderTab title="Messages" /> : null}
+        {activeTab === 'profile' ? <PlaceholderTab title="Profile" /> : null}
+      </View>
 
       <HomeTabBar activeTab={activeTab} onTabPress={handleTabPress} />
     </View>
@@ -51,6 +57,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  body: {
+    flex: 1,
   },
   loading: {
     flex: 1,
