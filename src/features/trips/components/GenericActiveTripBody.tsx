@@ -1,5 +1,5 @@
 /**
- * Fallback Active Trip body for air / VIP / chauffeur until those folders exist.
+ * Fallback Active Trip body for visa / experiences / other services.
  */
 import { useMemo } from 'react';
 import { View } from 'react-native';

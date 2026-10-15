@@ -36,6 +36,8 @@ export function serviceTypeListLabel(type: SaleServiceType): string {
     case 'airExtras':
     case 'airReissue':
       return 'FLIGHT';
+    case 'privateJet':
+      return 'PRIVATE JET';
     case 'vip':
       return 'AIRPORT VIP';
     case 'chauffeur':

@@ -365,9 +365,15 @@ export function extractAirSaleFlightDetails(saleData: DocumentData): ExtractedAi
     ? asRecord(saleData.serviceModelList[0])
     : null;
 
+  // Instant Sale Air: selected airline is walkIn.category (e.g. "Emirates" / "EK — Emirates").
   const carrier =
-    pickField(walkIn, service, saleData, ['hotelAirlines', 'airline', 'carrier', 'airlineName']) ||
-    readString(saleData.serviceName);
+    pickField(walkIn, service, saleData, [
+      'category',
+      'hotelAirlines',
+      'airline',
+      'carrier',
+      'airlineName',
+    ]) || readString(saleData.serviceName);
 
   const route = formatRouteArrow(pickField(walkIn, service, saleData, ['route']));
 

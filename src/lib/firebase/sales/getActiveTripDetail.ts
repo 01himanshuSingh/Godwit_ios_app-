@@ -19,6 +19,7 @@ import {
   type SaleServiceType,
 } from '@/lib/firebase/sales/getClientUpcomingSales';
 import { mapAirDetail } from '@/lib/firebase/sales/airServices';
+import { mapChauffeurDetail } from '@/lib/firebase/sales/chauffeurServices';
 import {
   applyHotelCancellationTermsToDetail,
   applyHotelConfirmationToDetail,
@@ -26,6 +27,7 @@ import {
   mapHotelDetail,
   readPreferredPartnershipId,
 } from '@/lib/firebase/sales/hotelServices';
+import { mapPrivateJetDetail } from '@/lib/firebase/sales/privateJetServices';
 import { mapVipDetail } from '@/lib/firebase/sales/vipServices';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
 
@@ -167,175 +169,6 @@ function pushRow(
   }
 }
 
-function formatRouteArrow(route: string | null): string | null {
-  if (!route) {
-    return null;
-  }
-  return route
-    .replace(/\s*→\s*/g, ' → ')
-    .replace(/\s*->\s*/g, ' → ')
-    .replace(/\s+to\s+/gi, ' → ')
-    .trim();
-}
-
-/** Short label for chauffeur subtitle (e.g. CDG, Mandarin Oriental). */
-function shortenPlaceLabel(place: string | null): string | null {
-  if (!place) {
-    return null;
-  }
-  const code = place.match(/\(([A-Z]{3})\)/);
-  if (code) {
-    return code[1];
-  }
-  // "Charles de Gaulle, Terminal 2C" → keep airport-ish head before terminal
-  const beforeTerminal = place.split(/,\s*Terminal/i)[0]?.trim();
-  if (beforeTerminal && beforeTerminal.length <= 28) {
-    return beforeTerminal;
-  }
-  // Hotel name often before first comma / address number
-  const head = place.split(',')[0]?.trim();
-  return head && head.length > 0 ? head : place;
-}
-
-function extractClockTime(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  const hm = value.match(/\b(\d{1,2}):(\d{2})\b/);
-  if (hm) {
-    return `${hm[1].padStart(2, '0')}:${hm[2]}`;
-  }
-  const parsed = Date.parse(value);
-  if (!Number.isNaN(parsed)) {
-    const d = new Date(parsed);
-    const h = d.getHours();
-    const m = d.getMinutes();
-    if (h !== 0 || m !== 0 || /T\d{2}:\d{2}/.test(value)) {
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
-  }
-  return null;
-}
-
-/**
- * Chauffeur Instant Sale detail — matches Active Trip chauffeur mock:
- * title, route subtitle, VEHICLE / PICK-UP / DROP-OFF / ON THE DAY / TRAVELLERS.
- */
-function mapChauffeurDetail(
-  data: DocumentData,
-  walkIn: DocumentData,
-  service: DocumentData | null,
-  base: Omit<ActiveTripDetailBase, 'title' | 'subtitle' | 'detailRows' | 'missingForMockup'>,
-): ActiveTripDetailBase {
-  const vehicleBase = pickField(walkIn, service, data, [
-    'chauffeurVehicleDescription',
-    'vehicleType',
-    'vehicle',
-    'carType',
-    'description',
-  ]);
-  const language = pickField(walkIn, service, data, [
-    'chauffeurLanguage',
-    'driverLanguage',
-    'language',
-  ]);
-  let vehicle = vehicleBase || 'Chauffeur';
-  if (language && !vehicle.toLowerCase().includes(language.toLowerCase())) {
-    const langBit = /speaking/i.test(language) ? language : `${language}-speaking chauffeur`;
-    vehicle = `${vehicle}, ${langBit}`;
-  }
-
-  // Prefer discrete pickup location vs datetime fields.
-  const pickupPlace = pickField(walkIn, service, data, [
-    'departurePoint',
-    'pickupLocation',
-    'pickUpLocation',
-    'from',
-  ]);
-  const dropoffPlace = pickField(walkIn, service, data, [
-    'arrivalPoint',
-    'dropoffLocation',
-    'dropOffLocation',
-    'dropOffPoint',
-    'to',
-  ]);
-  const dropoffAddress = pickField(walkIn, service, data, [
-    'dropOffAddress',
-    'arrivalAddress',
-    'address',
-  ]);
-
-  const pickUpWhen = pickField(walkIn, service, data, [
-    'pickUpDateTime',
-    'pickupTime',
-    'departureTime',
-    'travelDate',
-  ]);
-  const pickupTime =
-    extractClockTime(pickUpWhen) ?? pickField(walkIn, service, data, ['pickupTime', 'time']);
-
-  // If departurePoint also holds datetime, split: place from dedicated field only.
-  let pickupLocation = pickupPlace;
-  if (!pickupLocation && pickUpWhen && !extractClockTime(pickUpWhen)) {
-    pickupLocation = pickUpWhen;
-  }
-  // Terminal often stored separately on Instant Sale chauffeur forms.
-  const pickupTerminal = pickField(walkIn, service, data, [
-    'terminal',
-    'departureTerminal',
-    'pickupTerminal',
-  ]);
-  const pickupWithTerminal = [
-    pickupLocation,
-    pickupTerminal
-      ? pickupTerminal.startsWith('Terminal')
-        ? pickupTerminal
-        : `Terminal ${pickupTerminal}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(', ');
-
-  const pickupLine = [pickupWithTerminal || pickupLocation, pickupTime].filter(Boolean).join(' · ');
-
-  const dropoffLine = [dropoffPlace, dropoffAddress].filter(Boolean).join(', ') || dropoffPlace;
-
-  const onTheDay = pickField(walkIn, service, data, [
-    'remarks',
-    'specialRequests',
-    'internalNotes',
-    'chauffeurNotes',
-    'onTheDay',
-    'meetingInstructions',
-    'godwitBenefits',
-  ]);
-
-  const routeField = formatRouteArrow(pickField(walkIn, service, data, ['route']));
-  const subtitle =
-    routeField ||
-    [shortenPlaceLabel(pickupLocation || pickupWithTerminal), shortenPlaceLabel(dropoffPlace)]
-      .filter(Boolean)
-      .join(' → ') ||
-    null;
-
-  const rows: DetailRow[] = [];
-  pushRow(rows, 'VEHICLE', vehicle);
-  pushRow(rows, 'PICK-UP', pickupLine || pickupLocation);
-  pushRow(rows, 'DROP-OFF', dropoffLine);
-  pushRow(rows, 'ON THE DAY', onTheDay);
-  pushRow(rows, 'TRAVELLERS', base.travellerNames.length ? base.travellerNames.join(', ') : null);
-
-  return {
-    ...base,
-    title: 'Chauffeur',
-    subtitle,
-    serviceTypeLabel: 'Chauffeur',
-    inclusionBadge: base.inclusionBadge ?? 'Included in your trip',
-    detailRows: rows,
-    missingForMockup: [],
-  };
-}
-
 function mapGenericDetail(
   data: DocumentData,
   walkIn: DocumentData,
@@ -412,6 +245,9 @@ export function mapSaleDocToActiveTripDetail(
   }
   if (serviceType === 'air' || serviceType === 'airExtras' || serviceType === 'airReissue') {
     return mapAirDetail(data, walkIn, service, base);
+  }
+  if (serviceType === 'privateJet') {
+    return mapPrivateJetDetail(data, walkIn, service, base);
   }
   if (serviceType === 'chauffeur') {
     return mapChauffeurDetail(data, walkIn, service, base);

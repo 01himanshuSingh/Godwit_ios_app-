@@ -21,6 +21,8 @@ function ServiceGlyph({ type }: { type: SaleServiceType }) {
     case 'airExtras':
     case 'airReissue':
       return <Ionicons name="airplane-outline" size={14} color={tint} />;
+    case 'privateJet':
+      return <Ionicons name="airplane" size={14} color={tint} />;
     case 'vip':
       return <Ionicons name="star-outline" size={14} color={tint} />;
     case 'chauffeur':

@@ -32,6 +32,7 @@ export type SaleServiceType =
   | 'air'
   | 'airExtras'
   | 'airReissue'
+  | 'privateJet'
   | 'chauffeur'
   | 'vip'
   | 'visa'
@@ -209,6 +210,7 @@ const KNOWN_SERVICE_TYPES: ReadonlySet<string> = new Set([
   'air',
   'airExtras',
   'airReissue',
+  'privateJet',
   'chauffeur',
   'vip',
   'visa',
@@ -243,6 +245,15 @@ export function resolveSaleServiceType(data: DocumentData): SaleServiceType {
   if (name.includes('chauffeur')) {
     return 'chauffeur';
   }
+  // Before generic air — Instant Sale "Private jet" must not fall through as other/FLIGHT.
+  if (
+    name.includes('private jet') ||
+    name.includes('private-jet') ||
+    name.includes('privatejet') ||
+    service?.isPrivateJet === true
+  ) {
+    return 'privateJet';
+  }
   if (
     service?.isAirReissue === true ||
     name.includes('air reissue') ||
@@ -275,6 +286,7 @@ export function saleServiceTypeLabel(type: SaleServiceType): string {
     air: 'Air',
     airExtras: 'Air extras',
     airReissue: 'Air reissue',
+    privateJet: 'Private jet',
     chauffeur: 'Chauffeur',
     vip: 'Airport VIP',
     visa: 'Visa',
@@ -442,6 +454,23 @@ function resolveDisplayTitle(
     return hotelBrand ?? resolveHotelTitle(data, walkIn) ?? readString(data.serviceName) ?? 'Hotel';
   }
 
+  // Instant Sale Air: selected airline is walkIn.category (e.g. "Emirates" / "EK — Emirates").
+  if (serviceType === 'air' || serviceType === 'airExtras' || serviceType === 'airReissue') {
+    return (
+      readString(walkIn.category) ??
+      readString(walkIn.hotelAirlines) ??
+      readString(data.hotelAirlines) ??
+      readString(data.serviceName) ??
+      (services[0] ? readString(services[0].serviceName) : null) ??
+      saleServiceTypeLabel(serviceType)
+    );
+  }
+
+  // Instant Sale Private jet: list title is always the product label (route stays on detailLine).
+  if (serviceType === 'privateJet') {
+    return 'Private jet';
+  }
+
   return (
     hotelBrand ??
     readString(data.serviceName) ??
@@ -479,7 +508,12 @@ function buildDetailLine(
     return route;
   }
 
-  if (serviceType === 'air' || serviceType === 'airExtras' || serviceType === 'airReissue') {
+  if (
+    serviceType === 'air' ||
+    serviceType === 'airExtras' ||
+    serviceType === 'airReissue' ||
+    serviceType === 'privateJet'
+  ) {
     return destinationCity;
   }
 

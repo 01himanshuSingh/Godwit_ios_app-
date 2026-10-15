@@ -1,10 +1,12 @@
 /**
  * Active Trip detail shell — one fetch, then service-specific body.
  *
- *   hotel → features/trips/hotel/HotelActiveTripBody
- *   air   → features/trips/air/AirActiveTripBody
- *   vip   → features/trips/vip/VipActiveTripBody
- *   other → GenericActiveTripBody (until chauffeur folder exists)
+ *   hotel       → features/trips/hotel/HotelActiveTripBody
+ *   air         → features/trips/air/AirActiveTripBody
+ *   vip         → features/trips/vip/VipActiveTripBody
+ *   chauffeur   → features/trips/chauffeur/ChauffeurActiveTripBody
+ *   privateJet  → features/trips/private-jet/PrivateJetActiveTripBody
+ *   other       → GenericActiveTripBody
  */
 import Feather from '@expo/vector-icons/Feather';
 import { useQuery } from '@tanstack/react-query';
@@ -25,8 +27,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppChromeHeader } from '@/features/home/components/AppChromeHeader';
 import { AirActiveTripBody } from '@/features/trips/air/AirActiveTripBody';
+import { ChauffeurActiveTripBody } from '@/features/trips/chauffeur/ChauffeurActiveTripBody';
 import { GenericActiveTripBody } from '@/features/trips/components/GenericActiveTripBody';
 import { HotelActiveTripBody } from '@/features/trips/hotel/HotelActiveTripBody';
+import { PrivateJetActiveTripBody } from '@/features/trips/private-jet/PrivateJetActiveTripBody';
 import { VipActiveTripBody } from '@/features/trips/vip/VipActiveTripBody';
 import { getClientSaleActiveTripDetailSafe } from '@/lib/firebase/sales/getActiveTripDetail';
 import { colors } from '@/ui/tokens/colors';
@@ -84,6 +88,8 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
     detail?.serviceType === 'airExtras' ||
     detail?.serviceType === 'airReissue';
   const isVip = detail?.serviceType === 'vip';
+  const isChauffeur = detail?.serviceType === 'chauffeur';
+  const isPrivateJet = detail?.serviceType === 'privateJet';
 
   const bodyLayout = {
     titleSize: layout.titleSize,
@@ -142,6 +148,10 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
             <AirActiveTripBody detail={detail} layout={bodyLayout} />
           ) : isVip ? (
             <VipActiveTripBody detail={detail} layout={bodyLayout} />
+          ) : isChauffeur ? (
+            <ChauffeurActiveTripBody detail={detail} layout={bodyLayout} />
+          ) : isPrivateJet ? (
+            <PrivateJetActiveTripBody detail={detail} layout={bodyLayout} />
           ) : (
             <GenericActiveTripBody detail={detail} layout={bodyLayout} />
           )}
