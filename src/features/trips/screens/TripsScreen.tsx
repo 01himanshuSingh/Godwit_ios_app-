@@ -83,21 +83,34 @@ export function TripsScreen() {
       <View style={styles.segmentBaseLine} />
 
       <View style={styles.body}>
-        {segment === 'current' ? (
-          <Text style={styles.empty}>
-            Current trips (in-progress / travel-date today) will appear here.
-          </Text>
+        {isHydrating ? <Text style={styles.empty}>Loading client session…</Text> : null}
+
+        {!isHydrating && segment === 'current' ? (
+          <UpcomingTripsList
+            adminId={adminId}
+            clientId={clientId}
+            mode="current"
+            onTripPress={handleTripPress}
+          />
         ) : null}
 
-        {segment === 'upcoming' && !isHydrating ? (
-          <UpcomingTripsList adminId={adminId} clientId={clientId} onTripPress={handleTripPress} />
+        {!isHydrating && segment === 'upcoming' ? (
+          <UpcomingTripsList
+            adminId={adminId}
+            clientId={clientId}
+            mode="upcoming"
+            onTripPress={handleTripPress}
+          />
         ) : null}
 
-        {segment === 'upcoming' && isHydrating ? (
-          <Text style={styles.empty}>Loading client session…</Text>
+        {!isHydrating && segment === 'past' ? (
+          <UpcomingTripsList
+            adminId={adminId}
+            clientId={clientId}
+            mode="past"
+            onTripPress={handleTripPress}
+          />
         ) : null}
-
-        {segment === 'past' ? <Text style={styles.empty}>Past trips will appear here.</Text> : null}
       </View>
     </View>
   );

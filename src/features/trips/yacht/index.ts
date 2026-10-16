@@ -1,0 +1,1 @@
+export { YachtActiveTripBody } from './YachtActiveTripBody';

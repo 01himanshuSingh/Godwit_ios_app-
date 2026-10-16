@@ -29,6 +29,7 @@ import {
 } from '@/lib/firebase/sales/hotelServices';
 import { mapPrivateJetDetail } from '@/lib/firebase/sales/privateJetServices';
 import { mapVipDetail } from '@/lib/firebase/sales/vipServices';
+import { mapYachtDetail } from '@/lib/firebase/sales/yachtServices';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
 
 export type {
@@ -248,6 +249,9 @@ export function mapSaleDocToActiveTripDetail(
   }
   if (serviceType === 'privateJet') {
     return mapPrivateJetDetail(data, walkIn, service, base);
+  }
+  if (serviceType === 'yacht') {
+    return mapYachtDetail(data, walkIn, service, base);
   }
   if (serviceType === 'chauffeur') {
     return mapChauffeurDetail(data, walkIn, service, base);

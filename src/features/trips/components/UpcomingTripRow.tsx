@@ -23,6 +23,8 @@ function ServiceGlyph({ type }: { type: SaleServiceType }) {
       return <Ionicons name="airplane-outline" size={14} color={tint} />;
     case 'privateJet':
       return <Ionicons name="airplane" size={14} color={tint} />;
+    case 'yacht':
+      return <Ionicons name="boat-outline" size={15} color={tint} />;
     case 'vip':
       return <Ionicons name="star-outline" size={14} color={tint} />;
     case 'chauffeur':
@@ -40,10 +42,11 @@ function ServiceGlyph({ type }: { type: SaleServiceType }) {
 }
 
 export function UpcomingTripRow({ trip, showBottomLine = true, onPress }: UpcomingTripRowProps) {
-  const title = tripTitle(trip);
+  // Yacht: displayTitle / detailLine / displayTime come from mapYachtUpcomingCardFields.
+  const title = trip.displayTitle?.trim() || tripTitle(trip);
   const typeLabel = serviceTypeListLabel(trip.serviceType);
-  const time = trip.displayTime ?? '—';
-  const detail = trip.detailLine;
+  const time = trip.displayTime?.trim() || '—';
+  const detail = trip.detailLine?.trim() || null;
   const status = trip.statusLabel;
 
   return (
@@ -138,7 +141,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: fontFamily.manrope.regular,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.accent,
   },
   cancelled: {
     marginTop: 4,
@@ -147,7 +150,8 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   chevron: {
-    marginTop: 18,
+    marginTop: 16,
+    alignSelf: 'center',
   },
   pressed: {
     opacity: 0.85,

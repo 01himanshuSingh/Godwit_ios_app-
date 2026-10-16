@@ -20,6 +20,7 @@ import {
 
 import { db } from '@/lib/firebase/firestore';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
+import { mapYachtUpcomingCardFields } from '@/lib/firebase/sales/yachtServices';
 import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 
 export const SALES_PAGE_SIZE = 40;
@@ -33,6 +34,7 @@ export type SaleServiceType =
   | 'airExtras'
   | 'airReissue'
   | 'privateJet'
+  | 'yacht'
   | 'chauffeur'
   | 'vip'
   | 'visa'
@@ -146,15 +148,21 @@ function toDateKey(value: unknown): string | null {
     }
     return null;
   }
-  if (
-    value &&
-    typeof value === 'object' &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    try {
-      return formatLocalDateKey((value as { toDate: () => Date }).toDate());
-    } catch {
-      return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatLocalDateKey(value);
+  }
+  if (value && typeof value === 'object') {
+    if (typeof (value as { toDate?: () => Date }).toDate === 'function') {
+      try {
+        return formatLocalDateKey((value as { toDate: () => Date }).toDate());
+      } catch {
+        /* fall through */
+      }
+    }
+    const sec =
+      (value as { seconds?: unknown }).seconds ?? (value as { _seconds?: unknown })._seconds;
+    if (typeof sec === 'number' && Number.isFinite(sec)) {
+      return formatLocalDateKey(new Date(sec * 1000));
     }
   }
   return null;
@@ -211,6 +219,7 @@ const KNOWN_SERVICE_TYPES: ReadonlySet<string> = new Set([
   'airExtras',
   'airReissue',
   'privateJet',
+  'yacht',
   'chauffeur',
   'vip',
   'visa',
@@ -218,16 +227,72 @@ const KNOWN_SERVICE_TYPES: ReadonlySet<string> = new Set([
   'other',
 ]);
 
-export function resolveSaleServiceType(data: DocumentData): SaleServiceType {
-  const stamped = String(data.serviceKind || '').trim();
-  if (KNOWN_SERVICE_TYPES.has(stamped)) {
-    return stamped as SaleServiceType;
+function looksLikeYachtSale(
+  data: DocumentData,
+  service: DocumentData | undefined,
+  name: string,
+): boolean {
+  const kind = String(data.serviceKind || service?.serviceKind || '')
+    .trim()
+    .toLowerCase();
+  // CRM stamps "Yacht" / "yacht" — must match case-insensitively.
+  if (kind === 'yacht' || kind.includes('yacht')) {
+    return true;
   }
+  if (
+    name.includes('yacht') ||
+    name.includes('yacht charter') ||
+    service?.isYacht === true ||
+    data.isYacht === true
+  ) {
+    return true;
+  }
+  const walkIn = asRecord(data.walkInModel) ?? {};
+  // Instant Sale Other often stamps serviceKind "other" but keeps yachtDescription.
+  if (readString(walkIn.yachtDescription)) {
+    return true;
+  }
+  const stampedName = String(
+    data.hotelAirlines || walkIn.hotelAirlines || data.serviceName || service?.serviceName || '',
+  ).toLowerCase();
+  if (stampedName.includes('yacht')) {
+    return true;
+  }
+  // Brand / product labels on Instant Sale Yacht form.
+  const category = String(walkIn.category || data.category || '').toLowerCase();
+  if (category.includes('yacht')) {
+    return true;
+  }
+  return false;
+}
 
+export function resolveSaleServiceType(data: DocumentData): SaleServiceType {
   const service = Array.isArray(data.serviceModelList)
     ? (data.serviceModelList[0] as DocumentData | undefined)
     : undefined;
   const name = String(service?.serviceName || data.serviceName || '').toLowerCase();
+
+  // Name / yacht fields win before stamped serviceKind — CRM often stamps Yacht as "other".
+  if (looksLikeYachtSale(data, service, name)) {
+    return 'yacht';
+  }
+  // Before generic air — Instant Sale "Private jet" must not fall through as other/FLIGHT.
+  if (
+    name.includes('private jet') ||
+    name.includes('private-jet') ||
+    name.includes('privatejet') ||
+    service?.isPrivateJet === true
+  ) {
+    return 'privateJet';
+  }
+
+  const stamped = String(data.serviceKind || '')
+    .trim()
+    .toLowerCase();
+  // Never trust stamped "other" — fall through to name heuristics (yacht/private jet/etc.).
+  if (KNOWN_SERVICE_TYPES.has(stamped) && stamped !== 'other') {
+    return stamped as SaleServiceType;
+  }
 
   if (
     service?.isHotelRoomExtension === true ||
@@ -244,15 +309,6 @@ export function resolveSaleServiceType(data: DocumentData): SaleServiceType {
   }
   if (name.includes('chauffeur')) {
     return 'chauffeur';
-  }
-  // Before generic air — Instant Sale "Private jet" must not fall through as other/FLIGHT.
-  if (
-    name.includes('private jet') ||
-    name.includes('private-jet') ||
-    name.includes('privatejet') ||
-    service?.isPrivateJet === true
-  ) {
-    return 'privateJet';
   }
   if (
     service?.isAirReissue === true ||
@@ -287,6 +343,7 @@ export function saleServiceTypeLabel(type: SaleServiceType): string {
     airExtras: 'Air extras',
     airReissue: 'Air reissue',
     privateJet: 'Private jet',
+    yacht: 'Yacht',
     chauffeur: 'Chauffeur',
     vip: 'Airport VIP',
     visa: 'Visa',
@@ -471,6 +528,15 @@ function resolveDisplayTitle(
     return 'Private jet';
   }
 
+  // Yacht title is built in mapSaleDoc via mapSaleToYachtCardUI.
+  if (serviceType === 'yacht') {
+    return (
+      readString(data.serviceName) ??
+      (services[0] ? readString(services[0].serviceName) : null) ??
+      'Yacht'
+    );
+  }
+
   return (
     hotelBrand ??
     readString(data.serviceName) ??
@@ -529,6 +595,11 @@ function buildDetailLine(
     return route ?? destinationCity ?? readString(walkIn.serviceType);
   }
 
+  if (serviceType === 'yacht') {
+    // Overridden in mapSaleDoc via mapSaleToYachtCardUI.
+    return destinationCity;
+  }
+
   return destinationCity;
 }
 
@@ -559,6 +630,7 @@ function mapSaleDoc(
   const travelDateKey =
     toDateKey(walkIn.travelDateKey) ??
     toDateKey(walkIn.travelDate) ??
+    toDateKey(walkIn.serviceDateTime) ??
     toDateKey(data.travelDateKey) ??
     toDateKey(data.travelDate);
 
@@ -567,17 +639,43 @@ function mapSaleDoc(
     ? (data.serviceModelList as DocumentData[])
     : [];
   const serviceType = resolveSaleServiceType(data);
-  const travelDateRaw = readString(walkIn.travelDate) ?? travelDateKey;
+  const travelDateRaw =
+    readString(walkIn.travelDate) ?? readString(walkIn.serviceDateTime) ?? travelDateKey;
   const destinationCity = readString(walkIn.destinationCity);
   const hotelBrand = resolveHotelTitle(data, walkIn);
   const active = isActiveSale(data);
   const confirmationNo = readString(data.confirmationNo);
-  const displayTitle = resolveDisplayTitle(serviceType, data, walkIn, services, hotelBrand);
+  const resolvedAdminId = readString(data.adminId) ?? adminId;
+  const resolvedClientId = readString(data.clientId) ?? clientId;
+
+  let displayTitle = resolveDisplayTitle(serviceType, data, walkIn, services, hotelBrand);
+  let displayTime = extractDisplayTime(serviceType, walkIn, data, travelDateRaw);
+  let detailLine = buildDetailLine(serviceType, walkIn, data, destinationCity);
+  let statusLabel = resolveStatusLabel(active, confirmationNo);
+  let serviceTypeLabel = saleServiceTypeLabel(serviceType);
+  let resolvedServiceType = serviceType;
+
+  /**
+   * Yacht Upcoming card (UpcomingTripRow):
+   *   YACHT     ← serviceType === 'yacht' → serviceTypeListLabel → "YACHT"
+   *   Title     ← yacht.title      = walkIn.route + destinationCity → displayTitle
+   *   Subtitle  ← yacht.detailLine = walkIn.category + duration    → detailLine
+   *   Time      ← yacht.displayTime = travelDate / serviceDateTime → displayTime
+   */
+  if (serviceType === 'yacht') {
+    const yacht = mapYachtUpcomingCardFields(data);
+    resolvedServiceType = 'yacht';
+    serviceTypeLabel = 'Yacht';
+    displayTitle = yacht.title;
+    detailLine = yacht.detailLine;
+    displayTime = yacht.displayTime;
+    statusLabel = yacht.statusLabel;
+  }
 
   return {
     saleId,
-    adminId: readString(data.adminId) ?? adminId,
-    clientId: readString(data.clientId) ?? clientId,
+    adminId: resolvedAdminId,
+    clientId: resolvedClientId,
     documentPath: docSnap.ref.path,
     travelDateKey,
     travelDateRaw,
@@ -585,8 +683,8 @@ function mapSaleDoc(
     destinationCity,
     bucket: bucketForDateKey(travelDateKey),
     saleStatus: active,
-    serviceType,
-    serviceTypeLabel: saleServiceTypeLabel(serviceType),
+    serviceType: resolvedServiceType,
+    serviceTypeLabel,
     serviceKind: readString(data.serviceKind),
     serviceName:
       readString(data.serviceName) ?? (services[0] ? readString(services[0].serviceName) : null),
@@ -596,10 +694,10 @@ function mapSaleDoc(
     travellers: mapTravellers(data),
     serviceModelList: services,
     walkInModel: walkIn,
-    displayTime: extractDisplayTime(serviceType, walkIn, data, travelDateRaw),
-    detailLine: buildDetailLine(serviceType, walkIn, data, destinationCity),
+    displayTime,
+    detailLine,
     displayTitle,
-    statusLabel: resolveStatusLabel(active, confirmationNo),
+    statusLabel,
     raw: data,
   };
 }
@@ -683,11 +781,24 @@ export function buildUpcomingTripsCardSummary(
   };
 }
 
-function isUpcomingOrCurrent(trip: ClientSaleTrip, includeCurrent: boolean): boolean {
+export type TripsListMode = 'upcoming' | 'current' | 'past';
+
+function matchesTripsListMode(
+  trip: ClientSaleTrip,
+  mode: TripsListMode,
+  includeCurrentWithUpcoming: boolean,
+): boolean {
+  if (mode === 'past') {
+    return trip.bucket === 'past';
+  }
+  if (mode === 'current') {
+    return trip.bucket === 'current';
+  }
+  // upcoming
   if (trip.bucket === 'upcoming') {
     return true;
   }
-  if (includeCurrent && trip.bucket === 'current') {
+  if (includeCurrentWithUpcoming && trip.bucket === 'current') {
     return true;
   }
   return false;
@@ -763,20 +874,26 @@ export async function getClientUpcomingSales(
       if (!includeCancelled && !trip.saleStatus) {
         return false;
       }
-      return isUpcomingOrCurrent(trip, includeCurrent);
+      return matchesTripsListMode(trip, 'upcoming', includeCurrent);
     })
     .sort(sortByTravelDateAsc);
 }
 
 /**
- * Infinite-query page: load the next sales page, return only upcoming rows
+ * Infinite-query page: load the next sales page, return only matching bucket rows
  * from that page (+ cursor). Caller accumulates pages.
+ *
+ * mode:
+ *   upcoming — travelDate > today (and today when includeCurrent)
+ *   current  — travelDate === today
+ *   past     — travelDate < today  (yacht dated e.g. 18 Sep lands here)
  */
 export async function getClientUpcomingSalesPage(
   adminId: string,
   clientId: string,
   cursor: SalesPageCursor = null,
   options?: {
+    mode?: TripsListMode;
     includeCurrent?: boolean;
     includeCancelled?: boolean;
     pageSize?: number;
@@ -786,6 +903,7 @@ export async function getClientUpcomingSalesPage(
   nextCursor: SalesPageCursor;
   hasMore: boolean;
 }> {
+  const mode: TripsListMode = options?.mode ?? 'upcoming';
   const includeCurrent = options?.includeCurrent !== false;
   const includeCancelled = options?.includeCancelled === true;
   const page = await getClientSalesPage(adminId, clientId, cursor, options?.pageSize);
@@ -795,9 +913,9 @@ export async function getClientUpcomingSalesPage(
       if (!includeCancelled && !trip.saleStatus) {
         return false;
       }
-      return isUpcomingOrCurrent(trip, includeCurrent);
+      return matchesTripsListMode(trip, mode, includeCurrent);
     })
-    .sort(sortByTravelDateAsc);
+    .sort(mode === 'past' ? (a, b) => sortByTravelDateAsc(b, a) : sortByTravelDateAsc);
 
   return {
     upcoming,

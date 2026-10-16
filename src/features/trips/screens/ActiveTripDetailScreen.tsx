@@ -6,6 +6,7 @@
  *   vip         → features/trips/vip/VipActiveTripBody
  *   chauffeur   → features/trips/chauffeur/ChauffeurActiveTripBody
  *   privateJet  → features/trips/private-jet/PrivateJetActiveTripBody
+ *   yacht       → features/trips/yacht/YachtActiveTripBody
  *   other       → GenericActiveTripBody
  */
 import Feather from '@expo/vector-icons/Feather';
@@ -32,6 +33,7 @@ import { GenericActiveTripBody } from '@/features/trips/components/GenericActive
 import { HotelActiveTripBody } from '@/features/trips/hotel/HotelActiveTripBody';
 import { PrivateJetActiveTripBody } from '@/features/trips/private-jet/PrivateJetActiveTripBody';
 import { VipActiveTripBody } from '@/features/trips/vip/VipActiveTripBody';
+import { YachtActiveTripBody } from '@/features/trips/yacht/YachtActiveTripBody';
 import { getClientSaleActiveTripDetailSafe } from '@/lib/firebase/sales/getActiveTripDetail';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -90,6 +92,7 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
   const isVip = detail?.serviceType === 'vip';
   const isChauffeur = detail?.serviceType === 'chauffeur';
   const isPrivateJet = detail?.serviceType === 'privateJet';
+  const isYacht = detail?.serviceType === 'yacht';
 
   const bodyLayout = {
     titleSize: layout.titleSize,
@@ -152,6 +155,8 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
             <ChauffeurActiveTripBody detail={detail} layout={bodyLayout} />
           ) : isPrivateJet ? (
             <PrivateJetActiveTripBody detail={detail} layout={bodyLayout} />
+          ) : isYacht ? (
+            <YachtActiveTripBody detail={detail} layout={bodyLayout} />
           ) : (
             <GenericActiveTripBody detail={detail} layout={bodyLayout} />
           )}

@@ -13,6 +13,7 @@ import {
   sortClientSaleTripsAsc,
   type ClientSaleTrip,
   type SalesPageCursor,
+  type TripsListMode,
 } from '@/lib/firebase/sales/getClientUpcomingSales';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -20,6 +21,8 @@ import { fontFamily } from '@/ui/tokens/typography';
 type UpcomingTripsListProps = {
   adminId: string;
   clientId: string;
+  /** upcoming | current | past — yacht dated before today appears under past. */
+  mode?: TripsListMode;
   onTripPress?: (trip: ClientSaleTrip) => void;
 };
 
@@ -29,7 +32,12 @@ type PageResult = {
   hasMore: boolean;
 };
 
-export function UpcomingTripsList({ adminId, clientId, onTripPress }: UpcomingTripsListProps) {
+export function UpcomingTripsList({
+  adminId,
+  clientId,
+  mode = 'upcoming',
+  onTripPress,
+}: UpcomingTripsListProps) {
   const {
     data,
     error,
@@ -41,11 +49,12 @@ export function UpcomingTripsList({ adminId, clientId, onTripPress }: UpcomingTr
     fetchNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ['trips', 'upcoming-sales', adminId, clientId],
+    queryKey: ['trips', 'sales', mode, adminId, clientId],
     initialPageParam: null as SalesPageCursor,
     queryFn: async ({ pageParam }): Promise<PageResult> =>
       getClientUpcomingSalesPage(adminId, clientId, pageParam, {
-        includeCurrent: true,
+        mode,
+        includeCurrent: mode === 'upcoming',
         includeCancelled: false,
       }),
     getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),

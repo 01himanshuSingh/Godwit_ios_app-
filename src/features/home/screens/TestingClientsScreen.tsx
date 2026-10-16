@@ -20,6 +20,11 @@ import {
   type HotelRoomTypeTestReport,
 } from '@/lib/firebase/testing/api/testFirstHotelRoomType';
 import {
+  logYachtSaleTest,
+  testFirstYachtSale,
+  type YachtSaleTestReport,
+} from '@/lib/firebase/testing/api/testFirstYachtSale';
+import {
   getClientTrips,
   type ClientTripSummary,
 } from '../../../lib/firebase/testing/getClientTrips';
@@ -130,6 +135,79 @@ function TripRow({ trip }: { trip: ClientTripSummary }) {
 
 function presenceLabel(flag: 0 | 1): string {
   return flag === 1 ? '1 · present' : '0 · missing';
+}
+
+/** Always-visible Testing card — first yacht Instant Sale for session client. */
+function FirstYachtTestCard({
+  report,
+  isLoading,
+  errorMessage,
+  adminId,
+  clientId,
+}: {
+  report: YachtSaleTestReport | undefined;
+  isLoading: boolean;
+  errorMessage: string | null;
+  adminId: string;
+  clientId: string;
+}) {
+  const statusNote =
+    errorMessage ||
+    report?.errorMessage ||
+    (!report && !isLoading ? 'Waiting for backend…' : null) ||
+    (report && !report.foundYachtSale ? 'No yacht Instant Sale found for this client' : null);
+
+  return (
+    <View style={styles.hotelRoomCard}>
+      <Text style={styles.hotelRoomCardTitle}>FIRST YACHT (BACKEND)</Text>
+      {isLoading && !report ? (
+        <ActivityIndicator color={colors.forest} style={{ marginVertical: 8 }} />
+      ) : null}
+
+      {report?.foundYachtSale ? (
+        <View style={styles.yachtPreview}>
+          <Text style={styles.yachtTime}>{report.displayTime || '—'}</Text>
+          <View style={styles.yachtBody}>
+            <Text style={styles.yachtType}>{report.serviceTypeLabel}</Text>
+            <Text style={styles.hotelRoomValue} selectable>
+              {report.title || 'Yacht'}
+            </Text>
+            {report.detailLine ? (
+              <Text style={styles.clientMeta} selectable>
+                {report.detailLine}
+              </Text>
+            ) : null}
+            <Text style={styles.clientMeta} selectable>
+              {report.statusLabel}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      <Text style={styles.clientMeta} selectable>
+        city: {report?.destinationCity ?? '—'} · brand: {report?.brand ?? '—'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        description: {report?.yachtDescription ?? '—'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        meal: {report?.mealDescription ?? '—'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        PNR: {report?.bookingReference ?? '—'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        service date: {report?.serviceDate ?? '—'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        saleId: {report?.saleId ?? 'null'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        adminId: {report?.adminId ?? adminId} · clientId: {report?.clientId ?? clientId}
+      </Text>
+      {statusNote ? <Text style={styles.emptyText}>{statusNote}</Text> : null}
+    </View>
+  );
 }
 
 /** Always-visible Testing card — hotel name + room type from first hotel sale. */
@@ -292,6 +370,18 @@ export function TestingClientsScreen() {
     retry: 2,
   });
 
+  /** Session adminId + clientId → first yacht Instant Sale (Testing tab only). */
+  const yachtQuery = useQuery({
+    queryKey: ['testing', 'first-yacht-sale', adminId, clientId],
+    queryFn: async () => {
+      const report = await testFirstYachtSale(adminId, clientId);
+      logYachtSaleTest(report);
+      return report;
+    },
+    enabled: Boolean(adminId && clientId),
+    retry: 2,
+  });
+
   const loading = isPending;
   const connected = data?.connected ?? false;
   const message =
@@ -306,6 +396,7 @@ export function TestingClientsScreen() {
     void refetch();
     void confirmationQuery.refetch();
     void roomTypeQuery.refetch();
+    void yachtQuery.refetch();
   };
 
   return (
@@ -318,7 +409,12 @@ export function TestingClientsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Refresh testing data"
           onPress={refreshAll}
-          disabled={isFetching || confirmationQuery.isFetching || roomTypeQuery.isFetching}
+          disabled={
+            isFetching ||
+            confirmationQuery.isFetching ||
+            roomTypeQuery.isFetching ||
+            yachtQuery.isFetching
+          }
           style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed]}
         >
           <Feather name="refresh-cw" size={20} color={colors.forest} />
@@ -326,7 +422,22 @@ export function TestingClientsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Always visible — not gated on main Firebase status / loading */}
+        {/* Always visible on Test tab render — session adminId / clientId */}
+        <Text style={styles.sectionLabel}>FIRST YACHT · SESSION CLIENT</Text>
+        <FirstYachtTestCard
+          report={yachtQuery.data}
+          isLoading={yachtQuery.isPending || yachtQuery.isFetching}
+          errorMessage={
+            yachtQuery.isError
+              ? yachtQuery.error instanceof Error
+                ? yachtQuery.error.message
+                : 'Failed to load yacht sale'
+              : null
+          }
+          adminId={adminId}
+          clientId={clientId}
+        />
+
         <Text style={styles.sectionLabel}>FIRST HOTEL · NAME + ROOM TYPE</Text>
         <HotelRoomTypeTestCard
           report={roomTypeQuery.data}
@@ -542,5 +653,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: colors.forest,
+  },
+  yachtPreview: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    marginBottom: 4,
+  },
+  yachtTime: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 15,
+    color: colors.forest,
+    minWidth: 48,
+    marginTop: 2,
+  },
+  yachtBody: {
+    flex: 1,
+    gap: 3,
+  },
+  yachtType: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 11,
+    letterSpacing: 1.1,
+    color: colors.muted,
+    textTransform: 'uppercase',
   },
 });
