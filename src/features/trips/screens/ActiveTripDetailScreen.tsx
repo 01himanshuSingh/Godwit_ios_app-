@@ -30,6 +30,7 @@ import { AppChromeHeader } from '@/features/home/components/AppChromeHeader';
 import { AirActiveTripBody } from '@/features/trips/air/AirActiveTripBody';
 import { ChauffeurActiveTripBody } from '@/features/trips/chauffeur/ChauffeurActiveTripBody';
 import { GenericActiveTripBody } from '@/features/trips/components/GenericActiveTripBody';
+import { TripDocumentsCard } from '@/features/trips/components/TripDocumentsCard';
 import { HotelActiveTripBody } from '@/features/trips/hotel/HotelActiveTripBody';
 import { PrivateJetActiveTripBody } from '@/features/trips/private-jet/PrivateJetActiveTripBody';
 import { VipActiveTripBody } from '@/features/trips/vip/VipActiveTripBody';
@@ -160,6 +161,9 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
           ) : (
             <GenericActiveTripBody detail={detail} layout={bodyLayout} />
           )}
+
+          {/* All services — sale.confirmationDoc → voucherUrl */}
+          <TripDocumentsCard voucherUrl={detail.voucherUrl} fileLabel={detail.title} />
         </ScrollView>
       ) : null}
     </View>

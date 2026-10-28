@@ -221,6 +221,8 @@ export function mapSaleDocToActiveTripDetail(
 
   const serviceType = resolveSaleServiceType(data);
   const confirmationNo = readString(data.confirmationNo);
+  // Same for hotel / air / yacht / VIP / any service — uploaded PDF URL only.
+  const voucherUrl = readString(data.confirmationDoc);
   const base = {
     saleId: opts.saleId,
     adminId: opts.adminId,
@@ -231,6 +233,7 @@ export function mapSaleDocToActiveTripDetail(
     statusLabel: statusLabelFromSale(data),
     confirmationNo,
     confirmationBadge: confirmationNo ? `Confirmation ${confirmationNo}` : null,
+    voucherUrl,
     paymentLabel: paymentLabelFromSale(data),
     inclusionBadge: null as string | null,
     travellerNames: travellerNamesFromSale(data),

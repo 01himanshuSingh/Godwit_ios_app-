@@ -25,6 +25,12 @@ import {
   type YachtSaleTestReport,
 } from '@/lib/firebase/testing/api/testFirstYachtSale';
 import {
+  logClientSaleVouchers,
+  testClientSaleVouchers,
+  type ClientSaleVouchersReport,
+} from '@/lib/firebase/testing/api/testClientSaleVouchers';
+import { openSaleVoucherPdf } from '@/lib/firebase/sales/getSaleVoucherPdf';
+import {
   getClientTrips,
   type ClientTripSummary,
 } from '../../../lib/firebase/testing/getClientTrips';
@@ -265,6 +271,72 @@ function HotelRoomTypeTestCard({
   );
 }
 
+/** Session sales with `confirmationDoc` PDF — exercises getSaleVoucherPdf. */
+function SaleVouchersTestCard({
+  report,
+  isLoading,
+  errorMessage,
+  adminId,
+  clientId,
+}: {
+  report: ClientSaleVouchersReport | undefined;
+  isLoading: boolean;
+  errorMessage: string | null;
+  adminId: string;
+  clientId: string;
+}) {
+  const statusNote =
+    errorMessage ||
+    report?.errorMessage ||
+    (!report && !isLoading ? 'Waiting for backend…' : null) ||
+    (report && report.vouchersFound === 0
+      ? `No confirmationDoc PDF on ${report.salesScanned} sales`
+      : null);
+
+  return (
+    <View style={styles.hotelRoomCard}>
+      <Text style={styles.hotelRoomCardTitle}>SALE VOUCHERS · confirmationDoc</Text>
+      {isLoading && !report ? (
+        <ActivityIndicator color={colors.forest} style={{ marginVertical: 8 }} />
+      ) : null}
+      <Text style={styles.clientMeta} selectable>
+        scanned: {report?.salesScanned ?? '—'} · with PDF: {report?.vouchersFound ?? '—'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        adminId: {report?.adminId ?? adminId} · clientId: {report?.clientId ?? clientId}
+      </Text>
+      {report?.vouchers.map((v) => (
+        <View key={v.saleId} style={styles.voucherRow}>
+          <Text style={styles.hotelRoomValue} selectable>
+            {v.serviceName ?? 'Sale'} · {v.confirmationNo ?? 'no conf #'}
+          </Text>
+          <Text style={styles.clientMeta} selectable>
+            saleId: {v.saleId}
+          </Text>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Open voucher PDF"
+            onPress={() => {
+              void openSaleVoucherPdf(v.voucherUrl);
+            }}
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <Text style={styles.voucherLink} selectable>
+              {v.voucherUrl}
+            </Text>
+          </Pressable>
+          {v.verifiedVoucherUrl ? (
+            <Text style={styles.clientMeta} selectable>
+              getSaleVoucherPdf: {v.verifiedVoucherUrl === v.voucherUrl ? 'match' : 'mismatch'}
+            </Text>
+          ) : null}
+        </View>
+      ))}
+      {statusNote ? <Text style={styles.emptyText}>{statusNote}</Text> : null}
+    </View>
+  );
+}
+
 function HotelConfirmationTestCard({
   report,
   isLoading,
@@ -382,6 +454,18 @@ export function TestingClientsScreen() {
     retry: 2,
   });
 
+  /** Session sales with confirmationDoc PDF URL (Testing tab only). */
+  const vouchersQuery = useQuery({
+    queryKey: ['testing', 'sale-vouchers', adminId, clientId],
+    queryFn: async () => {
+      const report = await testClientSaleVouchers(adminId, clientId);
+      logClientSaleVouchers(report);
+      return report;
+    },
+    enabled: Boolean(adminId && clientId),
+    retry: 2,
+  });
+
   const loading = isPending;
   const connected = data?.connected ?? false;
   const message =
@@ -397,6 +481,7 @@ export function TestingClientsScreen() {
     void confirmationQuery.refetch();
     void roomTypeQuery.refetch();
     void yachtQuery.refetch();
+    void vouchersQuery.refetch();
   };
 
   return (
@@ -413,7 +498,8 @@ export function TestingClientsScreen() {
             isFetching ||
             confirmationQuery.isFetching ||
             roomTypeQuery.isFetching ||
-            yachtQuery.isFetching
+            yachtQuery.isFetching ||
+            vouchersQuery.isFetching
           }
           style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed]}
         >
@@ -423,6 +509,21 @@ export function TestingClientsScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Always visible on Test tab render — session adminId / clientId */}
+        <Text style={styles.sectionLabel}>SALE VOUCHERS · SESSION CLIENT</Text>
+        <SaleVouchersTestCard
+          report={vouchersQuery.data}
+          isLoading={vouchersQuery.isPending || vouchersQuery.isFetching}
+          errorMessage={
+            vouchersQuery.isError
+              ? vouchersQuery.error instanceof Error
+                ? vouchersQuery.error.message
+                : 'Failed to load sale vouchers'
+              : null
+          }
+          adminId={adminId}
+          clientId={clientId}
+        />
+
         <Text style={styles.sectionLabel}>FIRST YACHT · SESSION CLIENT</Text>
         <FirstYachtTestCard
           report={yachtQuery.data}
@@ -677,5 +778,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
     color: colors.muted,
     textTransform: 'uppercase',
+  },
+  voucherRow: {
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    gap: 4,
+  },
+  voucherLink: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.forest,
+    textDecorationLine: 'underline',
   },
 });

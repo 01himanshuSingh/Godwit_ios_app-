@@ -27,6 +27,11 @@ export type ActiveTripDetailBase = {
   confirmationNo: string | null;
   /** e.g. "Confirmation MO-PAR-449120" */
   confirmationBadge: string | null;
+  /**
+   * CRM uploaded voucher / confirmation PDF URL (`sale.confirmationDoc`).
+   * Null when staff never uploaded a file — hide View voucher UI.
+   */
+  voucherUrl: string | null;
   paymentLabel: string | null;
   /** e.g. "Included in your trip" — VIP / chauffeur package badge */
   inclusionBadge: string | null;
