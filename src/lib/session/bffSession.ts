@@ -17,6 +17,12 @@ export type AuthSession = {
 };
 
 export async function getStoredSession(): Promise<AuthSession | null> {
+  // Dev: always use the manual static client — do not let stale SecureStore
+  // tokens shadow staticAuthSession.clientId (breaks Profile / Trips scope).
+  if (USE_STATIC_SESSION) {
+    return staticAuthSession;
+  }
+
   const [accessToken, refreshToken, clientId] = await Promise.all([
     SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
     SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
@@ -25,10 +31,6 @@ export async function getStoredSession(): Promise<AuthSession | null> {
 
   if (accessToken && refreshToken && clientId) {
     return { accessToken, refreshToken, clientId };
-  }
-
-  if (USE_STATIC_SESSION) {
-    return staticAuthSession;
   }
 
   return null;

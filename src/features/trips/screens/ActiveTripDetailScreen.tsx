@@ -26,7 +26,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppChromeHeader } from '@/features/home/components/AppChromeHeader';
 import { AirActiveTripBody } from '@/features/trips/air/AirActiveTripBody';
 import { ChauffeurActiveTripBody } from '@/features/trips/chauffeur/ChauffeurActiveTripBody';
 import { GenericActiveTripBody } from '@/features/trips/components/GenericActiveTripBody';
@@ -104,8 +103,7 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
 
   return (
     <View style={styles.root}>
-      <AppChromeHeader />
-
+      {/* AppChromeHeader from app/_layout.tsx */}
       <View style={contentColumnStyle}>
         <Pressable
           accessibilityRole="button"
