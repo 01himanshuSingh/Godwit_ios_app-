@@ -19,9 +19,9 @@ function layoutForWidth(width: number) {
   if (width < 360) {
     return {
       padH: 18,
-      padV: 10,
-      rowPadV: 22,
-      textGap: 5,
+      padV: 12,
+      rowPadV: 36,
+      textGap: 8,
       nameSize: 15,
       nameLineHeight: 20,
       detailSize: 12,
@@ -34,9 +34,9 @@ function layoutForWidth(width: number) {
   if (width < 768) {
     return {
       padH: 22,
-      padV: 10,
-      rowPadV: 24,
-      textGap: 6,
+      padV: 14,
+      rowPadV: 40,
+      textGap: 10,
       nameSize: 16,
       nameLineHeight: 22,
       detailSize: 13,
@@ -48,9 +48,9 @@ function layoutForWidth(width: number) {
   }
   return {
     padH: 26,
-    padV: 12,
-    rowPadV: 26,
-    textGap: 6,
+    padV: 16,
+    rowPadV: 44,
+    textGap: 10,
     nameSize: 17,
     nameLineHeight: 24,
     detailSize: 14,

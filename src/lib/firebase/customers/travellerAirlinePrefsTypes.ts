@@ -5,7 +5,7 @@
 
 export type TravellerAirlinePrefs = {
   customerId: string;
-  /** Not in CRM today */
+  /** preferences.preferredAirlines (aliases: airlines, preferredAirline) */
   preferredAirlines: string | null;
   /** preferences.mealRequests */
   specialMeal: string | null;
@@ -20,10 +20,14 @@ export type TravellerAirlinePrefs = {
   /** preferences.isActive */
   frequentFlyerActive: boolean | null;
   /**
-   * Header preview. Airlines missing → class · seating · meal.
+   * Header preview — airlines · class · seating · meal when present.
    */
   summaryLine: string | null;
 };
+
+/** Editable airline fields on the Commercial Airlines card. */
+export type TravellerAirlinePrefField =
+  'preferredAirlines' | 'specialMeal' | 'seatPreference' | 'airportVipRequirement';
 
 export type GetTravellerAirlinePrefsResult = {
   airlinePrefs: TravellerAirlinePrefs | null;

@@ -27,7 +27,11 @@ export function mapTravellerAirlinePrefs(
 ): TravellerAirlinePrefs {
   const p = asRecord(profileData?.preferences);
 
-  const preferredAirlines = null; // no dedicated CRM list today
+  const preferredAirlines =
+    readString(p.preferredAirlines) ||
+    readString(p.airlines) ||
+    readString(p.preferredAirline) ||
+    null;
   const specialMeal = readString(p.mealRequests);
   const seatPreference = readString(p.preferredSeating);
   const airportVipRequirement = readString(p.vipServices);

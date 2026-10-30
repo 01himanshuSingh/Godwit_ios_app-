@@ -2,7 +2,7 @@
  * Hotel prefs for one traveller (and batch helper for a client).
  *
  * Client → linked travellers → each traveller’s customerProfile.preferences
- *   roomType ✅ | preferredHotelBrands ❌ (null until CRM)
+ *   roomType + preferredHotelBrands (read/write via updateTravellerHotelPref)
  */
 
 import { doc, getDoc } from 'firebase/firestore';

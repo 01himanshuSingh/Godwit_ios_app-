@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { homeContentInset } from '@/features/home/layout/homeContentInset';
 import type { HomeViewModel } from '@/features/home/schemas/homeViewModel';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -15,14 +17,21 @@ export function GreetingSection({
   userName,
   updatesCount,
 }: GreetingSectionProps) {
+  const { width } = useWindowDimensions();
+  const inset = useMemo(() => homeContentInset(width), [width]);
   const updatesLabel = updatesCount === 1 ? '1 new update' : `${updatesCount} new updates`;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingHorizontal: inset }]}>
       <Text style={styles.eyebrow}>{familyName}</Text>
-      <Text style={styles.heading} accessibilityRole="header">
-        {greeting}, {userName}
-      </Text>
+      <View style={styles.headingRow} accessibilityRole="header">
+        <Text style={styles.headingFixed} numberOfLines={1}>
+          {greeting},{'\u00A0'}
+        </Text>
+        <Text style={styles.headingName} numberOfLines={1} ellipsizeMode="tail">
+          {userName}
+        </Text>
+      </View>
       <Text style={styles.updates}>{updatesLabel}</Text>
     </View>
   );
@@ -30,7 +39,6 @@ export function GreetingSection({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 24,
     paddingTop: 28,
     gap: 6,
   },
@@ -41,12 +49,28 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.muted,
   },
-  heading: {
-    fontFamily: fontFamily.cormorant.light,
-    fontSize: 36,
-    lineHeight: 42,
-    color: colors.forest,
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     marginTop: 4,
+    width: '100%',
+    minWidth: 0,
+  },
+  headingFixed: {
+    flexShrink: 0,
+    fontFamily: fontFamily.cormorant.light,
+    fontSize: 30,
+    lineHeight: 36,
+    color: colors.forest,
+  },
+  headingName: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    fontFamily: fontFamily.cormorant.light,
+    fontSize: 30,
+    lineHeight: 36,
+    color: colors.forest,
   },
   updates: {
     fontFamily: fontFamily.manrope.regular,

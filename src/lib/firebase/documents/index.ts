@@ -7,6 +7,13 @@
  *   fetch → getClientTripDocuments.ts
  *           getClientTripDocumentsPage (cursor) → UI infinite query
  *           getClientTripDocuments (full drain) → rare / testing
+ *
+ * Personal tab:
+ *   types → personalDocumentTypes.ts
+ *   map   → mapCustomerProfileToPersonalDocs.ts
+ *   fetch → getClientPersonalDocuments.ts
+ *           getClientPersonalDocumentsPage (traveller offset) → UI infinite query
+ *           getClientPersonalDocuments (full drain) → rare / testing
  */
 
 export type {
@@ -24,3 +31,20 @@ export {
   getClientTripDocuments,
   getClientTripDocumentsSafe,
 } from './getClientTripDocuments';
+
+export type {
+  PersonalDocType,
+  PersonalDocumentItem,
+  PersonalDocumentsPageCursor,
+  ClientPersonalDocumentsPage,
+  GetClientPersonalDocumentsResult,
+} from './personalDocumentTypes';
+
+export { mapCustomerProfileToPersonalDocs } from './mapCustomerProfileToPersonalDocs';
+
+export {
+  PERSONAL_DOCS_TRAVELLER_PAGE_SIZE,
+  getClientPersonalDocumentsPage,
+  getClientPersonalDocuments,
+  getClientPersonalDocumentsSafe,
+} from './getClientPersonalDocuments';

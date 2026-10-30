@@ -1,27 +1,31 @@
+/**
+ * Home trip spotlight — current cluster, or upcoming when none current.
+ * Mock: cover + title + dates + party + place + next + service icons + View trip.
+ */
 import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { homeContentInset } from '@/features/home/layout/homeContentInset';
 import type {
-  HomeTripService,
-  HomeUpcomingTripsSummary,
-} from '@/features/home/schemas/homeViewModel';
+  ClientCurrentTripCard,
+  CurrentTripServiceIcon,
+} from '@/lib/firebase/sales/currentTrip';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
 type CurrentTripCardProps = {
-  trip: HomeUpcomingTripsSummary;
-  onViewTrips?: () => void;
-  /** Section eyebrow above the card. Hide on Trips screen (page title already covers it). */
-  showSectionLabel?: boolean;
+  card: ClientCurrentTripCard;
+  onViewTrip?: (primarySaleId: string, saleIds: string[]) => void;
 };
 
-function ServiceIcon({ icon }: { icon: HomeTripService['icon'] }) {
+function ServiceIcon({ icon }: { icon: CurrentTripServiceIcon }) {
   const tint = colors.muted;
-
   switch (icon) {
     case 'private-jet':
+    case 'flight':
       return <Ionicons name="airplane-outline" size={18} color={tint} />;
     case 'villa':
       return <Feather name="home" size={17} color={tint} />;
@@ -29,63 +33,80 @@ function ServiceIcon({ icon }: { icon: HomeTripService['icon'] }) {
       return <Ionicons name="car-outline" size={18} color={tint} />;
     case 'yacht':
       return <Ionicons name="boat-outline" size={18} color={tint} />;
+    case 'vip':
+      return <Ionicons name="people-outline" size={18} color={tint} />;
+    case 'experience':
+      return <Ionicons name="star-outline" size={17} color={tint} />;
     default:
-      return null;
+      return <Feather name="briefcase" size={16} color={tint} />;
   }
 }
 
-/**
- * Reusable booked-trips summary card (image + meta + services + View trips).
- * Saved for later surfaces — currently not mounted on Trips → Upcoming.
- */
-export function CurrentTripCard({
-  trip,
-  onViewTrips,
-  showSectionLabel = true,
-}: CurrentTripCardProps) {
+export function CurrentTripCard({ card, onViewTrip }: CurrentTripCardProps) {
+  const { width } = useWindowDimensions();
+  const inset = useMemo(() => homeContentInset(width), [width]);
+
   return (
-    <View style={[styles.section, !showSectionLabel && styles.sectionCompact]}>
-      {showSectionLabel ? <Text style={styles.sectionLabel}>Your Upcoming Trips</Text> : null}
+    <View style={[styles.section, { paddingHorizontal: inset }]}>
+      <Text style={styles.sectionLabel}>{card.sectionLabel}</Text>
 
       <View style={styles.card}>
         <Image
-          source={{ uri: trip.imageUrl }}
+          source={{ uri: card.coverUrl }}
           style={styles.image}
           contentFit="cover"
-          accessibilityLabel="Your upcoming trips summary"
+          accessibilityLabel={`${card.title} cover`}
         />
 
         <View style={styles.body}>
-          <Text style={styles.title}>{trip.title}</Text>
-          <Text style={styles.meta}>{trip.dateSummary}</Text>
-          <Text style={styles.meta}>{trip.partySummary}</Text>
-          <Text style={styles.stay}>{trip.stayLabel}</Text>
+          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+            {card.title}
+          </Text>
+          <Text style={styles.meta} numberOfLines={2} ellipsizeMode="tail">
+            {card.dateSummary}
+          </Text>
+          <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">
+            {card.partySummary}
+          </Text>
+          {card.placeLine ? (
+            <Text style={styles.stay} numberOfLines={2} ellipsizeMode="tail">
+              {card.placeLine}
+            </Text>
+          ) : null}
 
           <View style={styles.divider} />
 
-          <Text style={styles.nextLine}>
-            <Text style={styles.nextPrefix}>Next — </Text>
-            <Text style={styles.nextValue}>{trip.nextServiceLabel}</Text>
-          </Text>
+          {card.nextUp ? (
+            <Text style={styles.nextLine} numberOfLines={2} ellipsizeMode="tail">
+              <Text style={styles.nextPrefix}>Next — </Text>
+              <Text style={styles.nextValue}>{card.nextUp.displayLabel}</Text>
+            </Text>
+          ) : null}
 
-          <View style={styles.services}>
-            {trip.services.map((service) => (
-              <View key={service.id} style={styles.serviceItem}>
-                <ServiceIcon icon={service.icon} />
-                <Text style={styles.serviceLabel}>{service.label}</Text>
-              </View>
-            ))}
-          </View>
+          {card.services.length > 0 ? (
+            <View style={styles.services}>
+              {card.services.map((service) => (
+                <View key={service.id} style={styles.serviceItem}>
+                  <ServiceIcon icon={service.icon} />
+                  <Text style={styles.serviceLabel}>{service.label}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="View trips"
-            onPress={onViewTrips}
+            accessibilityLabel="View trip"
+            onPress={() => onViewTrip?.(card.primarySaleId, card.saleIds)}
             hitSlop={8}
-            style={({ pressed }) => [styles.viewTrip, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.viewTripHit, pressed && styles.pressed]}
           >
-            <Text style={styles.viewTripLabel}>View trips</Text>
-            <Feather name="arrow-right" size={16} color={colors.forest} />
+            <View style={styles.viewTripRow}>
+              <Text style={styles.viewTripLabel} numberOfLines={1}>
+                View trip
+              </Text>
+              <Feather name="arrow-right" size={16} color={colors.forest} />
+            </View>
           </Pressable>
         </View>
       </View>
@@ -95,23 +116,20 @@ export function CurrentTripCard({
 
 const styles = StyleSheet.create({
   section: {
-    paddingHorizontal: 24,
-    marginTop: 32,
-    gap: 14,
-  },
-  sectionCompact: {
-    marginTop: 20,
+    marginTop: 28,
+    gap: 12,
   },
   sectionLabel: {
     fontFamily: fontFamily.manrope.medium,
     fontSize: 11,
     letterSpacing: 11 * 0.16,
     color: colors.muted,
+    textTransform: 'uppercase',
   },
   card: {
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     shadowColor: '#1B2915',
@@ -123,10 +141,11 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     aspectRatio: 16 / 10,
+    backgroundColor: colors.surface,
   },
   body: {
-    paddingHorizontal: 22,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 18,
     paddingBottom: 18,
   },
   title: {
@@ -185,15 +204,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.muted,
   },
-  viewTrip: {
+  viewTripHit: {
+    alignSelf: 'flex-start',
+  },
+  viewTripRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    flexWrap: 'nowrap',
     gap: 6,
   },
   viewTripLabel: {
+    flexShrink: 0,
     fontFamily: fontFamily.manrope.semibold,
     fontSize: 15,
+    lineHeight: 20,
     color: colors.forest,
   },
   pressed: {

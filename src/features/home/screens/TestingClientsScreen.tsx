@@ -29,6 +29,11 @@ import {
   testClientSaleVouchers,
   type ClientSaleVouchersReport,
 } from '@/lib/firebase/testing/api/testClientSaleVouchers';
+import {
+  logClientPersonalDocuments,
+  testClientPersonalDocuments,
+  type ClientPersonalDocumentsReport,
+} from '@/lib/firebase/testing/api/testClientPersonalDocuments';
 import { openSaleVoucherPdf } from '@/lib/firebase/sales/getSaleVoucherPdf';
 import {
   getClientTrips,
@@ -337,6 +342,75 @@ function SaleVouchersTestCard({
   );
 }
 
+/** Session travellers → customerProfile passports / visas / memberships with docUrl. */
+function PersonalDocumentsTestCard({
+  report,
+  isLoading,
+  errorMessage,
+  adminId,
+  clientId,
+}: {
+  report: ClientPersonalDocumentsReport | undefined;
+  isLoading: boolean;
+  errorMessage: string | null;
+  adminId: string;
+  clientId: string;
+}) {
+  const statusNote =
+    errorMessage ||
+    report?.errorMessage ||
+    (!report && !isLoading ? 'Waiting for backend…' : null) ||
+    (report && report.documentsFound === 0
+      ? report.travellersScanned === 0
+        ? 'No personal docs — no travellers linked to this client'
+        : `No personal docs on ${report.travellersScanned} travellers`
+      : null);
+
+  return (
+    <View style={styles.hotelRoomCard}>
+      <Text style={styles.hotelRoomCardTitle}>PERSONAL DOCS · passport / visa / membership</Text>
+      {isLoading && !report ? (
+        <ActivityIndicator color={colors.forest} style={{ marginVertical: 8 }} />
+      ) : null}
+      <Text style={styles.clientMeta} selectable>
+        travellers: {report?.travellersScanned ?? '—'} · with docUrl:{' '}
+        {report?.documentsFound ?? '—'}
+      </Text>
+      <Text style={styles.clientMeta} selectable>
+        adminId: {report?.adminId ?? adminId} · clientId: {report?.clientId ?? clientId}
+      </Text>
+      {report?.documents.map((d) => (
+        <View key={d.id} style={styles.voucherRow}>
+          <Text style={styles.hotelRoomValue} selectable>
+            {d.title}
+          </Text>
+          <Text style={styles.clientMeta} selectable>
+            type: {d.type} · customerId: {d.customerId}
+          </Text>
+          {d.metaLine ? (
+            <Text style={styles.clientMeta} selectable>
+              {d.metaLine}
+            </Text>
+          ) : null}
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={`Open ${d.title}`}
+            onPress={() => {
+              void openSaleVoucherPdf(d.url);
+            }}
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <Text style={styles.voucherLink} selectable>
+              {d.url}
+            </Text>
+          </Pressable>
+        </View>
+      ))}
+      {statusNote ? <Text style={styles.emptyText}>{statusNote}</Text> : null}
+    </View>
+  );
+}
+
 function HotelConfirmationTestCard({
   report,
   isLoading,
@@ -466,6 +540,18 @@ export function TestingClientsScreen() {
     retry: 2,
   });
 
+  /** Session travellers → personal docs with docUrl (Testing tab only). */
+  const personalDocsQuery = useQuery({
+    queryKey: ['testing', 'personal-documents', adminId, clientId],
+    queryFn: async () => {
+      const report = await testClientPersonalDocuments(adminId, clientId);
+      logClientPersonalDocuments(report);
+      return report;
+    },
+    enabled: Boolean(adminId && clientId),
+    retry: 2,
+  });
+
   const loading = isPending;
   const connected = data?.connected ?? false;
   const message =
@@ -482,6 +568,7 @@ export function TestingClientsScreen() {
     void roomTypeQuery.refetch();
     void yachtQuery.refetch();
     void vouchersQuery.refetch();
+    void personalDocsQuery.refetch();
   };
 
   return (
@@ -499,7 +586,8 @@ export function TestingClientsScreen() {
             confirmationQuery.isFetching ||
             roomTypeQuery.isFetching ||
             yachtQuery.isFetching ||
-            vouchersQuery.isFetching
+            vouchersQuery.isFetching ||
+            personalDocsQuery.isFetching
           }
           style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed]}
         >
@@ -509,6 +597,21 @@ export function TestingClientsScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Always visible on Test tab render — session adminId / clientId */}
+        <Text style={styles.sectionLabel}>PERSONAL DOCS · SESSION CLIENT</Text>
+        <PersonalDocumentsTestCard
+          report={personalDocsQuery.data}
+          isLoading={personalDocsQuery.isPending || personalDocsQuery.isFetching}
+          errorMessage={
+            personalDocsQuery.isError
+              ? personalDocsQuery.error instanceof Error
+                ? personalDocsQuery.error.message
+                : 'Failed to load personal documents'
+              : null
+          }
+          adminId={adminId}
+          clientId={clientId}
+        />
+
         <Text style={styles.sectionLabel}>SALE VOUCHERS · SESSION CLIENT</Text>
         <SaleVouchersTestCard
           report={vouchersQuery.data}

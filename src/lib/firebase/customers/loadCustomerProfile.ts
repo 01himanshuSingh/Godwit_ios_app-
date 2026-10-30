@@ -17,42 +17,62 @@ import {
   query,
   where,
   type DocumentData,
+  type DocumentReference,
   type QuerySnapshot,
 } from 'firebase/firestore';
 
 import { db } from '@/lib/firebase/firestore';
 
-function firstDocData(snap: QuerySnapshot): DocumentData | null {
+export type CustomerProfileSnapshot = {
+  data: DocumentData;
+  ref: DocumentReference;
+};
+
+function firstDoc(snap: QuerySnapshot): CustomerProfileSnapshot | null {
   if (snap.empty) return null;
-  return snap.docs[0]?.data() ?? null;
+  const d = snap.docs[0];
+  if (!d) return null;
+  return { data: d.data(), ref: d.ref };
 }
 
-export async function loadCustomerProfile(
+/**
+ * Resolve profile data + DocumentReference (needed for preference writes).
+ */
+export async function loadCustomerProfileSnapshot(
   adminId: string,
   customerId: string,
-): Promise<DocumentData | null> {
+): Promise<CustomerProfileSnapshot | null> {
   const aid = adminId.trim();
   const cid = customerId.trim();
   if (!aid || !cid) return null;
 
   const nested = await getDocs(collection(db, 'admins', aid, 'customers', cid, 'customerProfile'));
-  const fromNested = firstDocData(nested);
+  const fromNested = firstDoc(nested);
   if (fromNested) return fromNested;
 
   try {
     const byGroup = await getDocs(
       query(collectionGroup(db, 'customerProfile'), where('customerId', '==', cid), limit(1)),
     );
-    const fromGroup = firstDocData(byGroup);
+    const fromGroup = firstDoc(byGroup);
     if (fromGroup) return fromGroup;
   } catch (error) {
-    console.warn('[loadCustomerProfile] collectionGroup failed:', error);
+    console.warn('[loadCustomerProfileSnapshot] collectionGroup failed:', error);
   }
 
-  const legacy = await getDoc(doc(db, 'admins', aid, 'customerProfile', cid));
+  const legacyRef = doc(db, 'admins', aid, 'customerProfile', cid);
+  const legacy = await getDoc(legacyRef);
   if (legacy.exists()) {
-    return legacy.data();
+    return { data: legacy.data(), ref: legacyRef };
   }
 
   return null;
+}
+
+export async function loadCustomerProfile(
+  adminId: string,
+  customerId: string,
+): Promise<DocumentData | null> {
+  const snap = await loadCustomerProfileSnapshot(adminId, customerId);
+  return snap?.data ?? null;
 }

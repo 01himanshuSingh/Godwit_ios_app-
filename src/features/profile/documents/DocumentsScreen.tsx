@@ -1,7 +1,7 @@
 /**
  * Profile → Documents.
  * Trips: paginated client sales with confirmationDoc (infinite query).
- * Personal: placeholder (traveller / identity docs later).
+ * Personal: paginated travellers → customerProfile passports / visas / memberships.
  */
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -12,9 +12,13 @@ import {
   DocumentsTabs,
   type DocumentsTabId,
 } from '@/features/profile/documents/components/DocumentsTabs';
+import { PersonalDocumentsListCard } from '@/features/profile/documents/components/PersonalDocumentsListCard';
 import { TripDocumentsListCard } from '@/features/profile/documents/components/TripDocumentsListCard';
 import {
+  getClientPersonalDocumentsPage,
   getClientTripDocumentsPage,
+  type PersonalDocumentItem,
+  type PersonalDocumentsPageCursor,
   type TripDocumentItem,
   type TripDocumentsPageCursor,
 } from '@/lib/firebase/documents';
@@ -29,27 +33,44 @@ export function DocumentsScreen() {
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
   const [tab, setTab] = useState<DocumentsTabId>('trips');
 
-  const {
-    data,
-    error,
-    isPending,
-    isError,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    refetch,
-    isRefetching,
-  } = useInfiniteQuery({
+  const sessionReady = !isHydrating && Boolean(adminId && clientId);
+
+  const trips = useInfiniteQuery({
     queryKey: ['profile', 'documents', 'trips', adminId, clientId],
     initialPageParam: null as TripDocumentsPageCursor,
     queryFn: async ({ pageParam }) => getClientTripDocumentsPage(adminId, clientId, pageParam),
     getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),
-    enabled: !isHydrating && Boolean(adminId && clientId) && tab === 'trips',
+    enabled: sessionReady && tab === 'trips',
     retry: 2,
   });
 
-  const documents = useMemo(() => {
-    const merged = data?.pages.flatMap((p) => p.documents) ?? [];
+  const personal = useInfiniteQuery({
+    queryKey: ['profile', 'documents', 'personal', adminId, clientId],
+    initialPageParam: null as PersonalDocumentsPageCursor,
+    queryFn: async ({ pageParam }) => getClientPersonalDocumentsPage(adminId, clientId, pageParam),
+    getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),
+    enabled: sessionReady && tab === 'personal',
+    retry: 2,
+  });
+
+  const {
+    hasNextPage: tripsHasNextPage,
+    isFetchingNextPage: tripsIsFetchingNextPage,
+    isPending: tripsIsPending,
+    isError: tripsIsError,
+    fetchNextPage: fetchNextTripsPage,
+  } = trips;
+
+  const {
+    hasNextPage: personalHasNextPage,
+    isFetchingNextPage: personalIsFetchingNextPage,
+    isPending: personalIsPending,
+    isError: personalIsError,
+    fetchNextPage: fetchNextPersonalPage,
+  } = personal;
+
+  const tripDocuments = useMemo(() => {
+    const merged = trips.data?.pages.flatMap((p) => p.documents) ?? [];
     const byPath = new Map<string, TripDocumentItem>();
     for (const doc of merged) {
       byPath.set(doc.documentPath, doc);
@@ -57,25 +78,87 @@ export function DocumentsScreen() {
     return [...byPath.values()].sort((a, b) =>
       String(b.travelDateKey || '').localeCompare(String(a.travelDateKey || '')),
     );
-  }, [data]);
+  }, [trips.data]);
+
+  const personalDocuments = useMemo(() => {
+    const merged = personal.data?.pages.flatMap((p) => p.documents) ?? [];
+    const byPath = new Map<string, PersonalDocumentItem>();
+    for (const doc of merged) {
+      byPath.set(doc.documentPath, doc);
+    }
+    return [...byPath.values()].sort((a, b) =>
+      String(b.dateKey || '').localeCompare(String(a.dateKey || '')),
+    );
+  }, [personal.data]);
 
   // Many sales lack confirmationDoc — keep scanning until we have rows or exhaust.
   useEffect(() => {
     if (tab !== 'trips') return;
-    if (documents.length === 0 && hasNextPage && !isFetchingNextPage && !isPending && !isError) {
-      void fetchNextPage();
+    if (
+      tripDocuments.length === 0 &&
+      tripsHasNextPage &&
+      !tripsIsFetchingNextPage &&
+      !tripsIsPending &&
+      !tripsIsError
+    ) {
+      void fetchNextTripsPage();
     }
-  }, [tab, documents.length, hasNextPage, isFetchingNextPage, isPending, isError, fetchNextPage]);
+  }, [
+    tab,
+    tripDocuments.length,
+    tripsHasNextPage,
+    tripsIsFetchingNextPage,
+    tripsIsPending,
+    tripsIsError,
+    fetchNextTripsPage,
+  ]);
 
-  const loading =
+  // Keep scanning travellers until we surface docs or exhaust the list.
+  useEffect(() => {
+    if (tab !== 'personal') return;
+    if (
+      personalDocuments.length === 0 &&
+      personalHasNextPage &&
+      !personalIsFetchingNextPage &&
+      !personalIsPending &&
+      !personalIsError
+    ) {
+      void fetchNextPersonalPage();
+    }
+  }, [
+    tab,
+    personalDocuments.length,
+    personalHasNextPage,
+    personalIsFetchingNextPage,
+    personalIsPending,
+    personalIsError,
+    fetchNextPersonalPage,
+  ]);
+
+  const tripsLoading =
     tab === 'trips' &&
-    (isHydrating || isPending || (documents.length === 0 && Boolean(hasNextPage) && !isError));
+    (isHydrating ||
+      trips.isPending ||
+      (tripDocuments.length === 0 && Boolean(trips.hasNextPage) && !trips.isError));
 
-  const loadError =
-    tab === 'trips' && isError
-      ? error instanceof Error
-        ? error.message
+  const personalLoading =
+    tab === 'personal' &&
+    (isHydrating ||
+      personal.isPending ||
+      (personalDocuments.length === 0 && Boolean(personal.hasNextPage) && !personal.isError));
+
+  const tripsError =
+    tab === 'trips' && trips.isError
+      ? trips.error instanceof Error
+        ? trips.error.message
         : 'Failed to load trip documents'
+      : null;
+
+  const personalError =
+    tab === 'personal' && personal.isError
+      ? personal.error instanceof Error
+        ? personal.error.message
+        : 'Failed to load personal documents'
       : null;
 
   return (
@@ -84,36 +167,36 @@ export function DocumentsScreen() {
 
       {tab === 'trips' ? (
         <>
-          {loading ? (
+          {tripsLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator color={colors.forest} />
-              {documents.length === 0 && hasNextPage ? (
+              {tripDocuments.length === 0 && trips.hasNextPage ? (
                 <Text style={styles.scanning}>Looking for trip documents…</Text>
               ) : null}
             </View>
           ) : null}
 
-          {!loading && loadError ? (
+          {!tripsLoading && tripsError ? (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{loadError}</Text>
-              <Pressable onPress={() => void refetch()} style={styles.retry}>
-                <Text style={styles.retryLabel}>{isRefetching ? 'Retrying…' : 'Retry'}</Text>
+              <Text style={styles.errorText}>{tripsError}</Text>
+              <Pressable onPress={() => void trips.refetch()} style={styles.retry}>
+                <Text style={styles.retryLabel}>{trips.isRefetching ? 'Retrying…' : 'Retry'}</Text>
               </Pressable>
             </View>
           ) : null}
 
-          {!loading && !loadError ? (
+          {!tripsLoading && !tripsError ? (
             <>
-              <TripDocumentsListCard documents={documents} />
-              {hasNextPage ? (
+              <TripDocumentsListCard documents={tripDocuments} />
+              {trips.hasNextPage ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Load more documents"
-                  disabled={isFetchingNextPage}
-                  onPress={() => void fetchNextPage()}
+                  accessibilityLabel="Load more trip documents"
+                  disabled={trips.isFetchingNextPage}
+                  onPress={() => void trips.fetchNextPage()}
                   style={({ pressed }) => [styles.loadMore, pressed && styles.pressed]}
                 >
-                  {isFetchingNextPage ? (
+                  {trips.isFetchingNextPage ? (
                     <ActivityIndicator color={colors.forest} />
                   ) : (
                     <Text style={styles.loadMoreLabel}>Load more</Text>
@@ -124,9 +207,48 @@ export function DocumentsScreen() {
           ) : null}
         </>
       ) : (
-        <View style={styles.personalBox}>
-          <Text style={styles.personalText}>Personal travel documents will appear here.</Text>
-        </View>
+        <>
+          {personalLoading ? (
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.forest} />
+              {personalDocuments.length === 0 && personal.hasNextPage ? (
+                <Text style={styles.scanning}>Looking for personal documents…</Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          {!personalLoading && personalError ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{personalError}</Text>
+              <Pressable onPress={() => void personal.refetch()} style={styles.retry}>
+                <Text style={styles.retryLabel}>
+                  {personal.isRefetching ? 'Retrying…' : 'Retry'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {!personalLoading && !personalError ? (
+            <>
+              <PersonalDocumentsListCard documents={personalDocuments} />
+              {personal.hasNextPage ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Load more personal documents"
+                  disabled={personal.isFetchingNextPage}
+                  onPress={() => void personal.fetchNextPage()}
+                  style={({ pressed }) => [styles.loadMore, pressed && styles.pressed]}
+                >
+                  {personal.isFetchingNextPage ? (
+                    <ActivityIndicator color={colors.forest} />
+                  ) : (
+                    <Text style={styles.loadMoreLabel}>Load more</Text>
+                  )}
+                </Pressable>
+              ) : null}
+            </>
+          ) : null}
+        </>
       )}
     </ProfileSectionShell>
   );
@@ -176,19 +298,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.manrope.medium,
     fontSize: 14,
     color: colors.forest,
-  },
-  personalBox: {
-    borderRadius: 20,
-    backgroundColor: '#F8F7F4',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: 20,
-  },
-  personalText: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
   },
   pressed: {
     opacity: 0.7,

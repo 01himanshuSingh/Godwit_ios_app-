@@ -51,9 +51,10 @@ function titleCaseWords(value: string): string {
 }
 
 /**
- * "Ruchir Modi" → "Modi Family"
- * "Modi Family" / "MODI FAMILY" → "Modi Family"
- * "Himanshu" → "Himanshu Family"
+ * Hero / Profile family eyebrow from client display name.
+ *   "Ruchir Modi"  → "Modi Family"   (surname present)
+ *   "Modi Family"  → "Modi Family"   (already family-labelled)
+ *   "Himanshu"     → "Himanshu"      (single name — no "Family" suffix)
  */
 export function familyLabelFromClientName(name: string | null | undefined): string {
   const trimmed = name?.trim() ?? '';
@@ -61,13 +62,19 @@ export function familyLabelFromClientName(name: string | null | undefined): stri
     return 'Family';
   }
 
-  if (/\bfamily\b/i.test(trimmed)) {
-    return titleCaseWords(trimmed.replace(/\s+/g, ' '));
+  const normalized = trimmed.replace(/\s+/g, ' ');
+
+  if (/\bfamily\b/i.test(normalized)) {
+    return titleCaseWords(normalized);
   }
 
-  const parts = trimmed.split(/\s+/).filter(Boolean);
-  const last = parts[parts.length - 1] ?? trimmed;
-  return `${titleCaseWords(last)} Family`;
+  const parts = normalized.split(' ').filter(Boolean);
+  if (parts.length < 2) {
+    return titleCaseWords(parts[0] ?? normalized);
+  }
+
+  const surname = parts[parts.length - 1] ?? normalized;
+  return `${titleCaseWords(surname)} Family`;
 }
 
 function mapDirector(data: DocumentData): { name: string | null; title: string | null } {

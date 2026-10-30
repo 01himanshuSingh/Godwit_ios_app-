@@ -17,6 +17,11 @@
  *     load → loadCustomerProfile.ts
  *             nested customers/{id}/customerProfile → collectionGroup → legacy
  *
+ *   travel docs:
+ *     types → travellerTravelDocTypes.ts
+ *     map   → mapTravellerTravelDocs.ts
+ *     fetch → getTravellerTravelDocs.ts
+ *
  *   loyalty:
  *     types → travellerLoyaltyTypes.ts
  *     map   → mapTravellerLoyalty.ts
@@ -26,11 +31,13 @@
  *     types → travellerHotelPrefsTypes.ts
  *     map   → mapTravellerHotelPrefs.ts
  *     fetch → getTravellerHotelPrefs.ts
+ *     write → updateTravellerHotelPrefs.ts
  *
  *   airlines:
  *     types → travellerAirlinePrefsTypes.ts
  *     map   → mapTravellerAirlinePrefs.ts
  *     fetch → getTravellerAirlinePrefs.ts
+ *     write → updateTravellerAirlinePrefs.ts
  */
 
 export type { ClientTraveller, GetTravellersForClientResult } from './travellerTypes';
@@ -51,7 +58,20 @@ export {
   getTravellerPersonalDetailsSafe,
 } from './getTravellerPersonalDetails';
 
-export { loadCustomerProfile } from './loadCustomerProfile';
+export { loadCustomerProfile, loadCustomerProfileSnapshot } from './loadCustomerProfile';
+export type { CustomerProfileSnapshot } from './loadCustomerProfile';
+
+export type {
+  TravelDocStatus,
+  TravelDocType,
+  TravelDocItem,
+  TravellerTravelDocs,
+  GetTravellerTravelDocsResult,
+} from './travellerTravelDocTypes';
+
+export { mapTravellerTravelDocs } from './mapTravellerTravelDocs';
+
+export { getTravellerTravelDocs, getTravellerTravelDocsSafe } from './getTravellerTravelDocs';
 
 export type {
   TravellerLoyalty,
@@ -63,7 +83,11 @@ export { mapTravellerLoyalty, maskLast4 } from './mapTravellerLoyalty';
 
 export { getTravellerLoyalty, getTravellerLoyaltySafe } from './getTravellerLoyalty';
 
-export type { TravellerHotelPrefs, GetTravellerHotelPrefsResult } from './travellerHotelPrefsTypes';
+export type {
+  TravellerHotelPrefs,
+  TravellerHotelPrefField,
+  GetTravellerHotelPrefsResult,
+} from './travellerHotelPrefsTypes';
 
 export { mapTravellerHotelPrefs } from './mapTravellerHotelPrefs';
 
@@ -73,8 +97,15 @@ export {
   getClientTravellersHotelPrefs,
 } from './getTravellerHotelPrefs';
 
+export {
+  updateTravellerHotelPref,
+  updateTravellerHotelPrefSafe,
+} from './updateTravellerHotelPrefs';
+export type { UpdateTravellerHotelPrefsResult } from './updateTravellerHotelPrefs';
+
 export type {
   TravellerAirlinePrefs,
+  TravellerAirlinePrefField,
   GetTravellerAirlinePrefsResult,
 } from './travellerAirlinePrefsTypes';
 
@@ -85,3 +116,9 @@ export {
   getTravellerAirlinePrefsSafe,
   getClientTravellersAirlinePrefs,
 } from './getTravellerAirlinePrefs';
+
+export {
+  updateTravellerAirlinePref,
+  updateTravellerAirlinePrefSafe,
+} from './updateTravellerAirlinePrefs';
+export type { UpdateTravellerAirlinePrefsResult } from './updateTravellerAirlinePrefs';

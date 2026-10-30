@@ -116,14 +116,15 @@ export function PersonalDetailsCard({
         accessibilityState={{ expanded }}
         accessibilityLabel="Personal details"
         onPress={toggle}
-        style={({ pressed }) => [styles.headerRow, pressed && styles.pressed]}
+        hitSlop={8}
+        style={({ pressed }) => [styles.header, pressed && styles.pressed]}
       >
-        <View style={styles.headerText}>
-          <Text
-            style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
-          >
-            PERSONAL DETAILS
-          </Text>
+        <Text
+          style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
+        >
+          PERSONAL DETAILS
+        </Text>
+        <View style={styles.summaryRow}>
           <Text
             style={[
               styles.summary,
@@ -137,12 +138,14 @@ export function PersonalDetailsCard({
           >
             {summary}
           </Text>
+          <View style={styles.chevronWrap} pointerEvents="none">
+            <Feather
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={layout.chevronSize}
+              color="#C4C0B8"
+            />
+          </View>
         </View>
-        <Feather
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={layout.chevronSize}
-          color="#C4C0B8"
-        />
       </Pressable>
 
       {expanded ? (
@@ -191,24 +194,33 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 6,
+  header: {
+    width: '100%',
+    gap: 8,
   },
   sectionLabel: {
     fontFamily: fontFamily.manrope.medium,
     color: colors.muted,
     textTransform: 'uppercase',
   },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    width: '100%',
+  },
   summary: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamily.manrope.medium,
-    color: colors.forest,
+    color: colors.muted,
+  },
+  chevronWrap: {
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 4,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

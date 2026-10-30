@@ -14,6 +14,10 @@ import { fontFamily } from '@/ui/tokens/typography';
 type ProfileSectionShellProps = {
   title: string;
   subtitle?: string | null;
+  /**
+   * Optional control aligned with the subtitle row (e.g. Payments → Account statement).
+   */
+  subtitleTrailing?: ReactNode;
   /** Back row label — default "Profile". Detail screens pass "Travellers". */
   backLabel?: string;
   children?: ReactNode;
@@ -71,6 +75,7 @@ function layoutForWidth(width: number) {
 export function ProfileSectionShell({
   title,
   subtitle,
+  subtitleTrailing,
   backLabel = 'Profile',
   children,
 }: ProfileSectionShellProps) {
@@ -78,6 +83,7 @@ export function ProfileSectionShell({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const layout = useMemo(() => layoutForWidth(width), [width]);
+  const showSubtitleRow = Boolean(subtitle) || Boolean(subtitleTrailing);
 
   return (
     <View style={styles.root}>
@@ -138,20 +144,36 @@ export function ProfileSectionShell({
         >
           {title}
         </Text>
-        {subtitle ? (
-          <Text
+        {showSubtitleRow ? (
+          <View
             style={[
-              styles.subtitle,
+              styles.subtitleRow,
               {
-                fontSize: layout.subtitleSize,
-                lineHeight: layout.subtitleLineHeight,
                 marginTop: layout.titleToSubtitle,
+                gap: width < 360 ? 10 : 16,
               },
             ]}
-            selectable
           >
-            {subtitle}
-          </Text>
+            {subtitle ? (
+              <Text
+                style={[
+                  styles.subtitle,
+                  {
+                    fontSize: layout.subtitleSize,
+                    lineHeight: layout.subtitleLineHeight,
+                  },
+                ]}
+                selectable
+              >
+                {subtitle}
+              </Text>
+            ) : (
+              <View style={styles.subtitleSpacer} />
+            )}
+            {subtitleTrailing ? (
+              <View style={styles.subtitleTrailing}>{subtitleTrailing}</View>
+            ) : null}
+          </View>
         ) : null}
         <View style={[styles.body, { marginTop: layout.bodyTop }]}>{children}</View>
       </ScrollView>
@@ -192,9 +214,26 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.cormorant.regular,
     color: colors.forest,
   },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
   subtitle: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamily.manrope.regular,
     color: colors.muted,
+  },
+  subtitleSpacer: {
+    flex: 1,
+    minWidth: 0,
+  },
+  subtitleTrailing: {
+    flexShrink: 0,
+    maxWidth: '42%',
+    alignItems: 'flex-end',
   },
   body: {
     gap: 12,

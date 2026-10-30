@@ -21,6 +21,19 @@ function asRecord(value: unknown): DocumentData {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as DocumentData) : {};
 }
 
+function readBrands(pref: DocumentData, fromList: DocumentData): string | null {
+  return (
+    readString(pref.preferredHotelBrands) ||
+    readString(pref.hotelBrands) ||
+    readString(pref.preferredHotels) ||
+    readString(pref.hotelBrandPreferences) ||
+    readString(fromList.preferredHotelBrands) ||
+    readString(fromList.hotelBrands) ||
+    readString(fromList.preferredHotels) ||
+    null
+  );
+}
+
 export function mapTravellerHotelPrefs(
   customerId: string,
   profileData: DocumentData | null | undefined,
@@ -31,12 +44,10 @@ export function mapTravellerHotelPrefs(
   const fromList = asRecord(travellerList[0]);
 
   const preferredRoomType = readString(pref.roomType) || readString(fromList.roomType) || null;
+  const preferredHotelBrands = readBrands(pref, fromList);
 
   const specialRequests =
     readString(pref.specialRequests) || readString(fromList.specialRequests) || null;
-
-  // No dedicated traveller hotel-brands list in CRM
-  const preferredHotelBrands = null;
 
   const summaryBits = [preferredHotelBrands, preferredRoomType].filter(Boolean) as string[];
 

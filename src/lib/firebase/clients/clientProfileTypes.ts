@@ -12,8 +12,9 @@ export type ClientProfileView = {
   /** ACCOUNT email — `contactEmail` / `email`. */
   contactEmail: string | null;
   /**
-   * Hero subtitle — last name + " Family", or name if it already includes Family.
-   * e.g. "Modi Family"
+   * Hero / Profile eyebrow:
+   * surname + " Family" when a last name exists; single given name otherwise.
+   * e.g. "Modi Family" | "Himanshu"
    */
   familyLabel: string;
   /** ACCOUNT role — `accountRole` / `role` / else `Principal - {familyLabel}`. */
