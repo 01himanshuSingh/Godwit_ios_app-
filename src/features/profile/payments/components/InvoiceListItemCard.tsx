@@ -1,6 +1,7 @@
 /**
  * One invoice = one card.
- * Responsive type + padding: title/meta stay readable; amount never crushes the left column.
+ * Visual styles live on <View>, not on Pressable function styles (NativeWind-safe).
+ * Text stays inside the card; amount never crushes the title on small phones.
  */
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -26,7 +27,8 @@ type InvoiceCardLayout = {
   metaLineHeight: number;
   amountSize: number;
   amountLineHeight: number;
-  /** Fixed px cap so amount column doesn't steal title space */
+  /** Stack amount under title on very narrow screens */
+  stack: boolean;
   amountColMax: number;
 };
 
@@ -34,7 +36,7 @@ function layoutForWidth(width: number): InvoiceCardLayout {
   if (width < 360) {
     return {
       padH: 16,
-      padV: 18,
+      padV: 16,
       radius: 16,
       colGap: 10,
       textGap: 6,
@@ -42,15 +44,16 @@ function layoutForWidth(width: number): InvoiceCardLayout {
       titleLineHeight: 19,
       metaSize: 11,
       metaLineHeight: 15,
-      amountSize: 15,
-      amountLineHeight: 19,
-      amountColMax: 108,
+      amountSize: 16,
+      amountLineHeight: 20,
+      stack: true,
+      amountColMax: 120,
     };
   }
   if (width < 400) {
     return {
       padH: 18,
-      padV: 20,
+      padV: 18,
       radius: 18,
       colGap: 12,
       textGap: 7,
@@ -58,15 +61,16 @@ function layoutForWidth(width: number): InvoiceCardLayout {
       titleLineHeight: 20,
       metaSize: 12,
       metaLineHeight: 16,
-      amountSize: 16,
+      amountSize: 17,
       amountLineHeight: 21,
-      amountColMax: 118,
+      stack: false,
+      amountColMax: 112,
     };
   }
   if (width < 768) {
     return {
       padH: 20,
-      padV: 22,
+      padV: 20,
       radius: 20,
       colGap: 14,
       textGap: 8,
@@ -74,14 +78,15 @@ function layoutForWidth(width: number): InvoiceCardLayout {
       titleLineHeight: 21,
       metaSize: 12,
       metaLineHeight: 17,
-      amountSize: 17,
+      amountSize: 18,
       amountLineHeight: 22,
+      stack: false,
       amountColMax: 128,
     };
   }
   return {
     padH: 24,
-    padV: 24,
+    padV: 22,
     radius: 22,
     colGap: 16,
     textGap: 9,
@@ -89,8 +94,9 @@ function layoutForWidth(width: number): InvoiceCardLayout {
     titleLineHeight: 22,
     metaSize: 13,
     metaLineHeight: 18,
-    amountSize: 18,
+    amountSize: 19,
     amountLineHeight: 24,
+    stack: false,
     amountColMax: 148,
   };
 }
@@ -105,31 +111,30 @@ function InvoiceListItemCardComponent({ item, onPress }: InvoiceListItemCardProp
   }, [item.invoiceNo, item.issuedAtLabel]);
 
   return (
-    <View style={[styles.cardShell, { borderRadius: layout.radius }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Open invoice ${item.invoiceNo}`}
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.cardBody,
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open invoice ${item.invoiceNo}`}
+      onPress={onPress}
+      style={styles.pressable}
+    >
+      <View
+        style={[
+          styles.card,
           {
             borderRadius: layout.radius,
             paddingHorizontal: layout.padH,
             paddingVertical: layout.padV,
           },
-          pressed && styles.pressed,
         ]}
       >
-        <View style={styles.row}>
-          <View
-            style={[
-              styles.left,
-              {
-                gap: layout.textGap,
-                marginRight: layout.colGap,
-              },
-            ]}
-          >
+        <View
+          style={[
+            styles.content,
+            layout.stack ? styles.contentStack : styles.contentRow,
+            { gap: layout.stack ? layout.textGap : layout.colGap },
+          ]}
+        >
+          <View style={[styles.copy, { gap: layout.textGap }]}>
             <Text
               style={[
                 styles.title,
@@ -160,10 +165,16 @@ function InvoiceListItemCardComponent({ item, onPress }: InvoiceListItemCardProp
             ) : null}
           </View>
 
-          <View style={[styles.right, { maxWidth: layout.amountColMax }]}>
+          <View
+            style={[
+              styles.amountWrap,
+              layout.stack ? styles.amountWrapStack : { maxWidth: layout.amountColMax },
+            ]}
+          >
             <Text
               style={[
                 styles.amount,
+                layout.stack ? styles.amountLeft : styles.amountRight,
                 {
                   fontSize: layout.amountSize,
                   lineHeight: layout.amountLineHeight,
@@ -171,53 +182,62 @@ function InvoiceListItemCardComponent({ item, onPress }: InvoiceListItemCardProp
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.8}
+              minimumFontScale={0.75}
             >
               {item.amountLabel}
             </Text>
           </View>
         </View>
-      </Pressable>
-    </View>
+      </View>
+    </Pressable>
   );
 }
 
 export const InvoiceListItemCard = memo(InvoiceListItemCardComponent);
 
 const styles = StyleSheet.create({
-  cardShell: {
+  pressable: {
+    width: '100%',
+  },
+  card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    overflow: 'hidden',
     shadowColor: '#1B2915',
     shadowOpacity: 0.06,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
-  cardBody: {
+  content: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
+    minWidth: 0,
   },
-  row: {
+  contentRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    width: '100%',
   },
-  left: {
+  contentStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  copy: {
     flex: 1,
     flexShrink: 1,
     minWidth: 0,
   },
-  right: {
+  amountWrap: {
     flexGrow: 0,
     flexShrink: 0,
-    alignItems: 'flex-end',
     justifyContent: 'flex-start',
     paddingTop: 1,
+  },
+  amountWrapStack: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   title: {
     fontFamily: fontFamily.manrope.medium,
@@ -230,12 +250,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   amount: {
-    width: '100%',
     fontFamily: fontFamily.cormorant.regular,
     color: colors.forest,
+  },
+  amountRight: {
+    width: '100%',
     textAlign: 'right',
   },
-  pressed: {
-    opacity: 0.88,
+  amountLeft: {
+    textAlign: 'left',
   },
 });

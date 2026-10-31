@@ -99,7 +99,7 @@ export function CurrentTripCard({ card, onViewTrip }: CurrentTripCardProps) {
             accessibilityLabel="View trip"
             onPress={() => onViewTrip?.(card.primarySaleId, card.saleIds)}
             hitSlop={8}
-            style={({ pressed }) => [styles.viewTripHit, pressed && styles.pressed]}
+            style={styles.viewTripHit}
           >
             <View style={styles.viewTripRow}>
               <Text style={styles.viewTripLabel} numberOfLines={1}>
@@ -109,6 +109,22 @@ export function CurrentTripCard({ card, onViewTrip }: CurrentTripCardProps) {
             </View>
           </Pressable>
         </View>
+      </View>
+    </View>
+  );
+}
+
+/** Empty state when the client has no current or upcoming trip. */
+export function CurrentTripEmptyCard() {
+  const { width } = useWindowDimensions();
+  const inset = useMemo(() => homeContentInset(width), [width]);
+
+  return (
+    <View style={[styles.section, { paddingHorizontal: inset }]}>
+      <Text style={styles.sectionLabel}>CURRENT TRIP</Text>
+      <View style={styles.emptyCard}>
+        <Text style={styles.emptyTitle}>No trips arranged yet</Text>
+        <Text style={styles.emptyBody}>Send a New request and your trip will show here.</Text>
       </View>
     </View>
   );
@@ -137,6 +153,33 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
+  },
+  emptyCard: {
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 22,
+    shadowColor: '#1B2915',
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  emptyTitle: {
+    fontFamily: fontFamily.cormorant.regular,
+    fontSize: 24,
+    lineHeight: 30,
+    color: colors.forest,
+    marginBottom: 8,
+  },
+  emptyBody: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
   },
   image: {
     width: '100%',
@@ -219,8 +262,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     color: colors.forest,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });

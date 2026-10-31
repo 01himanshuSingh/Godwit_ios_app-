@@ -85,7 +85,7 @@ export function PaymentsScreen() {
               'Your Godwit account statement will be available here soon.',
             );
           }}
-          style={({ pressed }) => [styles.statementHit, pressed && styles.pressed]}
+          style={styles.statementHit}
         >
           <Text
             style={[styles.statementLabel, { fontSize: actionSize, lineHeight: actionLineHeight }]}
@@ -167,8 +167,5 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.manrope.medium,
     fontSize: 14,
     color: colors.forest,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });

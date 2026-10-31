@@ -20,6 +20,12 @@ type ProfileSectionShellProps = {
   subtitleTrailing?: ReactNode;
   /** Back row label — default "Profile". Detail screens pass "Travellers". */
   backLabel?: string;
+  /** Override default `router.back()` (e.g. in-tab Requests overlay). */
+  onBack?: () => void;
+  /** Extra bottom padding inside scroll (e.g. clear floating tab bar). */
+  contentBottomInset?: number;
+  /** Keep taps working while keyboard is open (forms). */
+  keyboardShouldPersistTaps?: 'always' | 'never' | 'handled';
   children?: ReactNode;
 };
 
@@ -77,6 +83,9 @@ export function ProfileSectionShell({
   subtitle,
   subtitleTrailing,
   backLabel = 'Profile',
+  onBack,
+  contentBottomInset = 0,
+  keyboardShouldPersistTaps,
   children,
 }: ProfileSectionShellProps) {
   const router = useRouter();
@@ -100,7 +109,13 @@ export function ProfileSectionShell({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Back to ${backLabel}`}
-          onPress={() => router.back()}
+          onPress={() => {
+            if (onBack) {
+              onBack();
+              return;
+            }
+            router.back();
+          }}
           hitSlop={12}
           style={({ pressed }) => [
             styles.backRow,
@@ -128,13 +143,15 @@ export function ProfileSectionShell({
           {
             paddingHorizontal: layout.pagePad,
             paddingTop: layout.headerToTitle,
-            paddingBottom: Math.max(insets.bottom, 16) + 24,
+            paddingBottom: Math.max(insets.bottom, 16) + 24 + contentBottomInset,
             maxWidth: Math.min(width, width >= 768 ? 680 : width),
             alignSelf: 'center',
             width: '100%',
           },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+        keyboardDismissMode="on-drag"
       >
         <Text
           style={[styles.title, { fontSize: layout.titleSize, lineHeight: layout.titleLineHeight }]}

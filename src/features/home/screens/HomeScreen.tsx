@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
-import { CurrentTripCard } from '@/features/home/components/CurrentTripCard';
+import { CurrentTripCard, CurrentTripEmptyCard } from '@/features/home/components/CurrentTripCard';
 import { GreetingSection } from '@/features/home/components/GreetingSection';
 import { NewRequestButton } from '@/features/home/components/NewRequestButton';
 import { PaymentsDueCard } from '@/features/home/components/PaymentsDueCard';
 import { staticHomeViewModel } from '@/features/home/schemas/homeViewModel';
+import { RequestsScreen } from '@/features/requests';
 import { familyLabelFromClientName } from '@/lib/firebase/clients';
 import { getHomePaymentsDueSafe } from '@/lib/firebase/payments';
 import { getClientCurrentTripCardSafe } from '@/lib/firebase/sales/currentTrip';
@@ -29,13 +30,18 @@ export function HomeScreen() {
   const fontsLoaded = useGodwitFonts();
   const { profile, isHydrating } = useActiveClientProfile();
   const homeData = staticHomeViewModel;
+  const [showRequests, setShowRequests] = useState(false);
 
   const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
   const ready = !isHydrating && Boolean(adminId && clientId);
 
   const handleNewRequest = useCallback(() => {
-    // Placeholder — wired to requests flow after auth/session.
+    setShowRequests(true);
+  }, []);
+
+  const handleRequestsBack = useCallback(() => {
+    setShowRequests(false);
   }, []);
 
   useEffect(() => {
@@ -97,6 +103,10 @@ export function HomeScreen() {
     );
   }
 
+  if (showRequests) {
+    return <RequestsScreen onBack={handleRequestsBack} clearTabBar />;
+  }
+
   const familyName = sessionHome?.familyName ?? homeData.familyName;
   const userName = sessionHome?.userName ?? homeData.userName;
   const greeting = sessionHome?.greeting ?? homeData.greeting;
@@ -121,7 +131,7 @@ export function HomeScreen() {
         </View>
       ) : null}
 
-      {currentTrip ? (
+      {!currentTripQuery.isPending && currentTrip ? (
         <CurrentTripCard
           card={currentTrip}
           onViewTrip={(saleId) => {
@@ -129,6 +139,8 @@ export function HomeScreen() {
           }}
         />
       ) : null}
+
+      {!currentTripQuery.isPending && !currentTrip ? <CurrentTripEmptyCard /> : null}
 
       {paymentsDue ? <PaymentsDueCard card={paymentsDue} onViewPayments={onViewPayments} /> : null}
     </ScrollView>
