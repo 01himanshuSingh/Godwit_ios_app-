@@ -41,8 +41,7 @@ const styles = StyleSheet.create({
     gap: 6,
     minHeight: 38,
     paddingLeft: 12,
-    marginLeft: 18,
-    marginTop: 10,
+
     paddingRight: 14,
     paddingVertical: 9,
     borderRadius: 19,
