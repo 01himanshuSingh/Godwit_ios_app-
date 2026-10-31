@@ -171,33 +171,35 @@ export function LoyaltyCard({ loyalty, initiallyExpanded = true }: LoyaltyCardPr
         accessibilityLabel="Loyalty"
         onPress={toggle}
         hitSlop={8}
-        style={({ pressed }) => [styles.header, pressed && styles.pressed]}
+        style={styles.headerPressable}
       >
-        <Text
-          style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
-        >
-          LOYALTY
-        </Text>
-        <View style={styles.summaryRow}>
+        <View style={styles.header}>
           <Text
-            style={[
-              styles.summary,
-              {
-                fontSize: layout.summarySize,
-                lineHeight: layout.summaryLineHeight,
-              },
-            ]}
-            numberOfLines={2}
-            ellipsizeMode="tail"
+            style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
           >
-            {summary}
+            LOYALTY
           </Text>
-          <View style={styles.chevronWrap} pointerEvents="none">
-            <Feather
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={layout.chevronSize}
-              color="#C4C0B8"
-            />
+          <View style={styles.summaryRow}>
+            <Text
+              style={[
+                styles.summary,
+                {
+                  fontSize: layout.summarySize,
+                  lineHeight: layout.summaryLineHeight,
+                },
+              ]}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
+              {summary}
+            </Text>
+            <View style={styles.chevronWrap} pointerEvents="none">
+              <Feather
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={layout.chevronSize}
+                color="#C4C0B8"
+              />
+            </View>
           </View>
         </View>
       </Pressable>
@@ -235,6 +237,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F7F4',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+  },
+  headerPressable: {
+    width: '100%',
   },
   header: {
     width: '100%',
@@ -322,8 +327,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.muted,
     paddingVertical: 12,
-  },
-  pressed: {
-    opacity: 0.75,
   },
 });

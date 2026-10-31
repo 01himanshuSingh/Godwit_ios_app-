@@ -48,10 +48,12 @@ export function HomeTabBar({ activeTab = 'home', onTabPress }: HomeTabBarProps) 
               accessibilityState={{ selected: isActive }}
               accessibilityLabel={tab.label}
               onPress={() => onTabPress?.(tab.key)}
-              style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
+              style={styles.tabPressable}
             >
-              <Feather name={tab.icon} size={20} color={tint} />
-              <Text style={[styles.tabLabel, { color: tint }]}>{tab.label}</Text>
+              <View style={styles.tab}>
+                <Feather name={tab.icon} size={20} color={tint} />
+                <Text style={[styles.tabLabel, { color: tint }]}>{tab.label}</Text>
+              </View>
             </Pressable>
           );
         })}
@@ -85,8 +87,10 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  tab: {
+  tabPressable: {
     flex: 1,
+  },
+  tab: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -95,8 +99,5 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontFamily: fontFamily.manrope.medium,
     fontSize: 9,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });

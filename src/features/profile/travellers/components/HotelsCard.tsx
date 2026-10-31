@@ -275,35 +275,37 @@ export function HotelsCard({
         accessibilityLabel="Hotels"
         onPress={toggle}
         hitSlop={8}
-        style={({ pressed }) => [styles.header, pressed && styles.pressed]}
+        style={styles.headerPressable}
       >
-        <Text
-          style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
-        >
-          HOTELS
-        </Text>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryTextWrap}>
-            <Text
-              style={[
-                styles.summary,
-                {
-                  fontSize: layout.summarySize,
-                  lineHeight: layout.summaryLineHeight,
-                },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {summary}
-            </Text>
-          </View>
-          <View style={styles.chevronWrap} pointerEvents="none">
-            <Feather
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={layout.chevronSize}
-              color="#C4C0B8"
-            />
+        <View style={styles.header}>
+          <Text
+            style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
+          >
+            HOTELS
+          </Text>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryTextWrap}>
+              <Text
+                style={[
+                  styles.summary,
+                  {
+                    fontSize: layout.summarySize,
+                    lineHeight: layout.summaryLineHeight,
+                  },
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {summary}
+              </Text>
+            </View>
+            <View style={styles.chevronWrap} pointerEvents="none">
+              <Feather
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={layout.chevronSize}
+                color="#C4C0B8"
+              />
+            </View>
           </View>
         </View>
       </Pressable>
@@ -352,6 +354,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F7F4',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+  },
+  headerPressable: {
+    width: '100%',
   },
   header: {
     width: '100%',

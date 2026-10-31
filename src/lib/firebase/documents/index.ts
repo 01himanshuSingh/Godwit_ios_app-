@@ -48,3 +48,12 @@ export {
   getClientPersonalDocuments,
   getClientPersonalDocumentsSafe,
 } from './getClientPersonalDocuments';
+
+export { DocumentsScopeError } from './DocumentsScopeError';
+export {
+  classifyDocumentsLoadError,
+  mapDocumentsLoadErrorToMessage,
+  mapDocumentFileErrorToMessage,
+  type DocumentsLoadErrorKind,
+  type DocumentsSurface,
+} from './mapDocumentsLoadError';

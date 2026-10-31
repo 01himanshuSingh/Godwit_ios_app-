@@ -27,23 +27,27 @@ export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderPr
           accessibilityRole="button"
           accessibilityLabel="Notifications"
           hitSlop={8}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+          style={styles.pressable}
         >
-          <Feather name="bell" size={22} color={colors.forest} />
-          {notificationsCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{badgeLabel}</Text>
-            </View>
-          ) : null}
+          <View style={styles.iconButton}>
+            <Feather name="bell" size={22} color={colors.forest} />
+            {notificationsCount > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{badgeLabel}</Text>
+              </View>
+            ) : null}
+          </View>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Profile"
           hitSlop={8}
-          style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
+          style={styles.pressable}
         >
-          <Text style={styles.avatarText}>{profileInitials}</Text>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{profileInitials}</Text>
+          </View>
         </Pressable>
       </View>
     </View>
@@ -85,6 +89,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     gap: 14,
   },
+  pressable: {
+    // Touch wrapper only — visuals live on child Views.
+  },
   iconButton: {
     position: 'relative',
     padding: 4,
@@ -120,8 +127,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.primaryForeground,
     letterSpacing: 0.5,
-  },
-  pressed: {
-    opacity: 0.75,
   },
 });

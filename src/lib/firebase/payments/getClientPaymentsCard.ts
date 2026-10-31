@@ -1,10 +1,12 @@
 /**
- * Client Payments card — account-level ledger only.
+ * Client Payments card — account-level ledger only (USD).
  *
  * Balance:  admins/{adminId}/clients/{clientId}.clientLedgerBalanceUsd
  * Entries:  admins/{adminId}/clients/{clientId}/clientLedger (orderBy date asc)
  *
  * Prefer latest entry.balanceUsd when present (same as CRM).
+ * Ledger-only failure → keep denorm balance (partial UI).
+ * Client + ledger both fail → throw (error state, not empty).
  */
 
 import {
@@ -18,11 +20,13 @@ import {
 } from 'firebase/firestore';
 
 import { computePaymentTag, formatAmountDueLabel } from '@/lib/firebase/payments/computePaymentTag';
+import { mapPaymentsLoadErrorToMessage } from '@/lib/firebase/payments/mapPaymentsLoadError';
 import type {
   ClientLedgerEntry,
   ClientPaymentsCard,
   GetClientPaymentsCardResult,
 } from '@/lib/firebase/payments/paymentCardTypes';
+import { PaymentsScopeError } from '@/lib/firebase/payments/PaymentsScopeError';
 import { db } from '@/lib/firebase/firestore';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
 
@@ -57,6 +61,7 @@ function readDateKey(value: unknown): string | null {
 }
 
 function mapLedgerEntry(id: string, data: DocumentData): ClientLedgerEntry {
+  // USD card only — ignore amountNative / other currencies on rows.
   return {
     id,
     dateKey: readDateKey(data.date) || readDateKey(data.createdAt) || readDateKey(data.entryDate),
@@ -65,18 +70,12 @@ function mapLedgerEntry(id: string, data: DocumentData): ClientLedgerEntry {
   };
 }
 
-function emptyCard(): ClientPaymentsCard {
-  return {
-    currency: 'USD',
-    amount: 0,
-    signedBalance: 0,
-    tag: 'none',
-    tagLabel: '',
-    amountDueLabel: 'USD 0',
-    nextPaymentDue: null,
-    statement: [],
-    hasLedger: false,
-  };
+function latestNumericBalance(statement: ClientLedgerEntry[]): number | null {
+  for (let i = statement.length - 1; i >= 0; i -= 1) {
+    const v = statement[i]?.balanceUsd;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+  }
+  return null;
 }
 
 /**
@@ -88,37 +87,58 @@ export async function getClientPaymentsCard(
 ): Promise<ClientPaymentsCard> {
   const aid = adminId.trim();
   const cid = clientId.trim();
-  if (!aid || !cid) return emptyCard();
+  if (!aid || !cid) {
+    throw new PaymentsScopeError();
+  }
 
   return withFirestoreRetry('getClientPaymentsCard', async () => {
-    const clientRef = doc(db, 'admins', aid, 'clients', cid);
-    const clientSnap = await getDoc(clientRef);
-
     let balanceUsd = 0;
-    if (clientSnap.exists()) {
-      balanceUsd = readNumber(clientSnap.data().clientLedgerBalanceUsd) ?? 0;
+    let clientOk = false;
+    let ledgerOk = false;
+    let clientError: unknown = null;
+    let ledgerError: unknown = null;
+    let statement: ClientLedgerEntry[] = [];
+
+    try {
+      const clientRef = doc(db, 'admins', aid, 'clients', cid);
+      const clientSnap = await getDoc(clientRef);
+      clientOk = true;
+      if (clientSnap.exists()) {
+        // Missing / non-number denorm → 0 until a ledger entry overrides.
+        balanceUsd = readNumber(clientSnap.data().clientLedgerBalanceUsd) ?? 0;
+      }
+    } catch (error) {
+      clientError = error;
+      console.warn('[getClientPaymentsCard] client doc failed:', error);
     }
 
-    let statement: ClientLedgerEntry[] = [];
     try {
       const ledgerRef = collection(db, 'admins', aid, 'clients', cid, 'clientLedger');
       const ledgerSnap = await getDocs(query(ledgerRef, orderBy('date', 'asc')));
+      ledgerOk = true;
       statement = ledgerSnap.docs.map((d) => mapLedgerEntry(d.id, d.data()));
     } catch (error) {
-      // Missing index / empty / permission — keep denormalized balance.
+      ledgerError = error;
+      // Partial UI: keep denorm balance when only the ledger list fails.
       console.warn('[getClientPaymentsCard] clientLedger query failed:', error);
       statement = [];
     }
 
-    // Prefer latest entry balance when CRM denorm is stale.
-    if (statement.length) {
-      const latest = statement[statement.length - 1];
-      if (typeof latest.balanceUsd === 'number') {
-        balanceUsd = latest.balanceUsd;
-      }
+    if (!clientOk && !ledgerOk) {
+      throw clientError ?? ledgerError ?? new Error('Failed to load payments');
     }
 
+    // Prefer latest usable entry balance when CRM denorm is stale / missing.
+    const fromLedger = latestNumericBalance(statement);
+    if (fromLedger !== null) {
+      balanceUsd = fromLedger;
+    }
+
+    // Negative zero / float noise.
     balanceUsd = Math.round(balanceUsd * 100) / 100;
+    // Avoid -0 display edge.
+    if (Object.is(balanceUsd, -0)) balanceUsd = 0;
+
     const hasLedger = statement.length > 0 || balanceUsd !== 0;
     const { tag, tagLabel } = computePaymentTag(balanceUsd, statement.length > 0);
 
@@ -144,7 +164,7 @@ export async function getClientPaymentsCardSafe(
     const card = await getClientPaymentsCard(adminId, clientId);
     return { card, errorMessage: null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load payments';
+    const message = mapPaymentsLoadErrorToMessage(error);
     console.error('[getClientPaymentsCard]', error);
     return { card: null, errorMessage: message };
   }

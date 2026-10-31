@@ -12,6 +12,8 @@
 
 import { getTravellersForClient } from '@/lib/firebase/customers/getTravellersForClient';
 import { loadCustomerProfile } from '@/lib/firebase/customers/loadCustomerProfile';
+import { DocumentsScopeError } from '@/lib/firebase/documents/DocumentsScopeError';
+import { mapDocumentsLoadErrorToMessage } from '@/lib/firebase/documents/mapDocumentsLoadError';
 import { mapCustomerProfileToPersonalDocs } from '@/lib/firebase/documents/mapCustomerProfileToPersonalDocs';
 import type {
   ClientPersonalDocumentsPage,
@@ -49,13 +51,14 @@ export async function getClientPersonalDocumentsPage(
   const aid = adminId.trim();
   const cid = clientId.trim();
   if (!aid || !cid) {
-    return { documents: [], nextCursor: null, hasMore: false };
+    throw new DocumentsScopeError();
   }
 
   return withFirestoreRetry('getClientPersonalDocumentsPage', async () => {
     const travellers = await getTravellersForClient(aid, cid);
     const offset = cursor ?? 0;
 
+    // No travellers / exhausted offset → empty page (valid, not an error).
     if (offset >= travellers.length) {
       return { documents: [], nextCursor: null, hasMore: false };
     }
@@ -63,14 +66,20 @@ export async function getClientPersonalDocumentsPage(
     const slice = travellers.slice(offset, offset + pageSize);
     const batches = await Promise.all(
       slice.map(async (t) => {
-        const profile = await loadCustomerProfile(aid, t.customerId);
-        const profilePath = `admins/${aid}/customers/${t.customerId}/customerProfile`;
-        return mapCustomerProfileToPersonalDocs(
-          t.customerId,
-          t.name || 'Traveller',
-          profile,
-          profilePath,
-        );
+        try {
+          const profile = await loadCustomerProfile(aid, t.customerId);
+          const profilePath = `admins/${aid}/customers/${t.customerId}/customerProfile`;
+          return mapCustomerProfileToPersonalDocs(
+            t.customerId,
+            t.name || 'Traveller',
+            profile,
+            profilePath,
+          );
+        } catch (error) {
+          // Missing profile / decrypt noise for one traveller — skip, keep listing others.
+          console.warn('[getClientPersonalDocumentsPage] traveller skipped', t.customerId, error);
+          return [];
+        }
       }),
     );
 
@@ -113,7 +122,7 @@ export async function getClientPersonalDocumentsSafe(
     const documents = await getClientPersonalDocuments(adminId, clientId);
     return { documents, errorMessage: null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load personal documents';
+    const message = mapDocumentsLoadErrorToMessage(error, 'personal');
     console.error('[getClientPersonalDocuments]', error);
     return { documents: [], errorMessage: message };
   }

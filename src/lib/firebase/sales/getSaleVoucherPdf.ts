@@ -10,6 +10,7 @@ import * as Sharing from 'expo-sharing';
 import { doc, getDoc } from 'firebase/firestore';
 import { Alert, Linking } from 'react-native';
 
+import { mapDocumentFileErrorToMessage } from '@/lib/firebase/documents/mapDocumentsLoadError';
 import { db } from '@/lib/firebase/firestore';
 
 export type SaleVoucherPdf = {
@@ -69,17 +70,21 @@ export async function getSaleVoucherPdf(
 export async function openSaleVoucherPdf(voucherUrl: string): Promise<void> {
   const url = voucherUrl.trim();
   if (!url) {
-    Alert.alert('Unable to open voucher');
+    Alert.alert('Document', 'This file isn’t available.');
     return;
   }
 
-  const can = await Linking.canOpenURL(url);
-  if (!can) {
-    Alert.alert('Unable to open voucher');
-    return;
+  try {
+    const can = await Linking.canOpenURL(url);
+    if (!can) {
+      Alert.alert('Document', 'Couldn’t open this file. Please try again.');
+      return;
+    }
+    await Linking.openURL(url);
+  } catch (error) {
+    console.error('[openSaleVoucherPdf]', error);
+    Alert.alert('Document', mapDocumentFileErrorToMessage(error, 'open'));
   }
-
-  await Linking.openURL(url);
 }
 
 function safeFileStem(label: string): string {
@@ -98,37 +103,41 @@ export async function downloadSaleVoucherPdf(
 ): Promise<void> {
   const url = voucherUrl.trim();
   if (!url) {
-    Alert.alert('Unable to download voucher');
+    Alert.alert('Document', 'This file isn’t available.');
     return;
   }
 
   const base = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
   if (!base) {
-    Alert.alert('Unable to download voucher');
+    Alert.alert('Document', 'Couldn’t download this file. Please try again.');
     return;
   }
 
   try {
     const dest = `${base}${safeFileStem(fileLabel)}.pdf`;
     const result = await FileSystem.downloadAsync(url, dest);
+    if (result.status === 403 || result.status === 401) {
+      Alert.alert('Document', 'This file isn’t available to open.');
+      return;
+    }
     if (result.status !== 200) {
-      Alert.alert('Unable to download voucher');
+      Alert.alert('Document', 'Couldn’t download this file. Please try again.');
       return;
     }
 
     const canShare = await Sharing.isAvailableAsync();
     if (!canShare) {
-      Alert.alert('Download saved', 'PDF saved on this device.');
+      Alert.alert('Download saved', 'File saved on this device.');
       return;
     }
 
     await Sharing.shareAsync(result.uri, {
       mimeType: 'application/pdf',
-      dialogTitle: 'Save trip voucher',
+      dialogTitle: 'Save document',
       UTI: 'com.adobe.pdf',
     });
   } catch (error) {
     console.error('[downloadSaleVoucherPdf]', error);
-    Alert.alert('Unable to download voucher');
+    Alert.alert('Document', mapDocumentFileErrorToMessage(error, 'download'));
   }
 }

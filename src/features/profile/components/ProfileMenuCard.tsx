@@ -108,46 +108,49 @@ export function ProfileMenuCard({ items }: ProfileMenuCardProps) {
             accessibilityRole="button"
             accessibilityLabel={`${item.title}. ${item.subtitle}`}
             onPress={item.onPress}
-            style={({ pressed }) => [
-              styles.block,
-              { gap: layout.textGap },
-              index === 0 ? null : { paddingTop: layout.rowGap / 2 },
-              index === items.length - 1 ? null : { paddingBottom: layout.rowGap / 2 },
-              pressed && styles.pressed,
-            ]}
+            style={styles.rowPressable}
           >
-            <View style={[styles.titleLine, { gap: layout.iconGap }]}>
-              <Feather name={item.icon} size={layout.iconSize} color={colors.muted} />
-              <Text
-                style={[
-                  styles.title,
-                  {
-                    fontSize: layout.titleSize,
-                    lineHeight: layout.titleLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {item.title}
-              </Text>
-            </View>
+            <View
+              style={[
+                styles.block,
+                { gap: layout.textGap },
+                index === 0 ? null : { paddingTop: layout.rowGap / 2 },
+                index === items.length - 1 ? null : { paddingBottom: layout.rowGap / 2 },
+              ]}
+            >
+              <View style={[styles.titleLine, { gap: layout.iconGap }]}>
+                <Feather name={item.icon} size={layout.iconSize} color={colors.muted} />
+                <Text
+                  style={[
+                    styles.title,
+                    {
+                      fontSize: layout.titleSize,
+                      lineHeight: layout.titleLineHeight,
+                    },
+                  ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {item.title}
+                </Text>
+              </View>
 
-            <View style={[styles.subtitleLine, { marginLeft: subtitleIndent, gap: 8 }]}>
-              <Text
-                style={[
-                  styles.subtitle,
-                  {
-                    fontSize: layout.subtitleSize,
-                    lineHeight: layout.subtitleLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {item.subtitle}
-              </Text>
-              <Feather name="chevron-right" size={layout.chevronSize} color="#C4C0B8" />
+              <View style={[styles.subtitleLine, { marginLeft: subtitleIndent, gap: 8 }]}>
+                <Text
+                  style={[
+                    styles.subtitle,
+                    {
+                      fontSize: layout.subtitleSize,
+                      lineHeight: layout.subtitleLineHeight,
+                    },
+                  ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {item.subtitle}
+                </Text>
+                <Feather name="chevron-right" size={layout.chevronSize} color="#C4C0B8" />
+              </View>
             </View>
           </Pressable>
         </View>
@@ -162,6 +165,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F7F4',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+  },
+  rowPressable: {
+    width: '100%',
   },
   block: {
     width: '100%',
@@ -191,8 +197,5 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
-  },
-  pressed: {
-    opacity: 0.72,
   },
 });

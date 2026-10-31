@@ -89,58 +89,63 @@ function DocRow({
         accessibilityLabel={item.title}
         disabled={!item.docUrl}
         onPress={openDoc}
-        style={({ pressed }) => [styles.row, pressed && item.docUrl ? styles.pressed : null]}
+        style={styles.rowPressable}
       >
-        <View style={[styles.rowText, { gap: layout.rowGap }]}>
-          <View style={styles.titleLine}>
-            <Text
-              style={[
-                styles.docTitle,
-                {
-                  fontSize: layout.titleSize,
-                  lineHeight: layout.titleLineHeight,
-                },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {item.title}
-            </Text>
-            <View style={styles.statusBadge}>
-              <Text style={[styles.statusLabel, { fontSize: layout.badgeSize }]} numberOfLines={1}>
-                {item.status}
+        <View style={styles.row}>
+          <View style={[styles.rowText, { gap: layout.rowGap }]}>
+            <View style={styles.titleLine}>
+              <Text
+                style={[
+                  styles.docTitle,
+                  {
+                    fontSize: layout.titleSize,
+                    lineHeight: layout.titleLineHeight,
+                  },
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.title}
               </Text>
+              <View style={styles.statusBadge}>
+                <Text
+                  style={[styles.statusLabel, { fontSize: layout.badgeSize }]}
+                  numberOfLines={1}
+                >
+                  {item.status}
+                </Text>
+              </View>
             </View>
+            {item.detailLine ? (
+              <Text
+                style={[
+                  styles.meta,
+                  {
+                    fontSize: layout.metaSize,
+                    lineHeight: layout.metaLineHeight,
+                  },
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.detailLine}
+              </Text>
+            ) : null}
+            {item.expiresAtLabel ? (
+              <Text
+                style={[
+                  styles.meta,
+                  {
+                    fontSize: layout.metaSize,
+                    lineHeight: layout.metaLineHeight,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {item.expiresAtLabel}
+              </Text>
+            ) : null}
           </View>
-          {item.detailLine ? (
-            <Text
-              style={[
-                styles.meta,
-                {
-                  fontSize: layout.metaSize,
-                  lineHeight: layout.metaLineHeight,
-                },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {item.detailLine}
-            </Text>
-          ) : null}
-          {item.expiresAtLabel ? (
-            <Text
-              style={[
-                styles.meta,
-                {
-                  fontSize: layout.metaSize,
-                  lineHeight: layout.metaLineHeight,
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {item.expiresAtLabel}
-            </Text>
-          ) : null}
         </View>
       </Pressable>
     </View>
@@ -180,35 +185,37 @@ export function TravelDocumentsCard({
         accessibilityLabel="Travel documents"
         onPress={toggle}
         hitSlop={8}
-        style={({ pressed }) => [styles.header, pressed && styles.pressed]}
+        style={styles.headerPressable}
       >
-        <Text
-          style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
-        >
-          TRAVEL DOCUMENTS
-        </Text>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryTextWrap}>
-            <Text
-              style={[
-                styles.summary,
-                {
-                  fontSize: layout.summarySize,
-                  lineHeight: layout.summaryLineHeight,
-                },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {summary}
-            </Text>
-          </View>
-          <View style={styles.chevronWrap} pointerEvents="none">
-            <Feather
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={layout.chevronSize}
-              color="#C4C0B8"
-            />
+        <View style={styles.header}>
+          <Text
+            style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
+          >
+            TRAVEL DOCUMENTS
+          </Text>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryTextWrap}>
+              <Text
+                style={[
+                  styles.summary,
+                  {
+                    fontSize: layout.summarySize,
+                    lineHeight: layout.summaryLineHeight,
+                  },
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {summary}
+              </Text>
+            </View>
+            <View style={styles.chevronWrap} pointerEvents="none">
+              <Feather
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={layout.chevronSize}
+                color="#C4C0B8"
+              />
+            </View>
           </View>
         </View>
       </Pressable>
@@ -248,6 +255,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
+  headerPressable: {
+    width: '100%',
+  },
   header: {
     width: '100%',
     gap: 8,
@@ -284,6 +294,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginTop: 16,
     marginBottom: 4,
+  },
+  rowPressable: {
+    width: '100%',
   },
   row: {
     paddingVertical: 14,
@@ -332,8 +345,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.muted,
     paddingVertical: 8,
-  },
-  pressed: {
-    opacity: 0.75,
   },
 });

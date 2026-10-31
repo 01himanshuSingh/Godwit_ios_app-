@@ -16,7 +16,11 @@ import {
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
 import { AmountDueCard } from '@/features/profile/payments/components/AmountDueCard';
 import { InvoicesListCard } from '@/features/profile/payments/components/InvoicesListCard';
-import { getClientInvoicesSafe, getClientPaymentsCardSafe } from '@/lib/firebase/payments';
+import {
+  getClientInvoicesSafe,
+  getClientPaymentsCardSafe,
+  mapPaymentsLoadErrorToMessage,
+} from '@/lib/firebase/payments';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
 import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { colors } from '@/ui/tokens/colors';
@@ -30,7 +34,8 @@ export function PaymentsScreen() {
   const { profile, isHydrating } = useActiveClientProfile();
   const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
-  const ready = !isHydrating && Boolean(adminId && clientId);
+  const hasScope = Boolean(adminId && clientId);
+  const ready = !isHydrating && hasScope;
 
   const paymentsQuery = useQuery({
     queryKey: ['profile', 'payments', 'amount-due', adminId, clientId],
@@ -50,22 +55,18 @@ export function PaymentsScreen() {
   const invoices = invoicesQuery.data?.invoices ?? [];
 
   const loadError =
+    (!isHydrating && !hasScope
+      ? mapPaymentsLoadErrorToMessage(new Error('Missing adminId or clientId'))
+      : null) ??
     paymentsQuery.data?.errorMessage ??
     invoicesQuery.data?.errorMessage ??
-    (paymentsQuery.isError
-      ? paymentsQuery.error instanceof Error
-        ? paymentsQuery.error.message
-        : 'Failed to load payments'
-      : null) ??
-    (invoicesQuery.isError
-      ? invoicesQuery.error instanceof Error
-        ? invoicesQuery.error.message
-        : 'Failed to load invoices'
-      : null);
+    (paymentsQuery.isError ? mapPaymentsLoadErrorToMessage(paymentsQuery.error) : null) ??
+    (invoicesQuery.isError ? mapPaymentsLoadErrorToMessage(invoicesQuery.error) : null);
 
   const loading =
     isHydrating ||
-    ((paymentsQuery.isPending || invoicesQuery.isPending) &&
+    (hasScope &&
+      (paymentsQuery.isPending || invoicesQuery.isPending) &&
       !card &&
       invoices.length === 0 &&
       !loadError);

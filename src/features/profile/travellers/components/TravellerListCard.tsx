@@ -1,6 +1,6 @@
 /**
  * Travellers list card — name (medium) + detail line + chevron.
- * Matches Profile travellers mock.
+ * Visual styles on View; Pressable is a plain touch wrapper (NativeWind-safe).
  */
 import Feather from '@expo/vector-icons/Feather';
 import { useMemo } from 'react';
@@ -20,8 +20,8 @@ function layoutForWidth(width: number) {
     return {
       padH: 18,
       padV: 12,
-      rowPadV: 36,
-      textGap: 8,
+      rowPadV: 14,
+      textGap: 6,
       nameSize: 15,
       nameLineHeight: 20,
       detailSize: 12,
@@ -35,8 +35,8 @@ function layoutForWidth(width: number) {
     return {
       padH: 22,
       padV: 14,
-      rowPadV: 40,
-      textGap: 10,
+      rowPadV: 16,
+      textGap: 6,
       nameSize: 16,
       nameLineHeight: 22,
       detailSize: 13,
@@ -49,8 +49,8 @@ function layoutForWidth(width: number) {
   return {
     padH: 26,
     padV: 16,
-    rowPadV: 44,
-    textGap: 10,
+    rowPadV: 18,
+    textGap: 8,
     nameSize: 17,
     nameLineHeight: 24,
     detailSize: 14,
@@ -101,46 +101,49 @@ export function TravellerListCard({ travellers, onPressTraveller }: TravellerLis
             accessibilityRole="button"
             accessibilityLabel={traveller.name}
             onPress={() => onPressTraveller?.(traveller)}
-            style={({ pressed }) => [
-              styles.row,
-              {
-                paddingVertical: layout.rowPadV,
-                gap: layout.textGap,
-              },
-              pressed && styles.pressed,
-            ]}
+            style={styles.rowPressable}
           >
-            <View style={[styles.nameRow, { gap: layout.chevronGap }]}>
-              <Text
-                style={[
-                  styles.name,
-                  {
-                    fontSize: layout.nameSize,
-                    lineHeight: layout.nameLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {traveller.name || '—'}
-              </Text>
-              <Feather name="chevron-right" size={layout.chevronSize} color="#C4C0B8" />
+            <View
+              style={[
+                styles.row,
+                {
+                  paddingVertical: layout.rowPadV,
+                  gap: layout.textGap,
+                },
+              ]}
+            >
+              <View style={[styles.nameRow, { gap: layout.chevronGap }]}>
+                <Text
+                  style={[
+                    styles.name,
+                    {
+                      fontSize: layout.nameSize,
+                      lineHeight: layout.nameLineHeight,
+                    },
+                  ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {traveller.name || '—'}
+                </Text>
+                <Feather name="chevron-right" size={layout.chevronSize} color="#C4C0B8" />
+              </View>
+              {traveller.detailLine ? (
+                <Text
+                  style={[
+                    styles.detail,
+                    {
+                      fontSize: layout.detailSize,
+                      lineHeight: layout.detailLineHeight,
+                    },
+                  ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {traveller.detailLine}
+                </Text>
+              ) : null}
             </View>
-            {traveller.detailLine ? (
-              <Text
-                style={[
-                  styles.detail,
-                  {
-                    fontSize: layout.detailSize,
-                    lineHeight: layout.detailLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {traveller.detailLine}
-              </Text>
-            ) : null}
           </Pressable>
         </View>
       ))}
@@ -155,6 +158,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
+  rowPressable: {
+    width: '100%',
+  },
   row: {
     flexDirection: 'column',
     alignItems: 'stretch',
@@ -162,6 +168,7 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
   },
   name: {
     flex: 1,
@@ -169,7 +176,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.manrope.medium,
     color: colors.forest,
   },
-
   detail: {
     fontFamily: fontFamily.manrope.regular,
     color: colors.muted,
@@ -183,8 +189,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,
-  },
-  pressed: {
-    opacity: 0.72,
   },
 });

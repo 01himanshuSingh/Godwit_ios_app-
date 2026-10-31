@@ -12,6 +12,8 @@ import type {
   ClientInvoiceItem,
   GetClientInvoicesResult,
 } from '@/lib/firebase/payments/invoiceTypes';
+import { mapPaymentsLoadErrorToMessage } from '@/lib/firebase/payments/mapPaymentsLoadError';
+import { PaymentsScopeError } from '@/lib/firebase/payments/PaymentsScopeError';
 import { db } from '@/lib/firebase/firestore';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
 
@@ -28,7 +30,9 @@ export async function getClientInvoices(
 ): Promise<ClientInvoiceItem[]> {
   const aid = adminId.trim();
   const cid = clientId.trim();
-  if (!aid || !cid) return [];
+  if (!aid || !cid) {
+    throw new PaymentsScopeError();
+  }
 
   return withFirestoreRetry('getClientInvoices', async () => {
     const salesRef = collection(db, 'admins', aid, 'clients', cid, 'sales');
@@ -52,7 +56,7 @@ export async function getClientInvoicesSafe(
     const invoices = await getClientInvoices(adminId, clientId);
     return { invoices, errorMessage: null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load invoices';
+    const message = mapPaymentsLoadErrorToMessage(error);
     console.error('[getClientInvoices]', error);
     return { invoices: [], errorMessage: message };
   }

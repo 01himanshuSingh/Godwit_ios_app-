@@ -33,6 +33,9 @@ export function mapSaleToTripDocument(
   data: DocumentData,
   documentPath: string,
 ): TripDocumentItem | null {
+  // Cancelled sales — skip (not an error).
+  if (data.saleStatus === false || data.status === false) return null;
+
   const url = readString(data.confirmationDoc);
   if (!url) return null;
 
@@ -42,6 +45,7 @@ export function mapSaleToTripDocument(
       ? asRecord(data.serviceModelList[0])
       : {};
 
+  const saleId = String(data.saleId || data.customerVisitId || id).trim();
   const serviceName = readString(data.serviceName) || readString(service0.serviceName) || null;
 
   const titleBase =
@@ -50,6 +54,7 @@ export function mapSaleToTripDocument(
     readString(walkIn.category) ||
     readString(walkIn.route) ||
     serviceName ||
+    saleId ||
     'Booking';
 
   const travelDateKey =
@@ -67,7 +72,7 @@ export function mapSaleToTripDocument(
     'Trips';
 
   return {
-    saleId: String(data.saleId || data.customerVisitId || id).trim(),
+    saleId,
     title: `${titleBase} – Confirmation`,
     url,
     serviceName,

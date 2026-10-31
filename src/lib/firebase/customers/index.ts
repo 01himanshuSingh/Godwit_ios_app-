@@ -46,6 +46,12 @@ export { mapCustomerDocToTraveller } from './mapCustomerToTraveller';
 
 export { getTravellersForClient, getTravellersForClientSafe } from './getTravellersForClient';
 
+export {
+  classifyTravellersLoadError,
+  mapTravellersLoadErrorToMessage,
+  type TravellersLoadErrorKind,
+} from './mapTravellersLoadError';
+
 export type {
   TravellerPersonalDetails,
   GetTravellerPersonalDetailsResult,

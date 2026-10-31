@@ -19,11 +19,7 @@ export function NewRequestButton({ onPress }: NewRequestButtonProps) {
       accessibilityRole="button"
       accessibilityLabel="New request"
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.pressable,
-        { marginLeft: inset, marginRight: inset },
-        pressed && styles.pressed,
-      ]}
+      style={[styles.pressable, { marginLeft: inset, marginRight: inset }]}
     >
       <View style={styles.button}>
         <Feather name="plus" size={15} color={colors.sand} strokeWidth={2.25} />
@@ -60,8 +56,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     color: colors.sand,
     flexShrink: 0,
-  },
-  pressed: {
-    opacity: 0.88,
   },
 });

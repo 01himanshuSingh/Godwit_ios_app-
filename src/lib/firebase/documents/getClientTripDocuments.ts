@@ -19,6 +19,8 @@ import {
   type Query,
 } from 'firebase/firestore';
 
+import { DocumentsScopeError } from '@/lib/firebase/documents/DocumentsScopeError';
+import { mapDocumentsLoadErrorToMessage } from '@/lib/firebase/documents/mapDocumentsLoadError';
 import { mapSaleToTripDocument } from '@/lib/firebase/documents/mapSaleToTripDocument';
 import type {
   ClientTripDocumentsPage,
@@ -49,7 +51,7 @@ export async function getClientTripDocumentsPage(
   const aid = adminId.trim();
   const cid = clientId.trim();
   if (!aid || !cid) {
-    return { documents: [], nextCursor: null, hasMore: false };
+    throw new DocumentsScopeError();
   }
 
   return withFirestoreRetry('getClientTripDocumentsPage', async () => {
@@ -111,7 +113,7 @@ export async function getClientTripDocumentsSafe(
     const documents = await getClientTripDocuments(adminId, clientId);
     return { documents, errorMessage: null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load trip documents';
+    const message = mapDocumentsLoadErrorToMessage(error, 'trips');
     console.error('[getClientTripDocuments]', error);
     return { documents: [], errorMessage: message };
   }

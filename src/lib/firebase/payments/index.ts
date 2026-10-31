@@ -37,6 +37,13 @@ export {
   formatNextPaymentDueLabel,
 } from './getClientPaymentsCard';
 
+export { PaymentsScopeError } from './PaymentsScopeError';
+export {
+  classifyPaymentsLoadError,
+  mapPaymentsLoadErrorToMessage,
+  type PaymentsLoadErrorKind,
+} from './mapPaymentsLoadError';
+
 export type {
   HomePaymentsSpotlightMode,
   HomePaymentsDueLine,

@@ -84,7 +84,7 @@ export function PaymentsDueCard({ card, onViewPayments }: PaymentsDueCardProps) 
           accessibilityLabel="View payments"
           onPress={onViewPayments}
           hitSlop={8}
-          style={({ pressed }) => [styles.linkHit, pressed && styles.pressed]}
+          style={styles.linkHit}
         >
           <Text style={[styles.linkLabel, { fontSize: layout.linkSize }]}>View payments</Text>
         </Pressable>
@@ -133,8 +133,5 @@ const styles = StyleSheet.create({
   linkLabel: {
     fontFamily: fontFamily.manrope.regular,
     color: colors.muted,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });

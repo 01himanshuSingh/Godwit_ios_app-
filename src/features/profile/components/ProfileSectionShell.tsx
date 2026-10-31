@@ -117,16 +117,12 @@ export function ProfileSectionShell({
             router.back();
           }}
           hitSlop={12}
-          style={({ pressed }) => [
-            styles.backRow,
-            { gap: layout.backGap },
-            pressed && styles.pressed,
-          ]}
+          style={styles.backPressable}
         >
-          <View style={styles.backInner}>
+          <View style={[styles.backInner, { gap: layout.backGap }]}>
             <Feather name="chevron-left" size={layout.chevronSize} color={colors.muted} />
             <Text
-              style={[styles.backLabel, { fontSize: layout.backSize, marginLeft: layout.backGap }]}
+              style={[styles.backLabel, { fontSize: layout.backSize }]}
               numberOfLines={1}
               ellipsizeMode="tail"
             >
@@ -206,15 +202,15 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 0,
   },
-  backRow: {
+  backPressable: {
     alignSelf: 'flex-start',
-    paddingVertical: 4,
     maxWidth: '100%',
   },
   backInner: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'nowrap',
+    paddingVertical: 4,
   },
   backLabel: {
     fontFamily: fontFamily.manrope.medium,
@@ -254,8 +250,5 @@ const styles = StyleSheet.create({
   },
   body: {
     gap: 12,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });

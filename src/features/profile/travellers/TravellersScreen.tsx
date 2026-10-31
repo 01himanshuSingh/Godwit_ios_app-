@@ -1,6 +1,10 @@
 /**
  * Profile → Travellers list.
  * Scope: same adminId/clientId as Profile / Trips / Testing.
+ *
+ * Errors (friendly copy from getTravellersForClientSafe):
+ *   missing admin/client · permission · offline/timeout
+ * Empty list is success → TravellerListCard empty state.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -9,7 +13,10 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
 import { TravellerListCard } from '@/features/profile/travellers/components/TravellerListCard';
 import type { ClientTraveller } from '@/lib/firebase/customers';
-import { getTravellersForClientSafe } from '@/lib/firebase/customers';
+import {
+  getTravellersForClientSafe,
+  mapTravellersLoadErrorToMessage,
+} from '@/lib/firebase/customers';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
 import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { colors } from '@/ui/tokens/colors';
@@ -20,6 +27,7 @@ export function TravellersScreen() {
   const { profile, isHydrating } = useActiveClientProfile();
   const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
+  const hasScope = Boolean(adminId && clientId);
 
   const openTraveller = (traveller: ClientTraveller) => {
     const id = traveller.customerId?.trim();
@@ -30,13 +38,18 @@ export function TravellersScreen() {
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['profile', 'travellers', adminId, clientId],
     queryFn: () => getTravellersForClientSafe(adminId, clientId),
-    enabled: !isHydrating && Boolean(adminId && clientId),
+    enabled: !isHydrating && hasScope,
     retry: 2,
   });
 
   const travellers = data?.travellers ?? [];
-  const loadError = data?.errorMessage ?? (isError ? String(error) : null);
-  const loading = isHydrating || (isPending && travellers.length === 0 && !loadError);
+  const loadError =
+    (!isHydrating && !hasScope
+      ? mapTravellersLoadErrorToMessage(new Error('Missing adminId or clientId'))
+      : null) ??
+    data?.errorMessage ??
+    (isError ? mapTravellersLoadErrorToMessage(error) : null);
+  const loading = isHydrating || (hasScope && isPending && travellers.length === 0 && !loadError);
 
   return (
     <ProfileSectionShell
@@ -52,7 +65,12 @@ export function TravellersScreen() {
       {!loading && loadError ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{loadError}</Text>
-          <Pressable onPress={() => void refetch()} style={styles.retry}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading travellers"
+            onPress={() => void refetch()}
+            style={styles.retry}
+          >
             <Text style={styles.retryLabel}>{isFetching ? 'Retrying…' : 'Retry'}</Text>
           </Pressable>
         </View>

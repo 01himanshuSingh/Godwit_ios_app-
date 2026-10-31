@@ -17,6 +17,7 @@ import { TripDocumentsListCard } from '@/features/profile/documents/components/T
 import {
   getClientPersonalDocumentsPage,
   getClientTripDocumentsPage,
+  mapDocumentsLoadErrorToMessage,
   type PersonalDocumentItem,
   type PersonalDocumentsPageCursor,
   type TripDocumentItem,
@@ -33,7 +34,8 @@ export function DocumentsScreen() {
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
   const [tab, setTab] = useState<DocumentsTabId>('trips');
 
-  const sessionReady = !isHydrating && Boolean(adminId && clientId);
+  const hasScope = Boolean(adminId && clientId);
+  const sessionReady = !isHydrating && hasScope;
 
   const trips = useInfiniteQuery({
     queryKey: ['profile', 'documents', 'trips', adminId, clientId],
@@ -148,17 +150,21 @@ export function DocumentsScreen() {
       (personalDocuments.length === 0 && Boolean(personal.hasNextPage) && !personal.isError));
 
   const tripsError =
-    tab === 'trips' && trips.isError
-      ? trips.error instanceof Error
-        ? trips.error.message
-        : 'Failed to load trip documents'
+    tab === 'trips'
+      ? !isHydrating && !hasScope
+        ? mapDocumentsLoadErrorToMessage(new Error('Missing adminId or clientId'), 'trips')
+        : trips.isError
+          ? mapDocumentsLoadErrorToMessage(trips.error, 'trips')
+          : null
       : null;
 
   const personalError =
-    tab === 'personal' && personal.isError
-      ? personal.error instanceof Error
-        ? personal.error.message
-        : 'Failed to load personal documents'
+    tab === 'personal'
+      ? !isHydrating && !hasScope
+        ? mapDocumentsLoadErrorToMessage(new Error('Missing adminId or clientId'), 'personal')
+        : personal.isError
+          ? mapDocumentsLoadErrorToMessage(personal.error, 'personal')
+          : null
       : null;
 
   return (
@@ -194,7 +200,7 @@ export function DocumentsScreen() {
                   accessibilityLabel="Load more trip documents"
                   disabled={trips.isFetchingNextPage}
                   onPress={() => void trips.fetchNextPage()}
-                  style={({ pressed }) => [styles.loadMore, pressed && styles.pressed]}
+                  style={styles.loadMore}
                 >
                   {trips.isFetchingNextPage ? (
                     <ActivityIndicator color={colors.forest} />
@@ -237,7 +243,7 @@ export function DocumentsScreen() {
                   accessibilityLabel="Load more personal documents"
                   disabled={personal.isFetchingNextPage}
                   onPress={() => void personal.fetchNextPage()}
-                  style={({ pressed }) => [styles.loadMore, pressed && styles.pressed]}
+                  style={styles.loadMore}
                 >
                   {personal.isFetchingNextPage ? (
                     <ActivityIndicator color={colors.forest} />
@@ -298,8 +304,5 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.manrope.medium,
     fontSize: 14,
     color: colors.forest,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });
