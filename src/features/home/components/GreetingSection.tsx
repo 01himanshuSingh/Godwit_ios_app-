@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   headingFixed: {
     flexShrink: 0,
     fontFamily: fontFamily.cormorant.light,
-    fontSize: 30,
+    fontSize: 22,
     lineHeight: 36,
     color: colors.forest,
   },
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
     fontFamily: fontFamily.cormorant.light,
-    fontSize: 30,
+    fontSize: 22,
     lineHeight: 36,
     color: colors.forest,
   },

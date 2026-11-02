@@ -20,6 +20,23 @@
  *   types  → invoiceDetailTypes.ts
  *   map    → mapSaleToInvoiceDetail.ts
  *   fetch  → getClientInvoice.ts
+ *
+ * Payments received (ledger receipts):
+ *   types  → paymentsReceivedTypes.ts
+ *   pure   → mapLedgerEntryToPaymentReceived.ts
+ *   list   → listClientLedgerEntries.ts
+ *   fetch  → getClientPaymentsReceived.ts
+ *
+ * Credits & refunds (ledger refunds):
+ *   types  → creditsRefundsTypes.ts
+ *   pure   → mapLedgerEntryToCreditRefund.ts
+ *   fetch  → getClientCreditsAndRefunds.ts
+ *
+ * Upcoming payments (due balance + sale debits):
+ *   types  → upcomingPaymentsTypes.ts
+ *   sale   → getClientSale.ts
+ *   pure   → mapSaleDebitToUpcomingPayment.ts
+ *   fetch  → getClientUpcomingPayments.ts
  */
 
 export type {
@@ -74,3 +91,72 @@ export {
 } from './mapSaleToInvoiceDetail';
 
 export { getClientInvoice, getClientInvoiceSafe } from './getClientInvoice';
+
+export type {
+  PaymentReceivedStatus,
+  PaymentReceivedItem,
+  PaymentsReceivedPageCursor,
+  ClientPaymentsReceivedPage,
+  GetClientPaymentsReceivedResult,
+  ClientLedgerReceiptRow,
+} from './paymentsReceivedTypes';
+
+export {
+  mapLedgerEntryToPaymentReceived,
+  mapLedgerEntriesToPaymentsReceived,
+} from './mapLedgerEntryToPaymentReceived';
+
+export {
+  listClientLedgerEntries,
+  listClientLedgerEntriesPage,
+  LEDGER_RECEIPTS_PAGE_SIZE,
+  type ClientLedgerEntriesPage,
+} from './listClientLedgerEntries';
+
+export {
+  getClientPaymentsReceivedPage,
+  getClientPaymentsReceived,
+  getClientPaymentsReceivedSafe,
+  PAYMENTS_RECEIVED_LEDGER_PAGE_SIZE,
+} from './getClientPaymentsReceived';
+
+export type {
+  CreditRefundStatus,
+  CreditRefundItem,
+  CreditsRefundsPageCursor,
+  ClientCreditsRefundsPage,
+  GetClientCreditsRefundsResult,
+} from './creditsRefundsTypes';
+
+export {
+  mapLedgerEntryToCreditRefund,
+  mapLedgerEntriesToCreditsRefunds,
+} from './mapLedgerEntryToCreditRefund';
+
+export {
+  getClientCreditsAndRefundsPage,
+  getClientCreditsAndRefunds,
+  getClientCreditsAndRefundsSafe,
+  CREDITS_REFUNDS_LEDGER_PAGE_SIZE,
+} from './getClientCreditsAndRefunds';
+
+export type {
+  UpcomingPaymentAccountTag,
+  UpcomingPaymentRowStatus,
+  UpcomingPaymentItem,
+  ClientUpcomingPayments,
+  GetClientUpcomingPaymentsResult,
+} from './upcomingPaymentsTypes';
+
+export { getClientSale } from './getClientSale';
+
+export {
+  isSaleDebitLedgerRow,
+  mapSaleDebitToUpcomingPayment,
+} from './mapSaleDebitToUpcomingPayment';
+
+export {
+  getClientUpcomingPayments,
+  getClientUpcomingPaymentsSafe,
+  type UpcomingPaymentsDeps,
+} from './getClientUpcomingPayments';

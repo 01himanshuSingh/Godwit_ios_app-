@@ -14,13 +14,18 @@ export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderPr
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
-      <Text
-        style={[styles.wordmark, compact && styles.wordmarkCompact]}
-        accessibilityRole="header"
-        numberOfLines={1}
-      >
-        GODWIT
-      </Text>
+      <View style={styles.wordmarkWrap}>
+        <Text
+          style={[styles.wordmark, compact && styles.wordmarkCompact]}
+          accessibilityRole="header"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          allowFontScaling={false}
+        >
+          GODWIT
+        </Text>
+      </View>
 
       <View style={styles.actions}>
         <Pressable
@@ -63,25 +68,32 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: colors.background,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.headerBorder,
   },
   containerCompact: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  wordmarkWrap: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
+    justifyContent: 'center',
+  },
   wordmark: {
     fontFamily: fontFamily.cormorant.medium,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: 5,
+    fontSize: 26,
+    lineHeight: 28,
+    letterSpacing: 2.5,
     color: colors.forest,
     textTransform: 'uppercase',
-    flexShrink: 0,
+    // Extra pad so RN letterSpacing does not clip the last letter.
+    paddingRight: 4,
   },
   wordmarkCompact: {
-    fontSize: 24,
-    lineHeight: 30,
-    letterSpacing: 3.5,
+    fontSize: 20,
+    lineHeight: 26,
+    letterSpacing: 2,
   },
   actions: {
     flexDirection: 'row',

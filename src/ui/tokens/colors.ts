@@ -6,6 +6,8 @@ export const colors = {
   card: '#F7F6F4',
   surface: '#DEDBD4',
   border: '#D4D0C8',
+  /** Slightly darker than `border` — header underline. */
+  headerBorder: '#C2BDB4',
   muted: '#5C6658',
   accent: '#3D4F38',
   primaryForeground: '#F7F6F4',
