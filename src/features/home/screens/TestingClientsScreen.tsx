@@ -1,7 +1,10 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useAuth } from '@/auth/providers/AuthProvider';
 import {
   checkFirebaseConnection,
   getClientByAdminAndClientIdSafe,
@@ -60,7 +63,10 @@ type TestingClientsData = {
  * Sequential + retries: Expo Go Firestore often fails when many heavy reads
  * race on cold start. Critical path = pinned client + sales bookings first.
  */
-async function fetchTestingClientsData(): Promise<TestingClientsData> {
+async function fetchTestingClientsData(
+  adminId: string,
+  clientId: string,
+): Promise<TestingClientsData> {
   const status = await checkFirebaseConnection();
 
   if (!status.connected) {
@@ -68,15 +74,16 @@ async function fetchTestingClientsData(): Promise<TestingClientsData> {
     throw new Error(status.message);
   }
 
-  const pinned = await getClientByAdminAndClientIdSafe();
-  const tripsResult = await getClientTrips();
+  // Use signed-in client doc ids (from email login), not a hard-coded auth user.
+  const pinned = await getClientByAdminAndClientIdSafe(adminId, clientId);
+  const tripsResult = await getClientTrips(adminId, clientId);
 
   // Soft fail: sales empty + salesError should retry the whole fetch.
   if (tripsResult.salesError && tripsResult.trips.length === 0) {
     throw new Error(tripsResult.salesError);
   }
 
-  const emailList = await getClientEmailsForAdminSafe(TEST_CLIENT_LOOKUP_ADMIN_ID);
+  const emailList = await getClientEmailsForAdminSafe(adminId || TEST_CLIENT_LOOKUP_ADMIN_ID);
 
   const tripsNoteParts = [
     tripsResult.salesError ? `sales: ${tripsResult.salesError}` : null,
@@ -483,13 +490,30 @@ function HotelConfirmationTestCard({
 }
 
 export function TestingClientsScreen() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { signOut } = useAuth();
   const { profile } = useActiveClientProfile();
+  const [signingOut, setSigningOut] = useState(false);
   const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
 
+  const onLogout = () => {
+    void (async () => {
+      setSigningOut(true);
+      try {
+        await signOut();
+        queryClient.clear();
+        router.replace('/(auth)/sign-in');
+      } finally {
+        setSigningOut(false);
+      }
+    })();
+  };
+
   const { data, isPending, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['testing', 'clients-trips', 'v4-retry-sales-first', adminId, clientId],
-    queryFn: fetchTestingClientsData,
+    queryFn: () => fetchTestingClientsData(adminId, clientId),
     retry: 4,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
@@ -577,22 +601,38 @@ export function TestingClientsScreen() {
         <Text style={styles.headerTitle} accessibilityRole="header">
           Testing
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Refresh testing data"
-          onPress={refreshAll}
-          disabled={
-            isFetching ||
-            confirmationQuery.isFetching ||
-            roomTypeQuery.isFetching ||
-            yachtQuery.isFetching ||
-            vouchersQuery.isFetching ||
-            personalDocsQuery.isFetching
-          }
-          style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed]}
-        >
-          <Feather name="refresh-cw" size={20} color={colors.forest} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Log out and sign in with another email"
+            onPress={onLogout}
+            disabled={signingOut}
+            style={styles.logoutButton}
+          >
+            {signingOut ? (
+              <ActivityIndicator size="small" color={colors.forest} />
+            ) : (
+              <Text style={styles.logoutLabel}>Log out</Text>
+            )}
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Refresh testing data"
+            onPress={refreshAll}
+            disabled={
+              signingOut ||
+              isFetching ||
+              confirmationQuery.isFetching ||
+              roomTypeQuery.isFetching ||
+              yachtQuery.isFetching ||
+              vouchersQuery.isFetching ||
+              personalDocsQuery.isFetching
+            }
+            style={styles.refreshButton}
+          >
+            <Feather name="refresh-cw" size={20} color={colors.forest} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -756,6 +796,22 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamily.cormorant.regular,
     fontSize: 28,
+    color: colors.forest,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  logoutButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 72,
+    alignItems: 'center',
+  },
+  logoutLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 14,
     color: colors.forest,
   },
   refreshButton: {

@@ -1,14 +1,24 @@
 import * as Linking from 'expo-linking';
 import { useEffect, useRef } from 'react';
 
-import { completeMagicLink } from '@/auth/services/magicLink/completeMagicLink';
+import {
+  completeMagicLink,
+  isFirebaseMagicLink,
+} from '@/auth/services/magicLink/completeMagicLink';
 
-const MAGIC_LINK_PATH = 'auth/magic-link';
-
+/**
+ * Future / Dev Client: when a magic link opens the app, complete Firebase sign-in.
+ * Expo Go primarily uses the paste screen; this remains for when Linking delivers a URL.
+ */
 function isMagicLinkUrl(url: string): boolean {
+  if (isFirebaseMagicLink(url)) {
+    return true;
+  }
   const parsed = Linking.parse(url);
   const path = parsed.path ?? '';
-  return path.includes(MAGIC_LINK_PATH) || url.includes(MAGIC_LINK_PATH);
+  return (
+    path.includes('auth/magic-link') || path.includes('finishSignIn') || url.includes('oobCode')
+  );
 }
 
 type UseMagicLinkHandlerOptions = {

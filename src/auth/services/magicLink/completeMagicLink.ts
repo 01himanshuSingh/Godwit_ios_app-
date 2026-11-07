@@ -1,7 +1,12 @@
-import * as Linking from 'expo-linking';
-
-import { env } from '@/config/env';
-import { type AuthSession, storeSession } from '@/lib/session/bffSession';
+import { clearPendingAuth } from '@/auth/services/pendingAuthStorage';
+import { validateClientAccess } from '@/lib/firebase/appUsers';
+import {
+  checkIsFirebaseEmailSignInLink,
+  signInWithFirebaseEmailLink,
+  type User,
+} from '@/lib/firebase/firebaseAuth';
+import { setActiveClientProfile } from '@/lib/session/activeClientProfile';
+import { storeSession, type AuthSession } from '@/lib/session/bffSession';
 
 export type CompleteMagicLinkInput = {
   email: string;
@@ -10,49 +15,100 @@ export type CompleteMagicLinkInput = {
 
 export type CompleteMagicLinkResult = {
   session: AuthSession;
+  uid: string;
+  clientId: string;
+  adminId: string;
+  email: string;
+  name: string;
 };
 
-function extractOobCode(linkUrl: string): string | null {
-  const parsed = Linking.parse(linkUrl);
-  const code = parsed.queryParams?.oobCode ?? parsed.queryParams?.code;
-  if (typeof code === 'string' && code.length > 0) {
-    return code;
+/**
+ * App-scoped session markers — Firebase Auth owns real ID/refresh tokens in its RN persistence.
+ * Features still read `clientId` from SecureStore / active profile.
+ */
+function buildAppSession(clientId: string, uid: string): AuthSession {
+  return {
+    accessToken: `firebase-auth:${uid}`,
+    refreshToken: `firebase-auth-refresh:${uid}`,
+    clientId,
+  };
+}
+
+function mapFirebaseAuthError(error: unknown): Error {
+  const code =
+    typeof error === 'object' && error && 'code' in error
+      ? String((error as { code?: string }).code ?? '')
+      : '';
+  const message = error instanceof Error ? error.message : String(error ?? '');
+
+  if (
+    code === 'auth/invalid-action-code' ||
+    code === 'auth/expired-action-code' ||
+    /invalid-action-code|expired-action-code/i.test(message)
+  ) {
+    return new Error('This sign-in link has expired or was already used. Request a new link.');
   }
-  return null;
+  if (code === 'auth/invalid-email' || /invalid-email/i.test(message)) {
+    return new Error('Use the same email address the link was sent to.');
+  }
+  if (error instanceof Error) {
+    return error;
+  }
+  return new Error(message || 'Sign-in failed.');
+}
+
+export async function establishClientSessionFromUser(user: User): Promise<CompleteMagicLinkResult> {
+  const profile = await validateClientAccess(user.uid);
+
+  await setActiveClientProfile({
+    clientId: profile.clientId,
+    adminId: profile.adminId,
+    name: profile.name,
+    contactEmail: profile.email || user.email || '',
+  });
+
+  const session = buildAppSession(profile.clientId, user.uid);
+  await storeSession(session);
+  await clearPendingAuth();
+
+  return {
+    session,
+    uid: user.uid,
+    clientId: profile.clientId,
+    adminId: profile.adminId,
+    email: profile.email,
+    name: profile.name,
+  };
 }
 
 /**
- * Proposed BFF endpoint — exchanges the link for app access + refresh tokens.
+ * Complete Firebase email-link sign-in (paste in Expo Go, or deep link later).
  */
 export async function completeMagicLink({
   email,
   linkUrl,
 }: CompleteMagicLinkInput): Promise<CompleteMagicLinkResult> {
-  const oobCode = extractOobCode(linkUrl);
+  const normalizedEmail = email.trim().toLowerCase();
+  const link = linkUrl.trim();
 
-  const response = await fetch(`${env.apiBaseUrl}/auth/magic-link/complete`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ email, link: linkUrl, oobCode }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text().catch(() => response.statusText);
-    throw new Error(message || `Magic link sign-in failed (${response.status})`);
+  if (!normalizedEmail.includes('@')) {
+    throw new Error('Please enter your email again.');
+  }
+  if (!link) {
+    throw new Error('Paste the sign-in link from your email.');
+  }
+  if (!checkIsFirebaseEmailSignInLink(link)) {
+    throw new Error('Invalid Firebase sign-in link.');
   }
 
-  const data = (await response.json()) as {
-    accessToken: string;
-    refreshToken: string;
-    clientId: string;
-  };
+  try {
+    const credential = await signInWithFirebaseEmailLink(normalizedEmail, link);
+    return await establishClientSessionFromUser(credential.user);
+  } catch (error) {
+    throw mapFirebaseAuthError(error);
+  }
+}
 
-  const session: AuthSession = {
-    accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
-    clientId: data.clientId,
-  };
-
-  await storeSession(session);
-  return { session };
+export function isFirebaseMagicLink(linkUrl: string): boolean {
+  return checkIsFirebaseEmailSignInLink(linkUrl);
 }

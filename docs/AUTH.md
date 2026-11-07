@@ -1,36 +1,32 @@
 # Authentication (AUTH-1)
 
-Signed-in users are CRM **clients** (invite-only). All sign-in methods link to one user and one `clientId`. The BFF verifies identity and returns **app access + refresh tokens** (stored in Keychain only).
+Signed-in users are CRM **clients** (invite-only). Firebase Auth proves email ownership; `app_users/{uid}` (or trusted provisioning) grants mobile access and maps `adminId` / `clientId`.
 
-## Methods (priority order)
+## Current mobile flow (Expo Go development)
 
-1. **Email one-time 6-digit code** — matched to CRM client email on the server.
-2. **Google sign-in** — ID token verified server-side.
-3. **Sign in with Apple** — required alongside Google (App Store guideline 4.8).
+1. **Email magic link** via Firebase `sendSignInLinkToEmail`.
+2. User copies the link from Gmail and pastes it on **Complete sign-in** (Expo Go cannot own `godwit://` yet).
+3. `signInWithEmailLink` → Firebase UID.
+4. Validate `app_users/{uid}` (`role: client`, `status: active`) → set active client profile + app session markers.
+5. `onAuthStateChanged` + Auth persistence restore the Firebase user; entitlement is re-checked on launch.
 
-Phone OTP is deferred.
+Pending wait state (`pending_auth_email`, `pending_auth_sent_at`) survives Expo Go reload so cold start opens **complete-login**, not a blank sign-in.
 
-## Email OTP flow (proposed)
+**Development fallback:** if `app_users` is missing and `APP_ENV=development` (unless `EXPO_PUBLIC_AUTH_ALLOW_CRM_EMAIL_FALLBACK=false`), the app may resolve the CRM `clients` doc by email. Production must provision `app_users` server-side — never auto-enroll every CRM email.
 
-| Step | Action |
-|------|--------|
-| 1 | User enters email on SignIn |
-| 2 | `POST /v1/auth/email/request` — send code *(proposed — not yet in backend endpoint list)* |
-| 3 | User enters 6-digit code |
-| 4 | `POST /v1/auth/email/verify` — exchange for tokens *(proposed)* |
+Do **not** store Firebase ID/refresh tokens in SecureStore; Firebase Auth RN persistence owns them. SecureStore keeps app `clientId` scope markers only.
 
-Google / Apple: client obtains provider token → BFF verify endpoint → same token pair.
+## Later phases
 
-## Account linking
+| Phase             | Work                                                             | Build             |
+| ----------------- | ---------------------------------------------------------------- | ----------------- |
+| Deep link handoff | Replace paste UI with Linking / Dev Client scheme                | Development build |
+| Universal Links   | HTTPS → app                                                      | Production config |
+| Google / Apple    | Provider token → same entitlement check                          | —                 |
+| BFF tokens        | Exchange Firebase (or provider) proof for `/v1` access + refresh | Backend           |
 
-- Link by **provider subject ID**, never by email alone.
-- Apple hidden relay emails **cannot** be used to locate the CRM client record.
+## Security
 
-## Storage and session
-
-- Access and refresh tokens: **Keychain** via `expo-secure-store` wrapper in `src/lib/storage`.
-- Logout: revoke refresh token on server and unregister push device token.
-
-## App Review
-
-Provide a **reviewer demo account** with a fixed OTP or pre-provisioned credentials (no production client data).
+- Never accept `clientId` from the client as proof of authorization.
+- Frontend entitlement checks are UX only; Firestore rules must enforce tenant scope.
+- Logout: `signOut(auth)` + clear pending keys + clear profile / session markers + React Query user cache.

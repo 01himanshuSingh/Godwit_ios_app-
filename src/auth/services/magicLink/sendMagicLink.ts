@@ -1,4 +1,6 @@
-import { env } from '@/config/env';
+import { clearPendingAuth, savePendingAuth } from '@/auth/services/pendingAuthStorage';
+import { assertRegisteredClientEmail } from '@/lib/firebase/appUsers';
+import { sendFirebaseSignInLinkToEmail } from '@/lib/firebase/firebaseAuth';
 
 import { getMagicLinkActionCodeSettings } from './actionCodeSettings';
 
@@ -8,24 +10,29 @@ export type SendMagicLinkInput = {
 
 export type SendMagicLinkResult = {
   ok: true;
+  email: string;
 };
 
 /**
- * Proposed BFF endpoint — backend sends the email link; app never talks to Firebase Auth directly.
+ * Request Firebase passwordless email link, then persist pending email for Expo Go paste / restore.
+ * Never send a magic link or store `pending_auth_email` for non-client emails.
  */
 export async function sendMagicLink({ email }: SendMagicLinkInput): Promise<SendMagicLinkResult> {
-  const actionCodeSettings = getMagicLinkActionCodeSettings();
-
-  const response = await fetch(`${env.apiBaseUrl}/auth/magic-link/request`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ email, actionCodeSettings }),
-  });
-
-  if (!response.ok) {
-    const message = await response.text().catch(() => response.statusText);
-    throw new Error(message || `Magic link request failed (${response.status})`);
+  const normalized = email.trim().toLowerCase();
+  if (!normalized.includes('@')) {
+    throw new Error('Enter a valid email address.');
   }
 
-  return { ok: true };
+  const actionCodeSettings = getMagicLinkActionCodeSettings();
+
+  try {
+    await assertRegisteredClientEmail(email, normalized);
+    await sendFirebaseSignInLinkToEmail(normalized, actionCodeSettings);
+    await savePendingAuth(normalized);
+    return { ok: true, email: normalized };
+  } catch (error) {
+    await clearPendingAuth();
+    console.warn('[sendMagicLink] failed:', error);
+    throw error;
+  }
 }

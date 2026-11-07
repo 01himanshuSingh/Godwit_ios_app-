@@ -59,6 +59,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-router',
       'expo-secure-store',
       'expo-apple-authentication',
+      'expo-font',
+      'expo-image',
+      'expo-sharing',
       [
         'expo-build-properties',
         {

@@ -41,26 +41,51 @@ export type ClientByEmailHit = {
   name: string | null;
 };
 
-/** Single client by `contactEmail` — requires collection group index on `contactEmail`. */
-export async function getClientByEmailOnly(contactEmail: string): Promise<ClientByEmailHit | null> {
-  const email = contactEmail.trim();
-
-  const q = query(collectionGroup(db, 'clients'), where('contactEmail', '==', email), limit(1));
-
-  const snap = await getDocs(q);
-  if (snap.empty) {
-    return null;
-  }
-
-  const doc = snap.docs[0];
-  const data = doc.data();
-
+function mapClientDocToHit(
+  snapDoc: QueryDocumentSnapshot<DocumentData>,
+  fallbackEmail: string,
+): ClientByEmailHit {
+  const data = snapDoc.data();
   return {
-    clientId: doc.id,
-    adminId: doc.ref.parent.parent?.id ?? '',
-    contactEmail: readNonEmptyString(data.contactEmail) ?? email,
+    clientId: snapDoc.id,
+    adminId: snapDoc.ref.parent.parent?.id ?? '',
+    contactEmail:
+      readNonEmptyString(data.contactEmail) || readNonEmptyString(data.email) || fallbackEmail,
     name: readNonEmptyString(data.name),
   };
+}
+
+/**
+ * Single client from CRM `clients` docs only (not Firebase Auth users).
+ * Primary: `contactEmail` (Godwit field). Optional soft fallback: `email`.
+ * Missing fallback index must not mask “no client” — return null instead.
+ */
+export async function getClientByEmailOnly(contactEmail: string): Promise<ClientByEmailHit | null> {
+  const email = contactEmail.trim();
+  if (!email) return null;
+
+  return withFirestoreRetry('getClientByEmailOnly', async () => {
+    const byContact = await getDocs(
+      query(collectionGroup(db, 'clients'), where('contactEmail', '==', email), limit(1)),
+    );
+    if (!byContact.empty) {
+      return mapClientDocToHit(byContact.docs[0]!, email);
+    }
+
+    // Soft fallback — if `email` index is missing, treat as not found (not a hard failure).
+    try {
+      const byEmail = await getDocs(
+        query(collectionGroup(db, 'clients'), where('email', '==', email), limit(1)),
+      );
+      if (!byEmail.empty) {
+        return mapClientDocToHit(byEmail.docs[0]!, email);
+      }
+    } catch (error) {
+      console.warn('[getClientByEmailOnly] email-field fallback skipped:', error);
+    }
+
+    return null;
+  });
 }
 
 export type ClientLookupResult = Pick<

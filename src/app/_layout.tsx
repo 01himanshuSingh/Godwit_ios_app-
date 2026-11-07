@@ -6,6 +6,7 @@ import { Stack, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AuthGate } from '@/auth/components/AuthGate';
 import { AppChromeHeader } from '@/features/home/components/AppChromeHeader';
 import { AppProviders } from '@/providers/AppProviders';
 import { colors } from '@/ui/tokens/colors';
@@ -19,12 +20,14 @@ function RootNavigation() {
   const hideChrome = segments[0] === '(auth)';
 
   return (
-    <View style={styles.root}>
-      {hideChrome ? null : <AppChromeHeader />}
-      <View style={styles.stack}>
-        <Stack screenOptions={{ headerShown: false, contentStyle: styles.stackContent }} />
+    <AuthGate>
+      <View style={styles.root}>
+        {hideChrome ? null : <AppChromeHeader />}
+        <View style={styles.stack}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: styles.stackContent }} />
+        </View>
       </View>
-    </View>
+    </AuthGate>
   );
 }
 

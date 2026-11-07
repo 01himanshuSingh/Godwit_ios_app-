@@ -14,7 +14,13 @@ if [ ! -f /etc/sysctl.d/40-max-user-watches.conf ]; then
   echo fs.inotify.max_user_watches=524288 | sudo tee /etc/sysctl.d/40-max-user-watches.conf >/dev/null
 fi
 
-export PATH="${PATH:-}"
+# Ensure nvm Node/npx is on PATH in non-login shells (set -u trips nvm.sh).
+if ! command -v npx >/dev/null 2>&1; then
+  if [ -d "$HOME/.nvm/versions/node" ]; then
+    LATEST_NODE="$(ls -1v "$HOME/.nvm/versions/node" | tail -n 1)"
+    export PATH="$HOME/.nvm/versions/node/$LATEST_NODE/bin:${PATH:-}"
+  fi
+fi
 unset CI
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"

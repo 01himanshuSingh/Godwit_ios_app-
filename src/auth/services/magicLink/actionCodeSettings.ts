@@ -1,21 +1,16 @@
-import Constants from 'expo-constants';
+import type { ActionCodeSettings } from '@/lib/firebase/firebaseAuth';
 
-/** Deep-link settings sent to the BFF so the email link opens this app (Firebase-style shape for server reuse). */
-export type MagicLinkActionCodeSettings = {
-  url: string;
-  handleCodeInApp: true;
-  iOS: {
-    bundleId: string;
-  };
-};
-
-export function getMagicLinkActionCodeSettings(): MagicLinkActionCodeSettings {
-  const scheme = Constants.expoConfig?.scheme ?? 'godwit';
-  const bundleId = Constants.expoConfig?.ios?.bundleIdentifier ?? 'com.godwit.client.dev';
+/**
+ * Firebase email-link continue URL — must be an Authorized domain.
+ * Copy/paste Expo Go flow does not require `iOS.bundleId` (which fails if the bundleId
+ * is not registered in Firebase Project Settings).
+ */
+export function getMagicLinkActionCodeSettings(): ActionCodeSettings {
+  const authDomain =
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim() || 'debug-godwit-3bd83.firebaseapp.com';
 
   return {
-    url: `${scheme}://auth/magic-link`,
+    url: `https://${authDomain}/finishSignIn`,
     handleCodeInApp: true,
-    iOS: { bundleId },
   };
 }
