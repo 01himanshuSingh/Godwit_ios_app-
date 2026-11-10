@@ -1,40 +1,92 @@
 /**
- * Something else request form — maps to CRM enquiry category `other`.
+ * Something else request form — city, when, guests, notes → CRM.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { CityPlacesAutocomplete } from '@/features/requests/components/CityPlacesAutocomplete';
+import { DateFieldPicker } from '@/features/requests/components/DateFieldPicker';
 import { RequestFormField } from '@/features/requests/components/RequestFormField';
 import { SendToGodwitButton } from '@/features/requests/components/SendToGodwitButton';
+import { TravellerCountCard } from '@/features/requests/components/TravellerCountCard';
 import { useSubmitServiceRequest } from '@/features/requests/hooks/useSubmitServiceRequest';
+import { requestFormLayoutForWidth } from '@/features/requests/shared/requestFormLayout';
+import {
+  INITIAL_TRAVELLER_COUNTS,
+  type TravellerCounts,
+} from '@/features/requests/shared/travellerCounts';
+import {
+  firstFieldError,
+  requireDateOnOrAfterToday,
+  requireEndOnOrAfterStart,
+  requireText,
+  requireTravellerParty,
+  setError,
+  type FieldErrors,
+} from '@/features/requests/shared/validateRequestForm';
+import { mapSomethingElseFormToAppRequest } from '@/features/requests/something-else/mapSomethingElseFormToAppRequest';
 import { colors } from '@/ui/tokens/colors';
-
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return { cardPad: 16, cardRadius: 16, cardGap: 18, sectionGap: 14 };
-  }
-  return { cardPad: 20, cardRadius: 18, cardGap: 22, sectionGap: 16 };
-}
 
 export function SomethingElseRequestForm() {
   const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
-  const { submitting, submit } = useSubmitServiceRequest();
+  const layout = useMemo(() => requestFormLayoutForWidth(width), [width]);
+  const { submitting, submitRequest } = useSubmitServiceRequest();
 
-  const [destination, setDestination] = useState('');
-  const [dates, setDates] = useState('');
+  const [city, setCity] = useState('');
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [whenStart, setWhenStart] = useState<Date | null>(null);
+  const [whenEnd, setWhenEnd] = useState<Date | null>(null);
+  const [counts, setCounts] = useState<TravellerCounts>(INITIAL_TRAVELLER_COUNTS);
   const [additionalInformation, setAdditionalInformation] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
+
+  const clearError = useCallback((key: string) => {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
 
   const onSend = useCallback(() => {
-    void submit({
-      category: 'other',
-      main: destination,
-      when: dates,
-      notes: additionalInformation,
-      travellerIds: [],
-      travellers: [],
-    });
-  }, [additionalInformation, dates, destination, submit]);
+    const nextErrors: FieldErrors = {};
+    setError(nextErrors, 'city', requireText(city, 'City'));
+    setError(nextErrors, 'whenStart', requireDateOnOrAfterToday(whenStart, 'When — from'));
+    if (whenEnd) {
+      setError(
+        nextErrors,
+        'whenEnd',
+        requireEndOnOrAfterStart(whenStart, whenEnd, 'When — until', 'When — from'),
+      );
+    }
+    setError(nextErrors, 'counts', requireTravellerParty(counts));
+    setError(
+      nextErrors,
+      'notes',
+      requireText(additionalInformation, 'Anything we should know', { minLength: 3 }),
+    );
+
+    setErrors(nextErrors);
+    const first = firstFieldError(nextErrors);
+    if (first) {
+      Alert.alert('Missing details', first);
+      return;
+    }
+
+    void submitRequest(
+      mapSomethingElseFormToAppRequest({
+        city,
+        placeId,
+        whenStart,
+        whenEnd: whenEnd || whenStart,
+        counts,
+        notes: additionalInformation,
+        travellerIds: [],
+        travellers: [],
+      }),
+    );
+  }, [additionalInformation, city, counts, placeId, submitRequest, whenEnd, whenStart]);
 
   return (
     <View style={[styles.root, { gap: layout.sectionGap }]}>
@@ -50,22 +102,60 @@ export function SomethingElseRequestForm() {
           },
         ]}
       >
-        <RequestFormField
-          label="WHERE"
-          value={destination}
-          onChangeText={setDestination}
+        <CityPlacesAutocomplete
+          label="CITY"
+          value={city}
+          error={errors.city}
+          onChangeText={(text) => {
+            setCity(text);
+            setPlaceId(null);
+            clearError('city');
+          }}
+          onSelectPlace={(place) => {
+            setCity(place.mainText || place.description);
+            setPlaceId(place.placeId);
+            clearError('city');
+          }}
           placeholder="Kyoto"
-          accessibilityLabel="Where"
         />
-        <RequestFormField
-          label="WHEN"
-          value={dates}
-          onChangeText={setDates}
-          placeholder="14 – 20 February, or flexible"
-          helperText="Approximate is fine."
-          accessibilityLabel="When"
+
+        <DateFieldPicker
+          label="WHEN — FROM"
+          value={whenStart}
+          error={errors.whenStart}
+          onChange={(next) => {
+            setWhenStart(next);
+            clearError('whenStart');
+            if (next && whenEnd && whenEnd.getTime() < next.getTime()) {
+              setWhenEnd(null);
+              clearError('whenEnd');
+            }
+          }}
+          placeholder="Select date"
+          minimumDate={new Date()}
+        />
+
+        <DateFieldPicker
+          label="WHEN — UNTIL"
+          value={whenEnd}
+          error={errors.whenEnd}
+          onChange={(next) => {
+            setWhenEnd(next);
+            clearError('whenEnd');
+          }}
+          placeholder="Optional end date"
+          minimumDate={whenStart || new Date()}
         />
       </View>
+
+      <TravellerCountCard
+        counts={counts}
+        error={errors.counts}
+        onChange={(next) => {
+          setCounts(next);
+          clearError('counts');
+        }}
+      />
 
       <View
         style={[
@@ -81,8 +171,12 @@ export function SomethingElseRequestForm() {
         <RequestFormField
           label="ANYTHING WE SHOULD KNOW?"
           value={additionalInformation}
-          onChangeText={setAdditionalInformation}
-          placeholder="Preferences, occasions, anything you are still deciding."
+          error={errors.notes}
+          onChangeText={(text) => {
+            setAdditionalInformation(text);
+            clearError('notes');
+          }}
+          placeholder="Preferences, occasions…"
           multiline
           minHeight={110}
           accessibilityLabel="Anything we should know"

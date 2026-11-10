@@ -1,77 +1,46 @@
 /**
  * Hotel UI → universal AppRequest (+ CRM prefill keys).
- * Keeps SERVICE_MAP main/extra/when/notes; structured hotel fields go in crmFields.
  */
 
-import { format, isValid } from 'date-fns';
-
 import type { AppRequest, AppRequestTraveller } from '@/lib/firebase/enquiries';
+import { formatDateRangeLabel, formatIsoDate } from '@/features/requests/shared/formDateUtils';
+import {
+  formatTravellerCountLabel,
+  type TravellerCounts,
+} from '@/features/requests/shared/travellerCounts';
 
-export type HotelTravellerCounts = {
-  adults: number;
-  children: number;
-  infants: number;
-};
+/** @deprecated Prefer TravellerCounts from shared/travellerCounts */
+export type HotelTravellerCounts = TravellerCounts;
 
 export type HotelFormSubmitInput = {
   city: string;
   placeId?: string | null;
   checkIn: Date | null;
   checkOut: Date | null;
-  counts: HotelTravellerCounts;
+  preferredHotel?: string;
+  counts: TravellerCounts;
   roomCount: number;
   notes: string;
   travellerIds: string[];
   travellers: AppRequestTraveller[];
 };
 
-function formatIsoDate(date: Date | null): string {
-  if (!date || !isValid(date)) return '';
-  return format(date, 'yyyy-MM-dd');
-}
-
-function formatDisplayDate(date: Date | null): string {
-  if (!date || !isValid(date)) return '';
-  return format(date, 'd MMMM yyyy');
-}
-
-export function formatTravellerCountLabel(counts: HotelTravellerCounts): string {
-  const parts: string[] = [];
-  if (counts.adults > 0) {
-    parts.push(`${counts.adults} Adult${counts.adults === 1 ? '' : 's'}`);
-  }
-  if (counts.children > 0) {
-    parts.push(`${counts.children} Child${counts.children === 1 ? '' : 'ren'}`);
-  }
-  if (counts.infants > 0) {
-    parts.push(`${counts.infants} Infant${counts.infants === 1 ? '' : 's'}`);
-  }
-  return parts.join(', ') || 'Guests to be confirmed';
-}
+export { formatTravellerCountLabel };
 
 export function mapHotelFormToAppRequest(input: HotelFormSubmitInput): AppRequest {
   const city = input.city.trim();
   const checkInIso = formatIsoDate(input.checkIn);
   const checkOutIso = formatIsoDate(input.checkOut);
-  const checkInLabel = formatDisplayDate(input.checkIn);
-  const checkOutLabel = formatDisplayDate(input.checkOut);
-
-  let when = 'Dates to be confirmed';
-  if (checkInLabel && checkOutLabel) {
-    when = `${checkInLabel} – ${checkOutLabel}`;
-  } else if (checkInLabel) {
-    when = `From ${checkInLabel}`;
-  } else if (checkOutLabel) {
-    when = `Until ${checkOutLabel}`;
-  }
-
+  const when = formatDateRangeLabel(input.checkIn, input.checkOut);
   const guestLabel = formatTravellerCountLabel(input.counts);
   const roomCount = Math.max(0, Math.floor(input.roomCount));
   const roomsLabel = `${roomCount} Room${roomCount === 1 ? '' : 's'}`;
+  const preferredHotel = (input.preferredHotel || '').trim();
 
   const remarkLines = [
     `Guests: ${guestLabel}`,
     `Rooms: ${roomsLabel}`,
+    preferredHotel ? `Preferred hotel: ${preferredHotel}` : null,
     checkInIso ? `Check-in: ${checkInIso}` : null,
     checkOutIso ? `Check-out: ${checkOutIso}` : null,
     input.placeId ? `placeId: ${input.placeId}` : null,
@@ -97,6 +66,7 @@ export function mapHotelFormToAppRequest(input: HotelFormSubmitInput): AppReques
       roomCount,
       category: guestLabel,
       route: roomsLabel,
+      ...(preferredHotel ? { preferredHotel } : {}),
       ...(input.placeId ? { placeId: input.placeId } : {}),
     },
   };

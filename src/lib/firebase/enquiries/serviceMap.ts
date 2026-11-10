@@ -43,7 +43,7 @@ export const SERVICE_MAP: Record<AppServiceCategory, ServiceMapEntry> = {
     fallback: 'Other Service',
     mainKey: 'category',
     extraKey: 'route',
-    mainLabel: 'Where',
+    mainLabel: 'Destination',
     extraLabel: 'Bedrooms',
   },
   yacht: {
@@ -51,7 +51,7 @@ export const SERVICE_MAP: Record<AppServiceCategory, ServiceMapEntry> = {
     fallback: 'Yacht',
     mainKey: 'destinationCity',
     extraKey: 'category',
-    mainLabel: 'Cruising area',
+    mainLabel: 'Destination',
     extraLabel: 'Guests',
   },
   car_chauffeur: {
@@ -60,7 +60,7 @@ export const SERVICE_MAP: Record<AppServiceCategory, ServiceMapEntry> = {
     mainKey: 'destinationCity',
     extraKey: 'route',
     mainLabel: 'City',
-    extraLabel: 'Pick-up',
+    extraLabel: 'Pick-up / Drop-off',
   },
   airport_vip: {
     keyword: 'vip',
@@ -75,7 +75,7 @@ export const SERVICE_MAP: Record<AppServiceCategory, ServiceMapEntry> = {
     fallback: 'Other Service',
     mainKey: 'category',
     extraKey: null,
-    mainLabel: 'Where',
+    mainLabel: 'City',
     extraLabel: null,
   },
 };

@@ -1,6 +1,10 @@
 /**
- * Google Places Autocomplete (HTTP) — city suggestions for request forms.
- * Requires EXPO_PUBLIC_GOOGLE_PLACES_API_KEY (Places API / Places API (New) enabled).
+ * Google Places Autocomplete (New) for request forms.
+ * POST https://places.googleapis.com/v1/places:autocomplete
+ *
+ * Requires EXPO_PUBLIC_GOOGLE_PLACES_API_KEY with **Places API (New)** enabled
+ * (not the legacy Place Autocomplete API).
+ * Manual free-text is always allowed in the UI when a place is not listed.
  */
 
 export type PlaceSuggestion = {
@@ -15,16 +19,80 @@ export type PlacesAutocompleteResult = {
   errorMessage: string | null;
 };
 
+/** Place type filters used by request forms (mapped to Places API New). */
+export type PlaceAutocompleteType =
+  'cities' | 'geocode' | 'establishment' | 'airport' | 'lodging' | 'regions';
+
+export type FetchPlaceSuggestionsOptions = {
+  signal?: AbortSignal;
+  /** Defaults to cities. */
+  type?: PlaceAutocompleteType;
+};
+
+type PlacePrediction = {
+  placeId?: string;
+  place?: string;
+  text?: { text?: string };
+  structuredFormat?: {
+    mainText?: { text?: string };
+    secondaryText?: { text?: string };
+  };
+};
+
+type AutocompleteSuggestion = {
+  placePrediction?: PlacePrediction;
+};
+
+type AutocompleteResponse = {
+  suggestions?: AutocompleteSuggestion[];
+  error?: { message?: string; status?: string };
+  error_message?: string;
+};
+
 function getPlacesApiKey(): string {
   return (process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '').trim();
 }
 
 /**
- * City / locality autocomplete. Debounce in the UI before calling.
+ * Maps app place filters → Places API (New) `includedPrimaryTypes`.
+ * `(cities)` / `(regions)` are still supported by Autocomplete (New).
  */
-export async function fetchCityPlaceSuggestions(
+function toIncludedPrimaryTypes(type: PlaceAutocompleteType): string[] | undefined {
+  switch (type) {
+    case 'cities':
+      return ['(cities)'];
+    case 'regions':
+      return ['(regions)'];
+    case 'geocode':
+      // Broad address / place search — no primary-type filter.
+      return undefined;
+    case 'establishment':
+      return ['establishment'];
+    case 'airport':
+      return ['airport'];
+    case 'lodging':
+      return ['lodging'];
+    default:
+      return ['(cities)'];
+  }
+}
+
+function extractPlaceId(prediction: PlacePrediction): string {
+  const direct = String(prediction.placeId || '').trim();
+  if (direct) return direct;
+  const resource = String(prediction.place || '').trim();
+  if (resource.startsWith('places/')) {
+    return resource.slice('places/'.length);
+  }
+  return resource;
+}
+
+/**
+ * Place / city / airport autocomplete. Debounce in the UI before calling.
+ */
+export async function fetchPlaceSuggestions(
   input: string,
-  signal?: AbortSignal,
+  options: FetchPlaceSuggestionsOptions = {},
 ): Promise<PlacesAutocompleteResult> {
   const query = input.trim();
   if (query.length < 2) {
@@ -36,62 +104,78 @@ export async function fetchCityPlaceSuggestions(
     return {
       suggestions: [],
       errorMessage: __DEV__
-        ? 'Add EXPO_PUBLIC_GOOGLE_PLACES_API_KEY to enable city suggestions.'
+        ? 'Add EXPO_PUBLIC_GOOGLE_PLACES_API_KEY to enable place suggestions.'
         : null,
     };
   }
 
-  const url =
-    'https://maps.googleapis.com/maps/api/place/autocomplete/json?' +
-    new URLSearchParams({
-      input: query,
-      types: '(cities)',
-      key: apiKey,
-    }).toString();
+  const body: {
+    input: string;
+    languageCode: string;
+    includedPrimaryTypes?: string[];
+  } = {
+    input: query,
+    languageCode: 'en',
+  };
+
+  const includedPrimaryTypes = toIncludedPrimaryTypes(options.type ?? 'cities');
+  if (includedPrimaryTypes?.length) {
+    body.includedPrimaryTypes = includedPrimaryTypes;
+  }
 
   try {
-    const response = await fetch(url, { signal });
+    const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+      method: 'POST',
+      signal: options.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = (await response.json()) as AutocompleteResponse;
+
     if (!response.ok) {
-      return { suggestions: [], errorMessage: 'Could not load city suggestions.' };
+      const message =
+        data.error?.message ||
+        data.error_message ||
+        (__DEV__
+          ? `Places API error (${response.status}). Enable Places API (New) for this key.`
+          : 'Could not load place suggestions.');
+      return { suggestions: [], errorMessage: message };
     }
 
-    const data = (await response.json()) as {
-      status?: string;
-      error_message?: string;
-      predictions?: {
-        place_id?: string;
-        description?: string;
-        structured_formatting?: {
-          main_text?: string;
-          secondary_text?: string;
+    const suggestions: PlaceSuggestion[] = (data.suggestions || [])
+      .map((item) => item.placePrediction)
+      .filter((prediction): prediction is PlacePrediction => Boolean(prediction))
+      .map((prediction) => {
+        const description = String(prediction.text?.text || '').trim();
+        const mainText = String(prediction.structuredFormat?.mainText?.text || description).trim();
+        const secondaryText = String(prediction.structuredFormat?.secondaryText?.text || '').trim();
+        return {
+          placeId: extractPlaceId(prediction),
+          description,
+          mainText,
+          secondaryText,
         };
-      }[];
-    };
-
-    if (data.status && data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      return {
-        suggestions: [],
-        errorMessage:
-          data.error_message ||
-          (__DEV__ ? `Places status: ${data.status}` : 'Could not load city suggestions.'),
-      };
-    }
-
-    const suggestions: PlaceSuggestion[] = (data.predictions || [])
-      .map((p) => ({
-        placeId: String(p.place_id || '').trim(),
-        description: String(p.description || '').trim(),
-        mainText: String(p.structured_formatting?.main_text || p.description || '').trim(),
-        secondaryText: String(p.structured_formatting?.secondary_text || '').trim(),
-      }))
+      })
       .filter((s) => s.placeId && s.description);
 
     return { suggestions, errorMessage: null };
   } catch (error) {
-    if (signal?.aborted) {
+    if (options.signal?.aborted) {
       return { suggestions: [], errorMessage: null };
     }
-    console.warn('[fetchCityPlaceSuggestions]', error);
-    return { suggestions: [], errorMessage: 'Could not load city suggestions.' };
+    console.warn('[fetchPlaceSuggestions]', error);
+    return { suggestions: [], errorMessage: 'Could not load place suggestions.' };
   }
+}
+
+/** @deprecated Prefer fetchPlaceSuggestions({ type: 'cities' }) */
+export async function fetchCityPlaceSuggestions(
+  input: string,
+  signal?: AbortSignal,
+): Promise<PlacesAutocompleteResult> {
+  return fetchPlaceSuggestions(input, { signal, type: 'cities' });
 }

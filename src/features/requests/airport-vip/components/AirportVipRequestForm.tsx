@@ -1,42 +1,101 @@
 /**
- * Airport VIP request form — maps to CRM enquiry via universal writer.
+ * Airport VIP request form — airport, dates, CRM service type, guests → CRM.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { mapAirportVipFormToAppRequest } from '@/features/requests/airport-vip/mapAirportVipFormToAppRequest';
+import { DateFieldPicker } from '@/features/requests/components/DateFieldPicker';
+import { OptionSelectField } from '@/features/requests/components/OptionSelectField';
+import { PlacesAutocompleteField } from '@/features/requests/components/PlacesAutocompleteField';
 import { RequestFormField } from '@/features/requests/components/RequestFormField';
 import { SendToGodwitButton } from '@/features/requests/components/SendToGodwitButton';
+import { TravellerCountCard } from '@/features/requests/components/TravellerCountCard';
+import { AIRPORT_VIP_SERVICE_TYPE_OPTIONS } from '@/features/requests/data/requestInventory';
 import { useSubmitServiceRequest } from '@/features/requests/hooks/useSubmitServiceRequest';
+import { requestFormLayoutForWidth } from '@/features/requests/shared/requestFormLayout';
+import {
+  INITIAL_TRAVELLER_COUNTS,
+  type TravellerCounts,
+} from '@/features/requests/shared/travellerCounts';
+import {
+  firstFieldError,
+  requireDateOnOrAfterToday,
+  requireEndOnOrAfterStart,
+  requireText,
+  requireTravellerParty,
+  setError,
+  type FieldErrors,
+} from '@/features/requests/shared/validateRequestForm';
 import { colors } from '@/ui/tokens/colors';
-
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return { cardPad: 16, cardRadius: 16, cardGap: 18, sectionGap: 14 };
-  }
-  return { cardPad: 20, cardRadius: 18, cardGap: 22, sectionGap: 16 };
-}
 
 export function AirportVipRequestForm() {
   const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
-  const { submitting, submit } = useSubmitServiceRequest();
+  const layout = useMemo(() => requestFormLayoutForWidth(width), [width]);
+  const { submitting, submitRequest } = useSubmitServiceRequest();
 
   const [airport, setAirport] = useState('');
-  const [dates, setDates] = useState('');
-  const [service, setService] = useState('');
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [serviceStart, setServiceStart] = useState<Date | null>(null);
+  const [serviceEnd, setServiceEnd] = useState<Date | null>(null);
+  const [serviceType, setServiceType] = useState('Arrival');
+  const [counts, setCounts] = useState<TravellerCounts>(INITIAL_TRAVELLER_COUNTS);
   const [additionalInformation, setAdditionalInformation] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
+
+  const clearError = useCallback((key: string) => {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
 
   const onSend = useCallback(() => {
-    void submit({
-      category: 'airport_vip',
-      main: airport,
-      when: dates,
-      extra: service,
-      notes: additionalInformation,
-      travellerIds: [],
-      travellers: [],
-    });
-  }, [additionalInformation, airport, dates, service, submit]);
+    const nextErrors: FieldErrors = {};
+    setError(nextErrors, 'airport', requireText(airport, 'Airport'));
+    setError(nextErrors, 'serviceStart', requireDateOnOrAfterToday(serviceStart, 'Service start'));
+    if (serviceEnd) {
+      setError(
+        nextErrors,
+        'serviceEnd',
+        requireEndOnOrAfterStart(serviceStart, serviceEnd, 'Service end', 'Service start'),
+      );
+    }
+    setError(nextErrors, 'serviceType', requireText(serviceType, 'Service type', { minLength: 1 }));
+    setError(nextErrors, 'counts', requireTravellerParty(counts));
+
+    setErrors(nextErrors);
+    const first = firstFieldError(nextErrors);
+    if (first) {
+      Alert.alert('Missing details', first);
+      return;
+    }
+
+    void submitRequest(
+      mapAirportVipFormToAppRequest({
+        airport,
+        placeId,
+        serviceStart,
+        serviceEnd: serviceEnd || serviceStart,
+        serviceType,
+        counts,
+        notes: additionalInformation,
+        travellerIds: [],
+        travellers: [],
+      }),
+    );
+  }, [
+    additionalInformation,
+    airport,
+    counts,
+    placeId,
+    serviceEnd,
+    serviceStart,
+    serviceType,
+    submitRequest,
+  ]);
 
   return (
     <View style={[styles.root, { gap: layout.sectionGap }]}>
@@ -52,29 +111,73 @@ export function AirportVipRequestForm() {
           },
         ]}
       >
-        <RequestFormField
+        <PlacesAutocompleteField
           label="AIRPORT"
           value={airport}
-          onChangeText={setAirport}
-          placeholder="LHR Terminal 5"
-          accessibilityLabel="Airport"
+          error={errors.airport}
+          onChangeText={(text) => {
+            setAirport(text);
+            setPlaceId(null);
+            clearError('airport');
+          }}
+          onSelectPlace={(place) => {
+            setAirport(place.description || place.mainText);
+            setPlaceId(place.placeId);
+            clearError('airport');
+          }}
+          placeholder="Dubai International"
+          placeType="airport"
         />
-        <RequestFormField
-          label="WHEN"
-          value={dates}
-          onChangeText={setDates}
-          placeholder="14 – 20 February, or flexible"
-          helperText="Approximate is fine."
-          accessibilityLabel="When"
+
+        <DateFieldPicker
+          label="SERVICE START"
+          value={serviceStart}
+          error={errors.serviceStart}
+          onChange={(next) => {
+            setServiceStart(next);
+            clearError('serviceStart');
+            if (next && serviceEnd && serviceEnd.getTime() < next.getTime()) {
+              setServiceEnd(null);
+              clearError('serviceEnd');
+            }
+          }}
+          placeholder="Select date"
+          minimumDate={new Date()}
         />
-        <RequestFormField
-          label="SERVICE"
-          value={service}
-          onChangeText={setService}
-          placeholder="Arrival meet & assist"
-          accessibilityLabel="Service"
+
+        <DateFieldPicker
+          label="SERVICE END"
+          value={serviceEnd}
+          error={errors.serviceEnd}
+          onChange={(next) => {
+            setServiceEnd(next);
+            clearError('serviceEnd');
+          }}
+          placeholder="Optional end date"
+          minimumDate={serviceStart || new Date()}
+        />
+
+        <OptionSelectField
+          label="SERVICE TYPE"
+          options={AIRPORT_VIP_SERVICE_TYPE_OPTIONS}
+          value={serviceType}
+          error={errors.serviceType}
+          onChange={(next) => {
+            setServiceType(next);
+            clearError('serviceType');
+          }}
+          placeholder="Arrival"
         />
       </View>
+
+      <TravellerCountCard
+        counts={counts}
+        error={errors.counts}
+        onChange={(next) => {
+          setCounts(next);
+          clearError('counts');
+        }}
+      />
 
       <View
         style={[
@@ -91,7 +194,7 @@ export function AirportVipRequestForm() {
           label="ANYTHING WE SHOULD KNOW?"
           value={additionalInformation}
           onChangeText={setAdditionalInformation}
-          placeholder="Flight numbers, luggage, anything else…"
+          placeholder="Preferences, occasions…"
           multiline
           minHeight={110}
           accessibilityLabel="Anything we should know"

@@ -9,6 +9,11 @@ export const colors = {
   /** Slightly darker than `border` — header underline. */
   headerBorder: '#C2BDB4',
   muted: '#5C6658',
+  /**
+   * Request form field labels (CITY, CHECK IN, …).
+   * Darker than `muted` so labels stay readable against sand/card surfaces.
+   */
+  fieldLabel: '#2F382C',
   accent: '#3D4F38',
   primaryForeground: '#F7F6F4',
 } as const;

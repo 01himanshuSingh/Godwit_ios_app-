@@ -6,6 +6,7 @@ import { format, isValid } from 'date-fns';
 import { memo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { FieldErrorText } from '@/features/requests/components/FieldErrorText';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -16,6 +17,7 @@ type DateFieldPickerProps = {
   placeholder: string;
   minimumDate?: Date;
   accessibilityLabel?: string;
+  error?: string | null;
 };
 
 function formatValue(value: Date | null): string {
@@ -30,6 +32,7 @@ function DateFieldPickerComponent({
   placeholder,
   minimumDate,
   accessibilityLabel,
+  error,
 }: DateFieldPickerProps) {
   const [open, setOpen] = useState(false);
   const display = formatValue(value);
@@ -53,10 +56,11 @@ function DateFieldPickerComponent({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         onPress={() => setOpen(true)}
-        style={styles.input}
+        style={[styles.input, error ? styles.inputError : null]}
       >
         <Text style={display ? styles.value : styles.placeholder}>{display || placeholder}</Text>
       </Pressable>
+      <FieldErrorText message={error} />
       {open ? (
         <DateTimePicker
           value={value && isValid(value) ? value : minimumDate || new Date()}
@@ -87,7 +91,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
-    color: colors.muted,
+    color: colors.fieldLabel,
   },
   input: {
     width: '100%',
@@ -98,6 +102,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     justifyContent: 'center',
+  },
+  inputError: {
+    borderColor: '#B42318',
   },
   value: {
     fontFamily: fontFamily.manrope.regular,

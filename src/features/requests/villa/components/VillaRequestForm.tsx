@@ -1,42 +1,101 @@
 /**
- * Villa request form — maps to CRM enquiry via universal writer.
+ * Villa request form — destination, dates, bedrooms, guests → CRM.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { DateFieldPicker } from '@/features/requests/components/DateFieldPicker';
+import { PlacesAutocompleteField } from '@/features/requests/components/PlacesAutocompleteField';
 import { RequestFormField } from '@/features/requests/components/RequestFormField';
 import { SendToGodwitButton } from '@/features/requests/components/SendToGodwitButton';
+import { StepperFieldRow } from '@/features/requests/components/StepperFieldRow';
+import { TravellerCountCard } from '@/features/requests/components/TravellerCountCard';
 import { useSubmitServiceRequest } from '@/features/requests/hooks/useSubmitServiceRequest';
+import { requestFormLayoutForWidth } from '@/features/requests/shared/requestFormLayout';
+import {
+  INITIAL_TRAVELLER_COUNTS,
+  type TravellerCounts,
+} from '@/features/requests/shared/travellerCounts';
+import {
+  firstFieldError,
+  requireDateOnOrAfterToday,
+  requireEndOnOrAfterStart,
+  requirePositiveCount,
+  requireText,
+  requireTravellerParty,
+  setError,
+  type FieldErrors,
+} from '@/features/requests/shared/validateRequestForm';
+import { mapVillaFormToAppRequest } from '@/features/requests/villa/mapVillaFormToAppRequest';
 import { colors } from '@/ui/tokens/colors';
-
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return { cardPad: 16, cardRadius: 16, cardGap: 18, sectionGap: 14 };
-  }
-  return { cardPad: 20, cardRadius: 18, cardGap: 22, sectionGap: 16 };
-}
 
 export function VillaRequestForm() {
   const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
-  const { submitting, submit } = useSubmitServiceRequest();
+  const layout = useMemo(() => requestFormLayoutForWidth(width), [width]);
+  const { submitting, submitRequest } = useSubmitServiceRequest();
 
   const [destination, setDestination] = useState('');
-  const [dates, setDates] = useState('');
-  const [bedrooms, setBedrooms] = useState('');
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [checkIn, setCheckIn] = useState<Date | null>(null);
+  const [checkOut, setCheckOut] = useState<Date | null>(null);
+  const [bedrooms, setBedrooms] = useState(5);
+  const [counts, setCounts] = useState<TravellerCounts>(INITIAL_TRAVELLER_COUNTS);
   const [additionalInformation, setAdditionalInformation] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
+
+  const clearError = useCallback((key: string) => {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
 
   const onSend = useCallback(() => {
-    void submit({
-      category: 'villa',
-      main: destination,
-      when: dates,
-      extra: bedrooms,
-      notes: additionalInformation,
-      travellerIds: [],
-      travellers: [],
-    });
-  }, [additionalInformation, bedrooms, dates, destination, submit]);
+    const nextErrors: FieldErrors = {};
+    setError(nextErrors, 'destination', requireText(destination, 'Destination'));
+    setError(nextErrors, 'checkIn', requireDateOnOrAfterToday(checkIn, 'Check-in date'));
+    setError(nextErrors, 'checkOut', requireDateOnOrAfterToday(checkOut, 'Check-out date'));
+    setError(
+      nextErrors,
+      'checkOut',
+      nextErrors.checkOut ||
+        requireEndOnOrAfterStart(checkIn, checkOut, 'Check-out date', 'Check-in date'),
+    );
+    setError(nextErrors, 'bedrooms', requirePositiveCount(bedrooms, 'Bedrooms'));
+    setError(nextErrors, 'counts', requireTravellerParty(counts));
+
+    setErrors(nextErrors);
+    const first = firstFieldError(nextErrors);
+    if (first) {
+      Alert.alert('Missing details', first);
+      return;
+    }
+
+    void submitRequest(
+      mapVillaFormToAppRequest({
+        destination,
+        placeId,
+        checkIn,
+        checkOut,
+        bedrooms,
+        counts,
+        notes: additionalInformation,
+        travellerIds: [],
+        travellers: [],
+      }),
+    );
+  }, [
+    additionalInformation,
+    bedrooms,
+    checkIn,
+    checkOut,
+    counts,
+    destination,
+    placeId,
+    submitRequest,
+  ]);
 
   return (
     <View style={[styles.root, { gap: layout.sectionGap }]}>
@@ -52,29 +111,74 @@ export function VillaRequestForm() {
           },
         ]}
       >
-        <RequestFormField
-          label="WHERE"
+        <PlacesAutocompleteField
+          label="DESTINATION"
           value={destination}
-          onChangeText={setDestination}
-          placeholder="Ibiza"
-          accessibilityLabel="Where"
+          error={errors.destination}
+          onChangeText={(text) => {
+            setDestination(text);
+            setPlaceId(null);
+            clearError('destination');
+          }}
+          onSelectPlace={(place) => {
+            setDestination(place.mainText || place.description);
+            setPlaceId(place.placeId);
+            clearError('destination');
+          }}
+          placeholder="Amalfi Coast"
+          placeType="geocode"
         />
-        <RequestFormField
-          label="WHEN"
-          value={dates}
-          onChangeText={setDates}
-          placeholder="14 – 20 February, or flexible"
-          helperText="Approximate is fine."
-          accessibilityLabel="When"
+
+        <DateFieldPicker
+          label="CHECK-IN DATE"
+          value={checkIn}
+          error={errors.checkIn}
+          onChange={(next) => {
+            setCheckIn(next);
+            clearError('checkIn');
+            if (next && checkOut && checkOut.getTime() < next.getTime()) {
+              setCheckOut(null);
+              clearError('checkOut');
+            }
+          }}
+          placeholder="Select date"
+          minimumDate={new Date()}
         />
-        <RequestFormField
+
+        <DateFieldPicker
+          label="CHECK-OUT DATE"
+          value={checkOut}
+          error={errors.checkOut}
+          onChange={(next) => {
+            setCheckOut(next);
+            clearError('checkOut');
+          }}
+          placeholder="Select date"
+          minimumDate={checkIn || new Date()}
+        />
+
+        <StepperFieldRow
           label="BEDROOMS"
+          hint="How many bedrooms?"
           value={bedrooms}
-          onChangeText={setBedrooms}
-          placeholder="4 bedrooms"
-          accessibilityLabel="Bedrooms"
+          error={errors.bedrooms}
+          onChange={(next) => {
+            setBedrooms(next);
+            clearError('bedrooms');
+          }}
+          min={1}
+          max={30}
         />
       </View>
+
+      <TravellerCountCard
+        counts={counts}
+        error={errors.counts}
+        onChange={(next) => {
+          setCounts(next);
+          clearError('counts');
+        }}
+      />
 
       <View
         style={[
@@ -91,7 +195,7 @@ export function VillaRequestForm() {
           label="ANYTHING WE SHOULD KNOW?"
           value={additionalInformation}
           onChangeText={setAdditionalInformation}
-          placeholder="Staff, pool, privacy — anything else…"
+          placeholder="Preferences, occasions…"
           multiline
           minHeight={110}
           accessibilityLabel="Anything we should know"

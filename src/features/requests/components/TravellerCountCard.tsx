@@ -1,17 +1,19 @@
 /**
- * Adults / Children / Infants steppers — hotel party composition.
+ * Adults / Children / Infants steppers — party composition for request forms.
  */
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { CountStepper } from '@/features/requests/components/CountStepper';
-import type { HotelTravellerCounts } from '@/features/requests/hotel/mapHotelFormToAppRequest';
+import { FieldErrorText } from '@/features/requests/components/FieldErrorText';
+import type { TravellerCounts } from '@/features/requests/shared/travellerCounts';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
 type TravellerCountCardProps = {
-  counts: HotelTravellerCounts;
-  onChange: (next: HotelTravellerCounts) => void;
+  counts: TravellerCounts;
+  onChange: (next: TravellerCounts) => void;
+  error?: string | null;
 };
 
 type RowProps = {
@@ -37,10 +39,11 @@ function CountRow({ title, subtitle, value, onChange, showDivider }: RowProps) {
   );
 }
 
-function TravellerCountCardComponent({ counts, onChange }: TravellerCountCardProps) {
+function TravellerCountCardComponent({ counts, onChange, error }: TravellerCountCardProps) {
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, error ? styles.cardError : null]}>
       <Text style={styles.label}>COUNT OF TRAVELERS</Text>
+      <FieldErrorText message={error} />
       <CountRow
         title="Adults"
         subtitle="Ages 15 Above"
@@ -83,13 +86,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  cardError: {
+    borderColor: '#B42318',
+    borderWidth: 1,
+  },
   label: {
     marginBottom: 8,
     fontFamily: fontFamily.manrope.medium,
     fontSize: 11,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
-    color: colors.muted,
+    color: colors.fieldLabel,
   },
   row: {
     flexDirection: 'row',
@@ -103,13 +110,16 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontFamily: fontFamily.manrope.semibold,
-    fontSize: 16,
-    color: colors.forest,
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.fieldLabel,
   },
   subtitle: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 13,
+    fontSize: 11,
+    lineHeight: 14,
     color: colors.muted,
   },
   divider: {

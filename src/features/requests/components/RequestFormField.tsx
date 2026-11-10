@@ -12,6 +12,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 
+import { FieldErrorText } from '@/features/requests/components/FieldErrorText';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -26,6 +27,7 @@ type RequestFormFieldProps = {
   autoCapitalize?: TextInputProps['autoCapitalize'];
   returnKeyType?: TextInputProps['returnKeyType'];
   accessibilityLabel?: string;
+  error?: string | null;
 };
 
 function layoutForWidth(width: number) {
@@ -68,6 +70,7 @@ function RequestFormFieldComponent({
   autoCapitalize = 'sentences',
   returnKeyType = 'done',
   accessibilityLabel,
+  error,
 }: RequestFormFieldProps) {
   const { width } = useWindowDimensions();
   const layout = useMemo(() => layoutForWidth(width), [width]);
@@ -101,6 +104,7 @@ function RequestFormFieldComponent({
         style={[
           styles.input,
           focused && styles.inputFocused,
+          error ? styles.inputError : null,
           {
             borderRadius: layout.inputRadius,
             paddingHorizontal: layout.inputPadH,
@@ -112,7 +116,8 @@ function RequestFormFieldComponent({
           },
         ]}
       />
-      {helperText ? (
+      <FieldErrorText message={error} />
+      {!error && helperText ? (
         <Text
           style={[
             styles.helper,
@@ -137,7 +142,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
+    color: colors.fieldLabel,
     textTransform: 'uppercase',
   },
   input: {
@@ -150,6 +155,9 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: colors.accent,
+  },
+  inputError: {
+    borderColor: '#B42318',
   },
   helper: {
     fontFamily: fontFamily.manrope.regular,
