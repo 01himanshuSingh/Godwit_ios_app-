@@ -1,23 +1,16 @@
 /**
- * Villa request form — WHERE / WHEN / BEDROOMS + notes, travellers, send CTA.
- * Travellers list is mock data until CRM travellers API is wired.
+ * Villa request form — maps to CRM enquiry via universal writer.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { RequestFormField } from '@/features/requests/components/RequestFormField';
 import { SendToGodwitButton } from '@/features/requests/components/SendToGodwitButton';
 import { TravellersSelectionCard } from '@/features/requests/components/TravellersSelectionCard';
-import { MOCK_REQUEST_TRAVELLERS } from '@/features/requests/data/mockRequestTravellers';
+import { useRequestTravellers } from '@/features/requests/hooks/useRequestTravellers';
+import { useSubmitServiceRequest } from '@/features/requests/hooks/useSubmitServiceRequest';
 import { colors } from '@/ui/tokens/colors';
-
-export type VillaRequestFormValues = {
-  destination: string;
-  dates: string;
-  bedrooms: string;
-  additionalInformation: string;
-  travellerIds: string[];
-};
+import { fontFamily } from '@/ui/tokens/typography';
 
 function layoutForWidth(width: number) {
   if (width < 360) {
@@ -29,6 +22,8 @@ function layoutForWidth(width: number) {
 export function VillaRequestForm() {
   const { width } = useWindowDimensions();
   const layout = useMemo(() => layoutForWidth(width), [width]);
+  const { travellers, isLoading: travellersLoading, errorMessage } = useRequestTravellers();
+  const { submitting, submit } = useSubmitServiceRequest();
 
   const [destination, setDestination] = useState('');
   const [dates, setDates] = useState('');
@@ -37,17 +32,32 @@ export function VillaRequestForm() {
   const [selectedTravellerIds, setSelectedTravellerIds] = useState<string[]>([]);
 
   const onToggleTraveller = useCallback((travellerId: string) => {
-    setSelectedTravellerIds((current) => {
-      if (current.includes(travellerId)) {
-        return current.filter((id) => id !== travellerId);
-      }
-      return [...current, travellerId];
-    });
+    setSelectedTravellerIds((current) =>
+      current.includes(travellerId)
+        ? current.filter((id) => id !== travellerId)
+        : [...current, travellerId],
+    );
   }, []);
 
   const onSend = useCallback(() => {
-    // Submit API lands in a later pass — UI only for now.
-  }, []);
+    void submit({
+      category: 'villa',
+      main: destination,
+      when: dates,
+      extra: bedrooms,
+      notes: additionalInformation,
+      travellerIds: selectedTravellerIds,
+      travellers: travellers.filter((t) => selectedTravellerIds.includes(t.id)),
+    });
+  }, [
+    additionalInformation,
+    bedrooms,
+    dates,
+    destination,
+    selectedTravellerIds,
+    submit,
+    travellers,
+  ]);
 
   return (
     <View style={[styles.root, { gap: layout.sectionGap }]}>
@@ -67,7 +77,7 @@ export function VillaRequestForm() {
           label="WHERE"
           value={destination}
           onChangeText={setDestination}
-          placeholder="Amalfi Coast"
+          placeholder="Ibiza"
           accessibilityLabel="Where"
         />
         <RequestFormField
@@ -82,7 +92,7 @@ export function VillaRequestForm() {
           label="BEDROOMS"
           value={bedrooms}
           onChangeText={setBedrooms}
-          placeholder="Five, ideally with a pool"
+          placeholder="4 bedrooms"
           accessibilityLabel="Bedrooms"
         />
       </View>
@@ -102,7 +112,7 @@ export function VillaRequestForm() {
           label="ANYTHING WE SHOULD KNOW?"
           value={additionalInformation}
           onChangeText={setAdditionalInformation}
-          placeholder="Preferences, occasion, anything you are still deciding"
+          placeholder="Staff, pool, privacy — anything else…"
           multiline
           minHeight={110}
           accessibilityLabel="Anything we should know"
@@ -110,20 +120,25 @@ export function VillaRequestForm() {
       </View>
 
       <TravellersSelectionCard
-        travellers={MOCK_REQUEST_TRAVELLERS}
+        travellers={travellers}
         selectedIds={selectedTravellerIds}
         onToggleTraveller={onToggleTraveller}
       />
+      {travellersLoading ? (
+        <Text style={styles.meta}>Loading travellers…</Text>
+      ) : errorMessage ? (
+        <Text style={styles.metaError}>{errorMessage}</Text>
+      ) : travellers.length === 0 ? (
+        <Text style={styles.meta}>No travellers on this account yet.</Text>
+      ) : null}
 
-      <SendToGodwitButton onPress={onSend} />
+      <SendToGodwitButton onPress={onSend} loading={submitting} disabled={travellersLoading} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    width: '100%',
-  },
+  root: { width: '100%' },
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
@@ -135,4 +150,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  meta: { fontFamily: fontFamily.manrope.regular, fontSize: 13, color: colors.muted },
+  metaError: { fontFamily: fontFamily.manrope.regular, fontSize: 13, color: '#8B4A3F' },
 });

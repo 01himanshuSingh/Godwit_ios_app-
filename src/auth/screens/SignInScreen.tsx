@@ -29,6 +29,18 @@ function mapSendLinkError(error: unknown): string {
   const lower = `${code} ${raw}`.toLowerCase();
 
   if (
+    lower.includes('connection issue') ||
+    lower.includes('firebase is slow') ||
+    lower.includes('network access to firestore') ||
+    lower.includes('timed out') ||
+    lower.includes('backend didn') ||
+    lower.includes('offline') ||
+    lower.includes('unavailable') ||
+    lower.includes('network')
+  ) {
+    return 'Firebase is slow or offline right now. Check Wi‑Fi / mobile data and try again.';
+  }
+  if (
     lower.includes('does not belong') ||
     lower.includes('no godwit client') ||
     lower.includes('no client')
@@ -47,9 +59,6 @@ function mapSendLinkError(error: unknown): string {
   }
   if (lower.includes('too-many-requests') || lower.includes('quota')) {
     return 'Too many attempts. Please wait a few minutes and try again.';
-  }
-  if (lower.includes('network') || lower.includes('offline') || lower.includes('unavailable')) {
-    return 'Connection issue. Check your network and try again.';
   }
   if (lower.includes('invalid-email') || lower.includes('valid email')) {
     return 'Enter a valid email address.';

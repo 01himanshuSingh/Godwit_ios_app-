@@ -1,23 +1,16 @@
 /**
- * Airport VIP request form — AIRPORT / WHEN / SERVICE + notes, travellers, send CTA.
- * Travellers list is mock data until CRM travellers API is wired.
+ * Airport VIP request form — maps to CRM enquiry via universal writer.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { RequestFormField } from '@/features/requests/components/RequestFormField';
 import { SendToGodwitButton } from '@/features/requests/components/SendToGodwitButton';
 import { TravellersSelectionCard } from '@/features/requests/components/TravellersSelectionCard';
-import { MOCK_REQUEST_TRAVELLERS } from '@/features/requests/data/mockRequestTravellers';
+import { useRequestTravellers } from '@/features/requests/hooks/useRequestTravellers';
+import { useSubmitServiceRequest } from '@/features/requests/hooks/useSubmitServiceRequest';
 import { colors } from '@/ui/tokens/colors';
-
-export type AirportVipRequestFormValues = {
-  airport: string;
-  dates: string;
-  service: string;
-  additionalInformation: string;
-  travellerIds: string[];
-};
+import { fontFamily } from '@/ui/tokens/typography';
 
 function layoutForWidth(width: number) {
   if (width < 360) {
@@ -29,6 +22,8 @@ function layoutForWidth(width: number) {
 export function AirportVipRequestForm() {
   const { width } = useWindowDimensions();
   const layout = useMemo(() => layoutForWidth(width), [width]);
+  const { travellers, isLoading: travellersLoading, errorMessage } = useRequestTravellers();
+  const { submitting, submit } = useSubmitServiceRequest();
 
   const [airport, setAirport] = useState('');
   const [dates, setDates] = useState('');
@@ -37,17 +32,24 @@ export function AirportVipRequestForm() {
   const [selectedTravellerIds, setSelectedTravellerIds] = useState<string[]>([]);
 
   const onToggleTraveller = useCallback((travellerId: string) => {
-    setSelectedTravellerIds((current) => {
-      if (current.includes(travellerId)) {
-        return current.filter((id) => id !== travellerId);
-      }
-      return [...current, travellerId];
-    });
+    setSelectedTravellerIds((current) =>
+      current.includes(travellerId)
+        ? current.filter((id) => id !== travellerId)
+        : [...current, travellerId],
+    );
   }, []);
 
   const onSend = useCallback(() => {
-    // Submit API lands in a later pass — UI only for now.
-  }, []);
+    void submit({
+      category: 'airport_vip',
+      main: airport,
+      when: dates,
+      extra: service,
+      notes: additionalInformation,
+      travellerIds: selectedTravellerIds,
+      travellers: travellers.filter((t) => selectedTravellerIds.includes(t.id)),
+    });
+  }, [additionalInformation, airport, dates, selectedTravellerIds, service, submit, travellers]);
 
   return (
     <View style={[styles.root, { gap: layout.sectionGap }]}>
@@ -67,7 +69,7 @@ export function AirportVipRequestForm() {
           label="AIRPORT"
           value={airport}
           onChangeText={setAirport}
-          placeholder="Dubai International"
+          placeholder="LHR Terminal 5"
           accessibilityLabel="Airport"
         />
         <RequestFormField
@@ -82,7 +84,7 @@ export function AirportVipRequestForm() {
           label="SERVICE"
           value={service}
           onChangeText={setService}
-          placeholder="Arrival meet and greet"
+          placeholder="Arrival meet & assist"
           accessibilityLabel="Service"
         />
       </View>
@@ -102,7 +104,7 @@ export function AirportVipRequestForm() {
           label="ANYTHING WE SHOULD KNOW?"
           value={additionalInformation}
           onChangeText={setAdditionalInformation}
-          placeholder="Preferences, occasion, anything you are still deciding"
+          placeholder="Flight numbers, luggage, anything else…"
           multiline
           minHeight={110}
           accessibilityLabel="Anything we should know"
@@ -110,20 +112,25 @@ export function AirportVipRequestForm() {
       </View>
 
       <TravellersSelectionCard
-        travellers={MOCK_REQUEST_TRAVELLERS}
+        travellers={travellers}
         selectedIds={selectedTravellerIds}
         onToggleTraveller={onToggleTraveller}
       />
+      {travellersLoading ? (
+        <Text style={styles.meta}>Loading travellers…</Text>
+      ) : errorMessage ? (
+        <Text style={styles.metaError}>{errorMessage}</Text>
+      ) : travellers.length === 0 ? (
+        <Text style={styles.meta}>No travellers on this account yet.</Text>
+      ) : null}
 
-      <SendToGodwitButton onPress={onSend} />
+      <SendToGodwitButton onPress={onSend} loading={submitting} disabled={travellersLoading} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    width: '100%',
-  },
+  root: { width: '100%' },
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
@@ -135,4 +142,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  meta: { fontFamily: fontFamily.manrope.regular, fontSize: 13, color: colors.muted },
+  metaError: { fontFamily: fontFamily.manrope.regular, fontSize: 13, color: '#8B4A3F' },
 });

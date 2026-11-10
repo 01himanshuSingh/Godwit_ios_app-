@@ -1,8 +1,8 @@
 /**
- * Primary CTA under request forms — UI only until submit API lands.
+ * Primary CTA under request forms — submits via useSubmitServiceRequest.
  */
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -10,20 +10,31 @@ import { fontFamily } from '@/ui/tokens/typography';
 type SendToGodwitButtonProps = {
   onPress?: () => void;
   disabled?: boolean;
+  loading?: boolean;
 };
 
-function SendToGodwitButtonComponent({ onPress, disabled = false }: SendToGodwitButtonProps) {
+function SendToGodwitButtonComponent({
+  onPress,
+  disabled = false,
+  loading = false,
+}: SendToGodwitButtonProps) {
+  const isDisabled = disabled || loading;
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Send to Godwit"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      disabled={isDisabled}
       onPress={onPress}
       style={styles.pressable}
     >
-      <View style={[styles.button, disabled && styles.buttonDisabled]}>
-        <Text style={styles.label}>Send to Godwit</Text>
+      <View style={[styles.button, isDisabled && styles.buttonDisabled]}>
+        {loading ? (
+          <ActivityIndicator color={colors.sand} />
+        ) : (
+          <Text style={styles.label}>Send to Godwit</Text>
+        )}
       </View>
     </Pressable>
   );

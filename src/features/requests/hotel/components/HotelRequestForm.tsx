@@ -1,15 +1,16 @@
 /**
- * Hotel request form body — details, notes, travellers, send CTA.
- * Travellers list is mock data until CRM travellers API is wired.
+ * Hotel request form — maps to CRM enquiry via universal writer.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { RequestFormField } from '@/features/requests/components/RequestFormField';
 import { SendToGodwitButton } from '@/features/requests/components/SendToGodwitButton';
 import { TravellersSelectionCard } from '@/features/requests/components/TravellersSelectionCard';
-import { MOCK_REQUEST_TRAVELLERS } from '@/features/requests/data/mockRequestTravellers';
+import { useRequestTravellers } from '@/features/requests/hooks/useRequestTravellers';
+import { useSubmitServiceRequest } from '@/features/requests/hooks/useSubmitServiceRequest';
 import { colors } from '@/ui/tokens/colors';
+import { fontFamily } from '@/ui/tokens/typography';
 
 export type HotelRequestFormValues = {
   destination: string;
@@ -29,6 +30,8 @@ function layoutForWidth(width: number) {
 export function HotelRequestForm() {
   const { width } = useWindowDimensions();
   const layout = useMemo(() => layoutForWidth(width), [width]);
+  const { travellers, isLoading: travellersLoading, errorMessage } = useRequestTravellers();
+  const { submitting, submit } = useSubmitServiceRequest();
 
   const [destination, setDestination] = useState('');
   const [dates, setDates] = useState('');
@@ -46,8 +49,16 @@ export function HotelRequestForm() {
   }, []);
 
   const onSend = useCallback(() => {
-    // Submit API lands in a later pass — UI only for now.
-  }, []);
+    void submit({
+      category: 'hotel',
+      main: destination,
+      when: dates,
+      extra: rooms,
+      notes: additionalInformation,
+      travellerIds: selectedTravellerIds,
+      travellers: travellers.filter((t) => selectedTravellerIds.includes(t.id)),
+    });
+  }, [additionalInformation, dates, destination, rooms, selectedTravellerIds, submit, travellers]);
 
   return (
     <View style={[styles.root, { gap: layout.sectionGap }]}>
@@ -110,12 +121,20 @@ export function HotelRequestForm() {
       </View>
 
       <TravellersSelectionCard
-        travellers={MOCK_REQUEST_TRAVELLERS}
+        travellers={travellers}
         selectedIds={selectedTravellerIds}
         onToggleTraveller={onToggleTraveller}
       />
 
-      <SendToGodwitButton onPress={onSend} />
+      {travellersLoading ? (
+        <Text style={styles.meta}>Loading travellers…</Text>
+      ) : errorMessage ? (
+        <Text style={styles.metaError}>{errorMessage}</Text>
+      ) : travellers.length === 0 ? (
+        <Text style={styles.meta}>No travellers on this account yet.</Text>
+      ) : null}
+
+      <SendToGodwitButton onPress={onSend} loading={submitting} disabled={travellersLoading} />
     </View>
   );
 }
@@ -134,5 +153,15 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
+  },
+  meta: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 13,
+    color: colors.muted,
+  },
+  metaError: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 13,
+    color: '#8B4A3F',
   },
 });

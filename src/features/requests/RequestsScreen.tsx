@@ -11,16 +11,14 @@ import type { RequestService, RequestServiceId } from '@/features/requests/data/
 import { ChauffeurRequestScreen } from '@/features/requests/chauffeur/ChauffeurRequestScreen';
 import { FlightRequestScreen } from '@/features/requests/flight/FlightRequestScreen';
 import { HotelRequestScreen } from '@/features/requests/hotel/HotelRequestScreen';
+import { PrivateJetRequestScreen } from '@/features/requests/private-jet/PrivateJetRequestScreen';
 import { SomethingElseRequestScreen } from '@/features/requests/something-else/SomethingElseRequestScreen';
 import { VillaRequestScreen } from '@/features/requests/villa/VillaRequestScreen';
 import { YachtRequestScreen } from '@/features/requests/yacht/YachtRequestScreen';
 
 const TAB_BAR_CLEARANCE = 96;
 
-type ActiveRequestFormId = Extract<
-  RequestServiceId,
-  'hotel' | 'flight' | 'villa' | 'yacht' | 'chauffeur' | 'airportVip' | 'somethingElse'
->;
+type ActiveRequestFormId = RequestServiceId;
 
 type RequestsScreenProps = {
   /** In-tab back handler; omit to use router.back() (stack route). */
@@ -33,17 +31,7 @@ export function RequestsScreen({ onBack, clearTabBar = false }: RequestsScreenPr
   const [activeServiceId, setActiveServiceId] = useState<ActiveRequestFormId | null>(null);
 
   const onSelectService = useCallback((service: RequestService) => {
-    if (
-      service.id === 'hotel' ||
-      service.id === 'flight' ||
-      service.id === 'villa' ||
-      service.id === 'yacht' ||
-      service.id === 'chauffeur' ||
-      service.id === 'airportVip' ||
-      service.id === 'somethingElse'
-    ) {
-      setActiveServiceId(service.id);
-    }
+    setActiveServiceId(service.id);
   }, []);
 
   const onFormBack = useCallback(() => {
@@ -56,6 +44,10 @@ export function RequestsScreen({ onBack, clearTabBar = false }: RequestsScreenPr
 
   if (activeServiceId === 'flight') {
     return <FlightRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+  }
+
+  if (activeServiceId === 'privateJet') {
+    return <PrivateJetRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
   }
 
   if (activeServiceId === 'villa') {
