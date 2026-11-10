@@ -48,9 +48,6 @@ function validateRequest(req: AppRequest): AppRequest {
   }
 
   const travellerIds = (req.travellerIds || []).map((id) => id.trim()).filter(Boolean);
-  if (travellerIds.length === 0) {
-    throw new EnquirySubmitError('validation', 'Please select who is travelling.');
-  }
 
   if (!(req.category in SERVICE_MAP)) {
     throw new EnquirySubmitError('validation', 'This service type is not supported yet.');

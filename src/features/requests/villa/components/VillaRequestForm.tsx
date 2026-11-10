@@ -2,15 +2,12 @@
  * Villa request form — maps to CRM enquiry via universal writer.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { RequestFormField } from '@/features/requests/components/RequestFormField';
 import { SendToGodwitButton } from '@/features/requests/components/SendToGodwitButton';
-import { TravellersSelectionCard } from '@/features/requests/components/TravellersSelectionCard';
-import { useRequestTravellers } from '@/features/requests/hooks/useRequestTravellers';
 import { useSubmitServiceRequest } from '@/features/requests/hooks/useSubmitServiceRequest';
 import { colors } from '@/ui/tokens/colors';
-import { fontFamily } from '@/ui/tokens/typography';
 
 function layoutForWidth(width: number) {
   if (width < 360) {
@@ -22,22 +19,12 @@ function layoutForWidth(width: number) {
 export function VillaRequestForm() {
   const { width } = useWindowDimensions();
   const layout = useMemo(() => layoutForWidth(width), [width]);
-  const { travellers, isLoading: travellersLoading, errorMessage } = useRequestTravellers();
   const { submitting, submit } = useSubmitServiceRequest();
 
   const [destination, setDestination] = useState('');
   const [dates, setDates] = useState('');
   const [bedrooms, setBedrooms] = useState('');
   const [additionalInformation, setAdditionalInformation] = useState('');
-  const [selectedTravellerIds, setSelectedTravellerIds] = useState<string[]>([]);
-
-  const onToggleTraveller = useCallback((travellerId: string) => {
-    setSelectedTravellerIds((current) =>
-      current.includes(travellerId)
-        ? current.filter((id) => id !== travellerId)
-        : [...current, travellerId],
-    );
-  }, []);
 
   const onSend = useCallback(() => {
     void submit({
@@ -46,18 +33,10 @@ export function VillaRequestForm() {
       when: dates,
       extra: bedrooms,
       notes: additionalInformation,
-      travellerIds: selectedTravellerIds,
-      travellers: travellers.filter((t) => selectedTravellerIds.includes(t.id)),
+      travellerIds: [],
+      travellers: [],
     });
-  }, [
-    additionalInformation,
-    bedrooms,
-    dates,
-    destination,
-    selectedTravellerIds,
-    submit,
-    travellers,
-  ]);
+  }, [additionalInformation, bedrooms, dates, destination, submit]);
 
   return (
     <View style={[styles.root, { gap: layout.sectionGap }]}>
@@ -119,20 +98,7 @@ export function VillaRequestForm() {
         />
       </View>
 
-      <TravellersSelectionCard
-        travellers={travellers}
-        selectedIds={selectedTravellerIds}
-        onToggleTraveller={onToggleTraveller}
-      />
-      {travellersLoading ? (
-        <Text style={styles.meta}>Loading travellers…</Text>
-      ) : errorMessage ? (
-        <Text style={styles.metaError}>{errorMessage}</Text>
-      ) : travellers.length === 0 ? (
-        <Text style={styles.meta}>No travellers on this account yet.</Text>
-      ) : null}
-
-      <SendToGodwitButton onPress={onSend} loading={submitting} disabled={travellersLoading} />
+      <SendToGodwitButton onPress={onSend} loading={submitting} />
     </View>
   );
 }
@@ -150,6 +116,4 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  meta: { fontFamily: fontFamily.manrope.regular, fontSize: 13, color: colors.muted },
-  metaError: { fontFamily: fontFamily.manrope.regular, fontSize: 13, color: '#8B4A3F' },
 });

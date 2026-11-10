@@ -31,6 +31,13 @@ export type AppRequest = {
   travellerIds: string[];
   /** Optional display names for travellerName / remarks */
   travellers?: AppRequestTraveller[];
+  /**
+   * Service-specific Instant Sale / CRM prefill keys (scalable escape hatch).
+   * Merged into enquiryModel after SERVICE_MAP main/extra fields.
+   */
+  crmFields?: Record<string, string | number>;
+  /** Extra human lines appended to enquiryModel.remarks */
+  remarkLines?: string[];
 };
 
 export type EnquirySubmitSession = {

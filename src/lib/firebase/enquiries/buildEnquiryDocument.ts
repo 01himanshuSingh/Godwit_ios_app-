@@ -52,12 +52,13 @@ export function buildEnquiryDocument({
     `${map.mainLabel}: ${main}`,
     `When: ${when}`,
     extra && map.extraLabel ? `${map.extraLabel}: ${extra}` : null,
+    ...(request.remarkLines || []).map((line) => line.trim()).filter(Boolean),
     notes ? `Notes: ${notes}` : null,
   ]
     .filter(Boolean)
     .join('\n');
 
-  const instantSaleFields: Record<string, string> = {
+  const instantSaleFields: Record<string, string | number> = {
     [map.mainKey]: main,
     travelDate: when,
     additionalNotes: notes,
@@ -68,6 +69,19 @@ export function buildEnquiryDocument({
   // "other": notes also fill Instant Sale route/notes slot
   if (request.category === 'other' && notes) {
     instantSaleFields.route = notes;
+  }
+  // Service-specific CRM keys (hotel check-in/out, guest counts, …)
+  for (const [key, value] of Object.entries(request.crmFields || {})) {
+    const trimmedKey = key.trim();
+    if (!trimmedKey) continue;
+    if (typeof value === 'string') {
+      const text = value.trim();
+      if (text) instantSaleFields[trimmedKey] = text;
+      continue;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      instantSaleFields[trimmedKey] = value;
+    }
   }
 
   const { branchId, serviceId, serviceName } = resolved;

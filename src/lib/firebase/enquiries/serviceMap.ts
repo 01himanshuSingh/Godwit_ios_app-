@@ -19,7 +19,7 @@ export const SERVICE_MAP: Record<AppServiceCategory, ServiceMapEntry> = {
     fallback: 'Hotel Booking',
     mainKey: 'destinationCity',
     extraKey: 'route',
-    mainLabel: 'Where',
+    mainLabel: 'City',
     extraLabel: 'Rooms',
   },
   flight: {

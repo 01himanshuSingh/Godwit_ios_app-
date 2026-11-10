@@ -1,24 +1,22 @@
 /**
- * Hotel request form — maps to CRM enquiry via universal writer.
+ * Hotel request form — City (Places), check-in/out, guest counts, rooms → CRM enquiry.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { CityPlacesAutocomplete } from '@/features/requests/components/CityPlacesAutocomplete';
+import { CountStepper } from '@/features/requests/components/CountStepper';
+import { DateFieldPicker } from '@/features/requests/components/DateFieldPicker';
 import { RequestFormField } from '@/features/requests/components/RequestFormField';
 import { SendToGodwitButton } from '@/features/requests/components/SendToGodwitButton';
-import { TravellersSelectionCard } from '@/features/requests/components/TravellersSelectionCard';
-import { useRequestTravellers } from '@/features/requests/hooks/useRequestTravellers';
+import { TravellerCountCard } from '@/features/requests/components/TravellerCountCard';
 import { useSubmitServiceRequest } from '@/features/requests/hooks/useSubmitServiceRequest';
+import {
+  mapHotelFormToAppRequest,
+  type HotelTravellerCounts,
+} from '@/features/requests/hotel/mapHotelFormToAppRequest';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
-
-export type HotelRequestFormValues = {
-  destination: string;
-  dates: string;
-  rooms: string;
-  additionalInformation: string;
-  travellerIds: string[];
-};
 
 function layoutForWidth(width: number) {
   if (width < 360) {
@@ -27,38 +25,61 @@ function layoutForWidth(width: number) {
   return { cardPad: 20, cardRadius: 18, cardGap: 22, sectionGap: 16 };
 }
 
+const INITIAL_COUNTS: HotelTravellerCounts = {
+  adults: 2,
+  children: 0,
+  infants: 0,
+};
+
 export function HotelRequestForm() {
   const { width } = useWindowDimensions();
   const layout = useMemo(() => layoutForWidth(width), [width]);
-  const { travellers, isLoading: travellersLoading, errorMessage } = useRequestTravellers();
-  const { submitting, submit } = useSubmitServiceRequest();
+  const { submitting, submitRequest } = useSubmitServiceRequest();
 
-  const [destination, setDestination] = useState('');
-  const [dates, setDates] = useState('');
-  const [rooms, setRooms] = useState('');
+  const [city, setCity] = useState('');
+  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [checkIn, setCheckIn] = useState<Date | null>(null);
+  const [checkOut, setCheckOut] = useState<Date | null>(null);
+  const [counts, setCounts] = useState<HotelTravellerCounts>(INITIAL_COUNTS);
+  const [roomCount, setRoomCount] = useState(1);
   const [additionalInformation, setAdditionalInformation] = useState('');
-  const [selectedTravellerIds, setSelectedTravellerIds] = useState<string[]>([]);
-
-  const onToggleTraveller = useCallback((travellerId: string) => {
-    setSelectedTravellerIds((current) => {
-      if (current.includes(travellerId)) {
-        return current.filter((id) => id !== travellerId);
-      }
-      return [...current, travellerId];
-    });
-  }, []);
 
   const onSend = useCallback(() => {
-    void submit({
-      category: 'hotel',
-      main: destination,
-      when: dates,
-      extra: rooms,
-      notes: additionalInformation,
-      travellerIds: selectedTravellerIds,
-      travellers: travellers.filter((t) => selectedTravellerIds.includes(t.id)),
-    });
-  }, [additionalInformation, dates, destination, rooms, selectedTravellerIds, submit, travellers]);
+    if (!city.trim()) {
+      Alert.alert('City required', 'Please choose a destination city.');
+      return;
+    }
+    if (!checkIn || !checkOut) {
+      Alert.alert('Dates required', 'Please select check-in and check-out dates.');
+      return;
+    }
+    if (checkOut.getTime() < checkIn.getTime()) {
+      Alert.alert('Invalid dates', 'Check-out must be on or after check-in.');
+      return;
+    }
+    if (counts.adults + counts.children + counts.infants < 1) {
+      Alert.alert('Guests required', 'Please add at least one adult, child, or infant.');
+      return;
+    }
+    if (roomCount < 1) {
+      Alert.alert('Rooms required', 'Please select at least one room.');
+      return;
+    }
+
+    void submitRequest(
+      mapHotelFormToAppRequest({
+        city,
+        placeId,
+        checkIn,
+        checkOut,
+        counts,
+        roomCount,
+        notes: additionalInformation,
+        travellerIds: [],
+        travellers: [],
+      }),
+    );
+  }, [additionalInformation, checkIn, checkOut, city, counts, placeId, roomCount, submitRequest]);
 
   return (
     <View style={[styles.root, { gap: layout.sectionGap }]}>
@@ -74,29 +95,56 @@ export function HotelRequestForm() {
           },
         ]}
       >
-        <RequestFormField
-          label="WHERE"
-          value={destination}
-          onChangeText={setDestination}
+        <CityPlacesAutocomplete
+          value={city}
+          onChangeText={(text) => {
+            setCity(text);
+            setPlaceId(null);
+          }}
+          onSelectPlace={(place) => {
+            setCity(place.mainText || place.description);
+            setPlaceId(place.placeId);
+          }}
           placeholder="Courchevel"
-          accessibilityLabel="Where"
         />
-        <RequestFormField
-          label="WHEN"
-          value={dates}
-          onChangeText={setDates}
-          placeholder="14 – 20 February, or flexible"
-          helperText="Approximate is fine."
-          accessibilityLabel="When"
+
+        <DateFieldPicker
+          label="CHECK IN"
+          value={checkIn}
+          onChange={(next) => {
+            setCheckIn(next);
+            if (next && checkOut && checkOut.getTime() < next.getTime()) {
+              setCheckOut(null);
+            }
+          }}
+          placeholder="Select date"
+          minimumDate={new Date()}
         />
-        <RequestFormField
-          label="ROOMS"
-          value={rooms}
-          onChangeText={setRooms}
-          placeholder="Two connecting, or not sure yet"
-          accessibilityLabel="Rooms"
+
+        <DateFieldPicker
+          label="CHECK OUT"
+          value={checkOut}
+          onChange={setCheckOut}
+          placeholder="Select date"
+          minimumDate={checkIn || new Date()}
         />
+
+        <View style={styles.roomsRow}>
+          <View style={styles.roomsCopy}>
+            <Text style={styles.roomsLabel}>NUMBER OF ROOMS</Text>
+            <Text style={styles.roomsHint}>How many rooms do you need?</Text>
+          </View>
+          <CountStepper
+            value={roomCount}
+            onChange={setRoomCount}
+            min={1}
+            max={20}
+            accessibilityLabel="Number of rooms"
+          />
+        </View>
       </View>
+
+      <TravellerCountCard counts={counts} onChange={setCounts} />
 
       <View
         style={[
@@ -113,28 +161,14 @@ export function HotelRequestForm() {
           label="ANYTHING WE SHOULD KNOW?"
           value={additionalInformation}
           onChangeText={setAdditionalInformation}
-          placeholder="Tell us about your preferences, requirements, or anything else we should know..."
+          placeholder="Preferences, occasions…"
           multiline
           minHeight={110}
           accessibilityLabel="Anything we should know"
         />
       </View>
 
-      <TravellersSelectionCard
-        travellers={travellers}
-        selectedIds={selectedTravellerIds}
-        onToggleTraveller={onToggleTraveller}
-      />
-
-      {travellersLoading ? (
-        <Text style={styles.meta}>Loading travellers…</Text>
-      ) : errorMessage ? (
-        <Text style={styles.metaError}>{errorMessage}</Text>
-      ) : travellers.length === 0 ? (
-        <Text style={styles.meta}>No travellers on this account yet.</Text>
-      ) : null}
-
-      <SendToGodwitButton onPress={onSend} loading={submitting} disabled={travellersLoading} />
+      <SendToGodwitButton onPress={onSend} loading={submitting} />
     </View>
   );
 }
@@ -154,14 +188,26 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  meta: {
+  roomsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  roomsCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  roomsLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
+  roomsHint: {
     fontFamily: fontFamily.manrope.regular,
     fontSize: 13,
     color: colors.muted,
-  },
-  metaError: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 13,
-    color: '#8B4A3F',
   },
 });
