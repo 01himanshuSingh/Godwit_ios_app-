@@ -47,6 +47,37 @@ module.exports = ({ config }) => {
     (config && config.extra && config.extra.eas && config.extra.eas.projectId) ||
     'cdbe68dc-e1dc-478b-b230-19171169ede8';
 
+  const firebaseProjectId =
+    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID?.trim() || 'debug-godwit-3bd83';
+  const firebaseAuthDomain =
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim() || `${firebaseProjectId}.firebaseapp.com`;
+  const firebaseLinkHosts = Array.from(
+    new Set([
+      firebaseAuthDomain,
+      `${firebaseProjectId}.firebaseapp.com`,
+      `${firebaseProjectId}.web.app`,
+    ]),
+  );
+
+  // Android App Links so Gmail "tap sign-in" opens this APK (Firebase email-link / Hosting URL).
+  const firebaseAuthIntentFilters = firebaseLinkHosts.map((host) => ({
+    action: 'VIEW',
+    autoVerify: true,
+    category: ['BROWSABLE', 'DEFAULT'],
+    data: [
+      {
+        scheme: 'https',
+        host,
+        pathPrefix: '/__/auth',
+      },
+      {
+        scheme: 'https',
+        host,
+        pathPrefix: '/finishSignIn',
+      },
+    ],
+  }));
+
   return {
     ...config,
     name: 'Godwit',
@@ -61,6 +92,7 @@ module.exports = ({ config }) => {
       supportsTablet: false,
       bundleIdentifier: iosBundleIdentifier(appEnv),
       usesAppleSignIn: true,
+      associatedDomains: firebaseLinkHosts.map((host) => `applinks:${host}`),
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSPhotoLibraryUsageDescription:
@@ -76,6 +108,14 @@ module.exports = ({ config }) => {
         backgroundColor: '#FFFFFF',
       },
       softwareKeyboardLayoutMode: 'resize',
+      intentFilters: [
+        ...firebaseAuthIntentFilters,
+        {
+          action: 'VIEW',
+          category: ['BROWSABLE', 'DEFAULT'],
+          data: [{ scheme: 'godwit' }],
+        },
+      ],
     },
     experiments: {
       typedRoutes: true,

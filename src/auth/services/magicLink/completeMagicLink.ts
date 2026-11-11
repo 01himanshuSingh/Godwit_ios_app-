@@ -95,7 +95,7 @@ export async function completeMagicLink({
     throw new Error('Please enter your email again.');
   }
   if (!link) {
-    throw new Error('Paste the sign-in link from your email.');
+    throw new Error('Open the sign-in link from your email in this app.');
   }
   if (!checkIsFirebaseEmailSignInLink(link)) {
     throw new Error('Invalid Firebase sign-in link.');
