@@ -10,18 +10,27 @@
       "ios": {
         "simulator": true
       },
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "APP_ENV": "development"
       }
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "APP_ENV": "staging"
       }
     },
     "production": {
       "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "APP_ENV": "production"
       }
@@ -29,7 +38,8 @@
   },
   "submit": {
     "production": {
-      "ios": {}
+      "ios": {},
+      "android": {}
     }
   }
 }

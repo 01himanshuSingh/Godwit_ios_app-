@@ -1,8 +1,9 @@
-import type { ExpoConfig, ConfigContext } from 'expo/config';
+/**
+ * Dynamic Expo config (used instead of a full app.json).
+ * Plain JS so EAS CLI can read/write `extra.eas.projectId` without TS parse errors.
+ */
 
-type AppEnv = 'development' | 'staging' | 'production';
-
-function resolveAppEnv(): AppEnv {
+function resolveAppEnv() {
   const value = process.env.APP_ENV ?? 'development';
   if (value === 'development' || value === 'staging' || value === 'production') {
     return value;
@@ -10,8 +11,7 @@ function resolveAppEnv(): AppEnv {
   throw new Error(`Invalid APP_ENV "${value}". Expected development, staging, or production.`);
 }
 
-function iosBundleIdentifier(appEnv: AppEnv): string {
-  // TODO confirm with Apple Developer account
+function iosBundleIdentifier(appEnv) {
   switch (appEnv) {
     case 'production':
       return 'com.godwit.client';
@@ -19,12 +19,33 @@ function iosBundleIdentifier(appEnv: AppEnv): string {
       return 'com.godwit.client.staging';
     case 'development':
       return 'com.godwit.client.dev';
+    default:
+      return 'com.godwit.client.dev';
   }
 }
 
-export default ({ config }: ConfigContext): ExpoConfig => {
+/** Android applicationId — permanent after Play Store publish. */
+function androidPackage(appEnv) {
+  switch (appEnv) {
+    case 'production':
+      return 'com.godwit.client';
+    case 'staging':
+      return 'com.godwit.client.staging';
+    case 'development':
+      return 'com.godwit.client.dev';
+    default:
+      return 'com.godwit.client.dev';
+  }
+}
+
+module.exports = ({ config }) => {
   const appEnv = resolveAppEnv();
   const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://example.invalid/v1';
+  // Linked EAS project: @ascentia-labs/godwit-client-ios
+  const easProjectId =
+    process.env.EAS_PROJECT_ID ||
+    (config && config.extra && config.extra.eas && config.extra.eas.projectId) ||
+    'cdbe68dc-e1dc-478b-b230-19171169ede8';
 
   return {
     ...config,
@@ -34,23 +55,27 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     version: '1.0.0',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
-    platforms: ['ios'],
+    platforms: ['ios', 'android'],
     icon: './assets/icon.png',
     ios: {
       supportsTablet: false,
       bundleIdentifier: iosBundleIdentifier(appEnv),
       usesAppleSignIn: true,
       infoPlist: {
-        // Confirm before first App Store submission (export compliance).
         ITSAppUsesNonExemptEncryption: false,
         NSPhotoLibraryUsageDescription:
           'Godwit needs access to your photo library so you can attach images to messages and upload travel documents.',
         NSCameraUsageDescription:
           'Godwit needs camera access so you can capture photos for message attachments and document uploads.',
       },
-      // TODO: Required-reason API declarations — verify what the installed SDK already ships
-      // and complete entries per docs/APP_STORE_CHECKLIST.md (Apple privacy manifests).
-      // privacyManifests: { ... },
+    },
+    android: {
+      package: androidPackage(appEnv),
+      adaptiveIcon: {
+        foregroundImage: './assets/icon.png',
+        backgroundColor: '#FFFFFF',
+      },
+      softwareKeyboardLayoutMode: 'resize',
     },
     experiments: {
       typedRoutes: true,
@@ -67,6 +92,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         {
           ios: {
             useFrameworks: 'static',
+          },
+          android: {
+            minSdkVersion: 24,
           },
         },
       ],
@@ -88,16 +116,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           backgroundColor: '#ffffff',
         },
       ],
-      // TODO Day 3: Register @react-native-google-signin/google-signin with iOS URL scheme and
-      // Google OAuth iOS client ID from Google Cloud Console (never commit secrets).
-      // TODO Day 3: Register @sentry/react-native with organization, project, and DSN via EAS secrets.
     ],
     extra: {
+      ...(config && typeof config.extra === 'object' && config.extra ? config.extra : {}),
       appEnv,
       apiBaseUrl,
-      // TODO: Set eas.projectId after `eas init` — required for EAS Build and push.
       eas: {
-        projectId: process.env.EAS_PROJECT_ID,
+        projectId: easProjectId,
       },
       router: {},
     },
