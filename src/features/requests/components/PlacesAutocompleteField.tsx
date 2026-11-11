@@ -16,6 +16,7 @@ import {
 import { FieldErrorText } from '@/features/requests/components/FieldErrorText';
 import {
   fetchPlaceSuggestions,
+  isPlacesApiConfigured,
   type PlaceAutocompleteType,
   type PlaceSuggestion,
 } from '@/lib/places/googlePlacesAutocomplete';
@@ -48,19 +49,19 @@ export function PlacesAutocompleteField({
   onSelectPlace,
   placeholder = 'Search or type manually',
   placeType = 'cities',
-  helperText = 'Pick a suggestion, or type your own if it is not listed.',
+  helperText = 'Type the place name.',
   error,
 }: PlacesAutocompleteFieldProps) {
   const { width } = useWindowDimensions();
   const layout = useMemo(() => layoutForWidth(width), [width]);
+  const placesConfigured = useMemo(() => isPlacesApiConfigured(), []);
   const [focused, setFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [suppressSuggestions, setSuppressSuggestions] = useState(false);
 
   const query = value.trim();
-  const canSuggest = !suppressSuggestions && query.length >= 2;
+  const canSuggest = placesConfigured && !suppressSuggestions && query.length >= 2;
 
   useEffect(() => {
     if (!canSuggest) {
@@ -77,8 +78,11 @@ export function PlacesAutocompleteField({
         if (controller.signal.aborted) {
           return;
         }
+        // Places API failures stay silent in UI — manual typing always works.
+        if (result.errorMessage && __DEV__) {
+          console.warn('[PlacesAutocompleteField]', result.errorMessage);
+        }
         setSuggestions(result.suggestions);
-        setErrorMessage(result.errorMessage);
         setLoading(false);
       });
     }, 350);
@@ -90,7 +94,6 @@ export function PlacesAutocompleteField({
   }, [canSuggest, placeType, query]);
 
   const visibleSuggestions = canSuggest ? suggestions : [];
-  const visibleError = canSuggest ? errorMessage : null;
   const visibleLoading = canSuggest && loading;
 
   return (
@@ -126,7 +129,6 @@ export function PlacesAutocompleteField({
 
       <FieldErrorText message={error} />
       {!error && helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
-      {visibleError && __DEV__ ? <Text style={styles.helper}>{visibleError}</Text> : null}
 
       {visibleSuggestions.length > 0 ? (
         <View style={styles.dropdown}>

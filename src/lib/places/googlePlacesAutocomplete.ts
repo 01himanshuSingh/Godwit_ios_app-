@@ -53,6 +53,11 @@ function getPlacesApiKey(): string {
   return (process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '').trim();
 }
 
+/** True when a Places API key is present (does not prove the API is enabled). */
+export function isPlacesApiConfigured(): boolean {
+  return getPlacesApiKey().length > 0;
+}
+
 /**
  * Maps app place filters → Places API (New) `includedPrimaryTypes`.
  * `(cities)` / `(regions)` are still supported by Autocomplete (New).
@@ -101,12 +106,13 @@ export async function fetchPlaceSuggestions(
 
   const apiKey = getPlacesApiKey();
   if (!apiKey) {
-    return {
-      suggestions: [],
-      errorMessage: __DEV__
-        ? 'Add EXPO_PUBLIC_GOOGLE_PLACES_API_KEY to enable place suggestions.'
-        : null,
-    };
+    // No key / Places not connected — silent. UI still accepts manual typing.
+    if (__DEV__) {
+      console.warn(
+        '[fetchPlaceSuggestions] EXPO_PUBLIC_GOOGLE_PLACES_API_KEY missing; suggestions disabled.',
+      );
+    }
+    return { suggestions: [], errorMessage: null };
   }
 
   const body: {
@@ -137,13 +143,14 @@ export async function fetchPlaceSuggestions(
     const data = (await response.json()) as AutocompleteResponse;
 
     if (!response.ok) {
-      const message =
-        data.error?.message ||
-        data.error_message ||
-        (__DEV__
-          ? `Places API error (${response.status}). Enable Places API (New) for this key.`
-          : 'Could not load place suggestions.');
-      return { suggestions: [], errorMessage: message };
+      if (__DEV__) {
+        console.warn(
+          '[fetchPlaceSuggestions]',
+          data.error?.message || data.error_message || `HTTP ${response.status}`,
+        );
+      }
+      // Never surface Places API / key / enablement errors in the UI.
+      return { suggestions: [], errorMessage: null };
     }
 
     const suggestions: PlaceSuggestion[] = (data.suggestions || [])
@@ -168,7 +175,7 @@ export async function fetchPlaceSuggestions(
       return { suggestions: [], errorMessage: null };
     }
     console.warn('[fetchPlaceSuggestions]', error);
-    return { suggestions: [], errorMessage: 'Could not load place suggestions.' };
+    return { suggestions: [], errorMessage: null };
   }
 }
 
