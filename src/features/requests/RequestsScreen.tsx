@@ -76,6 +76,7 @@ export function RequestsScreen({ onBack, clearTabBar = false }: RequestsScreenPr
       subtitle="Choose a starting point. We'll take care of the detail."
       backLabel="Requests"
       onBack={onBack}
+      layoutPreset="requests"
       contentBottomInset={clearTabBar ? TAB_BAR_CLEARANCE : 0}
     >
       <RequestServicesGrid onSelectService={onSelectService} />

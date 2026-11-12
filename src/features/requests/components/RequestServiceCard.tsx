@@ -10,6 +10,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { AirportVipServiceIcon } from '@/features/requests/components/AirportVipServiceIcon';
+import { SomethingElseServiceIcon } from '@/features/requests/components/SomethingElseServiceIcon';
+import { YachtServiceIcon } from '@/features/requests/components/YachtServiceIcon';
 import type { RequestService } from '@/features/requests/data/requestServices';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -23,32 +26,66 @@ type RequestServiceCardProps = {
 function layoutForWidth(width: number) {
   if (width < 360) {
     return {
-      height: 112,
-      padH: 15,
+      height: 116,
+      padH: 14,
       padV: 14,
-      radius: 12,
+      radius: 14,
       iconSize: 22,
-      labelSize: 18,
-      labelLineHeight: 22,
+      labelSize: 19,
+      labelLineHeight: 24,
+    };
+  }
+  if (width < 768) {
+    return {
+      height: 124,
+      padH: 16,
+      padV: 16,
+      radius: 14,
+      iconSize: 24,
+      labelSize: 22,
+      labelLineHeight: 27,
     };
   }
   return {
-    height: 122,
-    padH: 18,
-    padV: 16,
-    radius: 12,
-    iconSize: 24,
-    labelSize: 20,
-    labelLineHeight: 24,
+    height: 132,
+    padH: 20,
+    padV: 18,
+    radius: 16,
+    iconSize: 26,
+    labelSize: 23,
+    labelLineHeight: 29,
   };
 }
 
 function ServiceIcon({ service, size }: { service: RequestService; size: number }) {
   const tint = colors.forest;
-  if (service.iconSet === 'feather') {
-    return <Feather name={service.icon as 'home'} size={size} color={tint} />;
+  const tiltFlightIcon = service.id === 'flight' || service.id === 'privateJet';
+
+  if (service.id === 'yacht') {
+    return <YachtServiceIcon size={size} color={tint} />;
   }
-  return <Ionicons name={service.icon as 'airplane-outline'} size={size} color={tint} />;
+
+  if (service.id === 'airportVip') {
+    return <AirportVipServiceIcon size={size} color={tint} />;
+  }
+
+  if (service.id === 'somethingElse') {
+    return <SomethingElseServiceIcon size={size} color={tint} />;
+  }
+
+  const icon =
+    service.iconSet === 'feather' ? (
+      <Feather name={service.icon as 'home'} size={size} color={tint} />
+    ) : (
+      <Ionicons name={service.icon as 'airplane-outline'} size={size} color={tint} />
+    );
+
+  // Nose toward upper-right (Ionicons airplane faces east by default → -45° = NE).
+  if (tiltFlightIcon) {
+    return <View style={styles.flightIconTilt}>{icon}</View>;
+  }
+
+  return icon;
 }
 
 function RequestServiceCardComponent({ service, cardWidth, onPress }: RequestServiceCardProps) {
@@ -134,6 +171,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     height: 28,
     justifyContent: 'center',
+  },
+  flightIconTilt: {
+    transform: [{ rotate: '-45deg' }],
   },
   label: {
     fontFamily: fontFamily.cormorant.regular,

@@ -11,6 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
+type ProfileSectionShellLayoutPreset = 'default' | 'requests' | 'requestForm';
+
 type ProfileSectionShellProps = {
   title: string;
   subtitle?: string | null;
@@ -26,10 +28,134 @@ type ProfileSectionShellProps = {
   contentBottomInset?: number;
   /** Keep taps working while keyboard is open (forms). */
   keyboardShouldPersistTaps?: 'always' | 'never' | 'handled';
+  /**
+   * `requests` — New request service picker.
+   * `requestForm` — active service form (Hotel, Flight, …).
+   * Other profile/hub screens keep `default`.
+   */
+  layoutPreset?: ProfileSectionShellLayoutPreset;
   children?: ReactNode;
 };
 
-function layoutForWidth(width: number) {
+type ShellLayout = {
+  pagePad: number;
+  sectionTop: number;
+  titleSize: number;
+  titleLineHeight: number;
+  subtitleSize: number;
+  subtitleLineHeight: number;
+  backSize: number;
+  chevronSize: number;
+  backGap: number;
+  headerToTitle: number;
+  titleToSubtitle: number;
+  bodyTop: number;
+};
+
+function layoutForWidth(
+  width: number,
+  preset: ProfileSectionShellLayoutPreset = 'default',
+): ShellLayout {
+  if (preset === 'requestForm') {
+    // Active New request form screens — compact premium spacing.
+    if (width < 360) {
+      return {
+        pagePad: 16,
+        sectionTop: 20,
+        titleSize: 28,
+        titleLineHeight: 34,
+        subtitleSize: 13,
+        subtitleLineHeight: 18,
+        backSize: 15,
+        chevronSize: 20,
+        backGap: 4,
+        headerToTitle: 16,
+        titleToSubtitle: 16,
+        bodyTop: 20,
+      };
+    }
+    if (width < 768) {
+      return {
+        pagePad: 20,
+        sectionTop: 24,
+        titleSize: 32,
+        titleLineHeight: 38,
+        subtitleSize: 14,
+        subtitleLineHeight: 20,
+        backSize: 16,
+        chevronSize: 22,
+        backGap: 4,
+        headerToTitle: 18,
+        titleToSubtitle: 20,
+        bodyTop: 24,
+      };
+    }
+    return {
+      pagePad: 32,
+      sectionTop: 28,
+      titleSize: 34,
+      titleLineHeight: 40,
+      subtitleSize: 15,
+      subtitleLineHeight: 22,
+      backSize: 16,
+      chevronSize: 22,
+      backGap: 6,
+      headerToTitle: 20,
+      titleToSubtitle: 24,
+      bodyTop: 28,
+    };
+  }
+
+  if (preset === 'requests') {
+    // Production New request picker — fixed type scale; pad matches RequestServicesGrid.
+    if (width < 360) {
+      return {
+        pagePad: 16,
+        sectionTop: 20,
+        titleSize: 32,
+        titleLineHeight: 38,
+        subtitleSize: 13,
+        subtitleLineHeight: 18,
+        backSize: 16,
+        chevronSize: 20,
+        backGap: 4,
+        headerToTitle: 18,
+        titleToSubtitle: 8,
+        bodyTop: 16,
+      };
+    }
+    if (width < 768) {
+      return {
+        pagePad: 20,
+        sectionTop: 24,
+        titleSize: 32,
+        titleLineHeight: 38,
+        subtitleSize: 13,
+        subtitleLineHeight: 18,
+        backSize: 16,
+        chevronSize: 22,
+        backGap: 4,
+        headerToTitle: 20,
+        titleToSubtitle: 8,
+        bodyTop: 18,
+      };
+    }
+    return {
+      pagePad: 32,
+      sectionTop: 28,
+      titleSize: 32,
+      titleLineHeight: 38,
+      subtitleSize: 13,
+      subtitleLineHeight: 18,
+      backSize: 16,
+      chevronSize: 22,
+      backGap: 6,
+      headerToTitle: 22,
+      titleToSubtitle: 8,
+      bodyTop: 20,
+    };
+  }
+
   if (width < 360) {
     return {
       pagePad: 16,
@@ -86,12 +212,13 @@ export function ProfileSectionShell({
   onBack,
   contentBottomInset = 0,
   keyboardShouldPersistTaps,
+  layoutPreset = 'default',
   children,
 }: ProfileSectionShellProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
+  const layout = useMemo(() => layoutForWidth(width, layoutPreset), [width, layoutPreset]);
   const showSubtitleRow = Boolean(subtitle) || Boolean(subtitleTrailing);
 
   return (

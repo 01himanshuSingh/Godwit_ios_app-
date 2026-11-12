@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   eyebrow: {
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.semibold,
     fontSize: 11,
     letterSpacing: 11 * 0.16,
     textTransform: 'uppercase',
@@ -58,8 +58,8 @@ const styles = StyleSheet.create({
   },
   headingFixed: {
     flexShrink: 0,
-    fontFamily: fontFamily.cormorant.light,
-    fontSize: 22,
+    fontFamily: fontFamily.cormorant.regular,
+    fontSize: 24,
     lineHeight: 36,
     color: colors.forest,
   },
@@ -67,8 +67,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
     minWidth: 0,
-    fontFamily: fontFamily.cormorant.light,
-    fontSize: 22,
+    // Highlighted name — Cormorant Medium ≈ 500 (no 600 loaded for this family).
+    fontFamily: fontFamily.cormorant.medium,
+    fontSize: 24,
     lineHeight: 36,
     color: colors.forest,
   },

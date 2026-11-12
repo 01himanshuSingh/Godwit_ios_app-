@@ -50,8 +50,8 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   label: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 13,
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 14,
     letterSpacing: 0.2,
     color: colors.sand,
     flexShrink: 0,

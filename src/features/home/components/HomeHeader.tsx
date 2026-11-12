@@ -81,8 +81,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wordmark: {
-    fontFamily: fontFamily.cormorant.medium,
-    fontSize: 26,
+    // Brand: 25 / Manrope 600 (shared chrome — Home + New request + tabs).
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 25,
     lineHeight: 28,
     letterSpacing: 2.5,
     color: colors.forest,
@@ -91,7 +92,7 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   wordmarkCompact: {
-    fontSize: 20,
+    fontSize: 21,
     lineHeight: 26,
     letterSpacing: 2,
   },
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontFamily: fontFamily.manrope.semibold,
-    fontSize: 9,
+    fontSize: 10,
     color: colors.primaryForeground,
     lineHeight: 12,
   },
@@ -135,8 +136,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 13,
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 14,
     color: colors.primaryForeground,
     letterSpacing: 0.5,
   },

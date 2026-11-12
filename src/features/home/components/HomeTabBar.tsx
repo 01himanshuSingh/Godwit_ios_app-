@@ -1,4 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,13 +12,14 @@ type FeatherIconName = ComponentProps<typeof Feather>['name'];
 type TabItem = {
   key: string;
   label: string;
-  icon: FeatherIconName;
+  /** Feather icon — omitted for trips (uses tilted airplane). */
+  icon?: FeatherIconName;
 };
 
 /** Phase 1 tabs — visual only until Expo Router tab shell is wired. */
 const PHASE1_TABS: TabItem[] = [
   { key: 'home', label: 'Home', icon: 'home' },
-  { key: 'trips', label: 'Trips', icon: 'navigation' },
+  { key: 'trips', label: 'Trips' },
   { key: 'messages', label: 'Messages', icon: 'message-square' },
   { key: 'profile', label: 'Profile', icon: 'user' },
   { key: 'testing', label: 'Testing', icon: 'tool' },
@@ -27,6 +29,19 @@ type HomeTabBarProps = {
   activeTab?: string;
   onTabPress?: (tabKey: string) => void;
 };
+
+function TabIcon({ tabKey, icon, tint }: { tabKey: string; icon?: FeatherIconName; tint: string }) {
+  // Same airplane + upper-right tilt as Flight / Private jet on New request.
+  if (tabKey === 'trips') {
+    return (
+      <View style={styles.tripsIconTilt}>
+        <Ionicons name="airplane-outline" size={20} color={tint} />
+      </View>
+    );
+  }
+
+  return <Feather name={icon ?? 'circle'} size={20} color={tint} />;
+}
 
 export function HomeTabBar({ activeTab = 'home', onTabPress }: HomeTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -51,7 +66,7 @@ export function HomeTabBar({ activeTab = 'home', onTabPress }: HomeTabBarProps) 
               style={styles.tabPressable}
             >
               <View style={styles.tab}>
-                <Feather name={tab.icon} size={20} color={tint} />
+                <TabIcon tabKey={tab.key} icon={tab.icon} tint={tint} />
                 <Text style={[styles.tabLabel, { color: tint }]}>{tab.label}</Text>
               </View>
             </Pressable>
@@ -96,8 +111,11 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 4,
   },
+  tripsIconTilt: {
+    transform: [{ rotate: '-45deg' }],
+  },
   tabLabel: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 9,
+    fontSize: 11,
   },
 });

@@ -1,10 +1,11 @@
 /**
  * Compact segmented tabs for trip type / arrival-departure / charter type.
  */
-import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useMemo } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { InventoryOption } from '@/features/requests/data/requestInventory';
+import { requestFormFieldChrome } from '@/features/requests/shared/requestFormFieldChrome';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -16,9 +17,23 @@ type SegmentedTabsProps = {
 };
 
 function SegmentedTabsComponent({ label, options, value, onChange }: SegmentedTabsProps) {
+  const { width } = useWindowDimensions();
+  const chrome = useMemo(() => requestFormFieldChrome(width), [width]);
+
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text
+        style={[
+          styles.label,
+          {
+            fontSize: chrome.labelSize,
+            letterSpacing: chrome.labelLetter,
+            marginBottom: chrome.labelMarginBottom,
+          },
+        ]}
+      >
+        {label}
+      </Text>
       <View style={styles.row}>
         {options.map((option) => {
           const selected = option.id === value;
@@ -46,12 +61,9 @@ export const SegmentedTabs = memo(SegmentedTabsComponent);
 const styles = StyleSheet.create({
   field: {
     width: '100%',
-    gap: 8,
   },
   label: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 11,
-    letterSpacing: 1.4,
     textTransform: 'uppercase',
     color: colors.fieldLabel,
   },

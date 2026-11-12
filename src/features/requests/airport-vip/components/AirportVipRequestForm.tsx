@@ -104,9 +104,11 @@ export function AirportVipRequestForm() {
           styles.card,
           {
             borderRadius: layout.cardRadius,
-            paddingHorizontal: layout.cardPad,
-            paddingTop: layout.cardPad,
-            paddingBottom: layout.cardPad,
+            paddingHorizontal: layout.cardPadH,
+            paddingTop: layout.cardPadV,
+            paddingBottom: layout.cardPadV,
+            shadowOpacity: layout.shadowOpacity,
+            shadowRadius: layout.shadowRadius,
             gap: layout.cardGap,
           },
         ]}
@@ -184,9 +186,11 @@ export function AirportVipRequestForm() {
           styles.card,
           {
             borderRadius: layout.cardRadius,
-            paddingHorizontal: layout.cardPad,
-            paddingTop: layout.cardPad,
-            paddingBottom: layout.cardPad,
+            paddingHorizontal: layout.cardPadH,
+            paddingTop: layout.cardPadV,
+            paddingBottom: layout.cardPadV,
+            shadowOpacity: layout.shadowOpacity,
+            shadowRadius: layout.shadowRadius,
           },
         ]}
       >
@@ -211,11 +215,9 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: colors.border,
     shadowColor: '#1B2915',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },

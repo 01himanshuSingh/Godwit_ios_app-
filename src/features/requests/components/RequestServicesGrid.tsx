@@ -1,6 +1,6 @@
 /**
  * Fixed 2-column × 4-row category card grid (8 services).
- * Calculates explicit cardWidth so every tile renders as its own card on iOS/Android.
+ * Page pad must stay in sync with ProfileSectionShell `layoutPreset="requests"`.
  */
 import { useMemo } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -16,8 +16,8 @@ const COLUMNS = 2;
 const ROWS = 4;
 
 function layoutMetrics(windowWidth: number) {
-  const pagePad = windowWidth < 360 ? 16 : windowWidth < 768 ? 24 : 40;
-  const gap = windowWidth < 360 ? 10 : windowWidth < 768 ? 12 : 14;
+  const pagePad = windowWidth < 360 ? 16 : windowWidth < 768 ? 20 : 32;
+  const gap = windowWidth < 360 ? 12 : windowWidth < 768 ? 14 : 16;
   const containerMaxWidth = Math.min(windowWidth, windowWidth >= 768 ? 680 : windowWidth);
   const availableWidth = Math.max(containerMaxWidth - pagePad * 2, 200);
   const cardWidth = Math.floor((availableWidth - gap) / COLUMNS);

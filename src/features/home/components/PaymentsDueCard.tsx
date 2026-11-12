@@ -21,8 +21,8 @@ function layoutForWidth(width: number) {
       padH: 18,
       padV: 18,
       radius: 16,
-      amountSize: 22,
-      amountLineHeight: 28,
+      amountSize: 24,
+      amountLineHeight: 30,
       amountGap: 20,
       linkSize: 14,
     };
@@ -31,10 +31,10 @@ function layoutForWidth(width: number) {
     padH: 22,
     padV: 20,
     radius: 18,
-    amountSize: 26,
-    amountLineHeight: 32,
+    amountSize: 28,
+    amountLineHeight: 34,
     amountGap: 28,
-    linkSize: 15,
+    linkSize: 14,
   };
 }
 
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionLabel: {
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.semibold,
     fontSize: 11,
     letterSpacing: 11 * 0.16,
     color: colors.muted,
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   amount: {
-    fontFamily: fontFamily.cormorant.regular,
+    fontFamily: fontFamily.cormorant.medium,
     color: colors.forest,
     flexShrink: 1,
   },
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   linkLabel: {
-    fontFamily: fontFamily.manrope.regular,
+    fontFamily: fontFamily.manrope.semibold,
     color: colors.muted,
   },
 });

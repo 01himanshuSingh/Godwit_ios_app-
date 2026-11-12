@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { FieldErrorText } from '@/features/requests/components/FieldErrorText';
+import { requestFormFieldChrome } from '@/features/requests/shared/requestFormFieldChrome';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -30,35 +31,6 @@ type RequestFormFieldProps = {
   error?: string | null;
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      labelSize: 11,
-      labelLetter: 1.4,
-      inputPadH: 14,
-      inputPadV: 12,
-      inputRadius: 10,
-      inputSize: 15,
-      inputLineHeight: 20,
-      helperSize: 12,
-      helperLineHeight: 16,
-      fieldGap: 8,
-    };
-  }
-  return {
-    labelSize: 11,
-    labelLetter: 1.6,
-    inputPadH: 16,
-    inputPadV: 14,
-    inputRadius: 10,
-    inputSize: 16,
-    inputLineHeight: 22,
-    helperSize: 13,
-    helperLineHeight: 18,
-    fieldGap: 10,
-  };
-}
-
 function RequestFormFieldComponent({
   label,
   value,
@@ -73,17 +45,18 @@ function RequestFormFieldComponent({
   error,
 }: RequestFormFieldProps) {
   const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
+  const chrome = useMemo(() => requestFormFieldChrome(width), [width]);
   const [focused, setFocused] = useState(false);
 
   return (
-    <View style={[styles.field, { gap: layout.fieldGap }]}>
+    <View style={styles.field}>
       <Text
         style={[
           styles.label,
           {
-            fontSize: layout.labelSize,
-            letterSpacing: layout.labelLetter,
+            fontSize: chrome.labelSize,
+            letterSpacing: chrome.labelLetter,
+            marginBottom: chrome.labelMarginBottom,
           },
         ]}
       >
@@ -106,13 +79,13 @@ function RequestFormFieldComponent({
           focused && styles.inputFocused,
           error ? styles.inputError : null,
           {
-            borderRadius: layout.inputRadius,
-            paddingHorizontal: layout.inputPadH,
-            paddingTop: layout.inputPadV,
-            paddingBottom: layout.inputPadV,
-            fontSize: layout.inputSize,
-            lineHeight: layout.inputLineHeight,
-            minHeight: minHeight ?? (multiline ? 110 : undefined),
+            borderRadius: chrome.inputRadius,
+            paddingHorizontal: chrome.inputPadH,
+            paddingTop: chrome.inputPadV,
+            paddingBottom: chrome.inputPadV,
+            fontSize: chrome.inputSize,
+            lineHeight: chrome.inputLineHeight,
+            minHeight: minHeight ?? (multiline ? 110 : chrome.inputHeight),
           },
         ]}
       />
@@ -122,8 +95,9 @@ function RequestFormFieldComponent({
           style={[
             styles.helper,
             {
-              fontSize: layout.helperSize,
-              lineHeight: layout.helperLineHeight,
+              fontSize: chrome.helperSize,
+              lineHeight: chrome.helperLineHeight,
+              marginTop: chrome.helperMarginTop,
             },
           ]}
         >

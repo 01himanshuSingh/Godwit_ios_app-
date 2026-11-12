@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionLabel: {
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.semibold,
     fontSize: 11,
     letterSpacing: 11 * 0.16,
     color: colors.muted,
@@ -169,8 +169,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   emptyTitle: {
-    fontFamily: fontFamily.cormorant.regular,
-    fontSize: 24,
+    fontFamily: fontFamily.cormorant.medium,
+    fontSize: 25,
     lineHeight: 30,
     color: colors.forest,
     marginBottom: 8,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   title: {
-    fontFamily: fontFamily.cormorant.regular,
+    fontFamily: fontFamily.cormorant.medium,
     fontSize: 28,
     lineHeight: 34,
     color: colors.forest,
@@ -200,13 +200,13 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 20,
     color: colors.muted,
   },
   stay: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 20,
     color: colors.forest,
     marginTop: 10,
@@ -224,10 +224,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   nextPrefix: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 13,
     color: colors.muted,
   },
   nextValue: {
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 14,
     color: colors.forest,
   },
   services: {
@@ -243,7 +246,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   serviceLabel: {
-    fontFamily: fontFamily.manrope.regular,
+    fontFamily: fontFamily.manrope.medium,
     fontSize: 13,
     color: colors.muted,
   },
@@ -259,7 +262,7 @@ const styles = StyleSheet.create({
   viewTripLabel: {
     flexShrink: 0,
     fontFamily: fontFamily.manrope.semibold,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
     color: colors.forest,
   },

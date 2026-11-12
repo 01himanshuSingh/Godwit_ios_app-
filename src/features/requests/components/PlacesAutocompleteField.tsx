@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { FieldErrorText } from '@/features/requests/components/FieldErrorText';
+import { requestFormFieldChrome } from '@/features/requests/shared/requestFormFieldChrome';
 import {
   fetchPlaceSuggestions,
   isPlacesApiConfigured,
@@ -35,13 +36,6 @@ type PlacesAutocompleteFieldProps = {
   error?: string | null;
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return { labelSize: 11, inputPadH: 14, inputPadV: 12, inputSize: 15 };
-  }
-  return { labelSize: 11, inputPadH: 16, inputPadV: 14, inputSize: 16 };
-}
-
 export function PlacesAutocompleteField({
   label,
   value,
@@ -53,7 +47,7 @@ export function PlacesAutocompleteField({
   error,
 }: PlacesAutocompleteFieldProps) {
   const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
+  const chrome = useMemo(() => requestFormFieldChrome(width), [width]);
   const placesConfigured = useMemo(() => isPlacesApiConfigured(), []);
   const [focused, setFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -78,7 +72,6 @@ export function PlacesAutocompleteField({
         if (controller.signal.aborted) {
           return;
         }
-        // Places API failures stay silent in UI — manual typing always works.
         if (result.errorMessage && __DEV__) {
           console.warn('[PlacesAutocompleteField]', result.errorMessage);
         }
@@ -98,7 +91,18 @@ export function PlacesAutocompleteField({
 
   return (
     <View style={styles.field}>
-      <Text style={[styles.label, { fontSize: layout.labelSize }]}>{label}</Text>
+      <Text
+        style={[
+          styles.label,
+          {
+            fontSize: chrome.labelSize,
+            letterSpacing: chrome.labelLetter,
+            marginBottom: chrome.labelMarginBottom,
+          },
+        ]}
+      >
+        {label}
+      </Text>
       <View style={styles.inputWrap}>
         <TextInput
           value={value}
@@ -118,17 +122,38 @@ export function PlacesAutocompleteField({
             focused && styles.inputFocused,
             error ? styles.inputError : null,
             {
-              paddingHorizontal: layout.inputPadH,
-              paddingVertical: layout.inputPadV,
-              fontSize: layout.inputSize,
+              minHeight: chrome.inputHeight,
+              borderRadius: chrome.inputRadius,
+              paddingHorizontal: chrome.inputPadH,
+              paddingVertical: chrome.inputPadV,
+              fontSize: chrome.inputSize,
+              lineHeight: chrome.inputLineHeight,
             },
           ]}
         />
-        {visibleLoading ? <ActivityIndicator style={styles.spinner} color={colors.accent} /> : null}
+        {visibleLoading ? (
+          <ActivityIndicator
+            style={[styles.spinner, { right: chrome.inputPadH, top: chrome.inputPadV + 2 }]}
+            color={colors.accent}
+          />
+        ) : null}
       </View>
 
       <FieldErrorText message={error} />
-      {!error && helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
+      {!error && helperText ? (
+        <Text
+          style={[
+            styles.helper,
+            {
+              fontSize: chrome.helperSize,
+              lineHeight: chrome.helperLineHeight,
+              marginTop: chrome.helperMarginTop,
+            },
+          ]}
+        >
+          {helperText}
+        </Text>
+      ) : null}
 
       {visibleSuggestions.length > 0 ? (
         <View style={styles.dropdown}>
@@ -159,11 +184,9 @@ export function PlacesAutocompleteField({
 const styles = StyleSheet.create({
   field: {
     width: '100%',
-    gap: 8,
   },
   label: {
     fontFamily: fontFamily.manrope.medium,
-    letterSpacing: 1.4,
     textTransform: 'uppercase',
     color: colors.fieldLabel,
   },
@@ -173,7 +196,6 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: '#FFFFFF',
@@ -188,15 +210,13 @@ const styles = StyleSheet.create({
   },
   spinner: {
     position: 'absolute',
-    right: 14,
-    top: 14,
   },
   helper: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 12,
     color: colors.muted,
   },
   dropdown: {
+    marginTop: 6,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
