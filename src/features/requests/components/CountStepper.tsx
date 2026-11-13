@@ -1,10 +1,12 @@
 /**
- * Compact +/- count control for request forms (rooms, adults, …).
+ * Compact +/- count control for request forms (rooms, adults, guests…).
+ * Sizing matches Hotel Stay tab and scales with screen width.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useMemo } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { requestFormFieldChrome } from '@/features/requests/shared/requestFormFieldChrome';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -14,6 +16,8 @@ type CountStepperProps = {
   min?: number;
   max?: number;
   accessibilityLabel?: string;
+  /** Kept for callers; all sizes now follow Hotel Stay chrome. */
+  size?: 'md' | 'sm';
 };
 
 function CountStepperComponent({
@@ -23,29 +27,70 @@ function CountStepperComponent({
   max = 20,
   accessibilityLabel = 'Count',
 }: CountStepperProps) {
+  const { width } = useWindowDimensions();
+  const chrome = useMemo(() => requestFormFieldChrome(width), [width]);
   const canDecrement = value > min;
   const canIncrement = value < max;
+  const btnSize = chrome.countButton;
 
   return (
-    <View style={styles.row} accessibilityLabel={accessibilityLabel}>
+    <View
+      style={[
+        styles.row,
+        {
+          gap: chrome.countGap,
+          paddingHorizontal: chrome.countPad,
+          paddingVertical: chrome.countPad,
+        },
+      ]}
+      accessibilityLabel={accessibilityLabel}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Decrease ${accessibilityLabel}`}
         disabled={!canDecrement}
         onPress={() => canDecrement && onChange(value - 1)}
-        style={[styles.button, !canDecrement && styles.buttonDisabled]}
+        style={[
+          styles.button,
+          { width: btnSize, height: btnSize, borderRadius: btnSize / 2 },
+          !canDecrement && styles.buttonDisabled,
+        ]}
+        hitSlop={6}
       >
-        <Ionicons name="remove" size={18} color={canDecrement ? colors.forest : colors.muted} />
+        <Ionicons
+          name="remove"
+          size={chrome.countIcon}
+          color={canDecrement ? colors.forest : colors.muted}
+        />
       </Pressable>
-      <Text style={styles.value}>{value}</Text>
+      <Text
+        style={[
+          styles.value,
+          {
+            minWidth: chrome.countValueMinWidth,
+            fontSize: chrome.countValueSize,
+          },
+        ]}
+      >
+        {value}
+      </Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Increase ${accessibilityLabel}`}
         disabled={!canIncrement}
         onPress={() => canIncrement && onChange(value + 1)}
-        style={[styles.button, !canIncrement && styles.buttonDisabled]}
+        style={[
+          styles.button,
+          { width: btnSize, height: btnSize, borderRadius: btnSize / 2 },
+          !canIncrement && styles.buttonDisabled,
+        ]}
+        hitSlop={6}
       >
-        <Ionicons name="add" size={18} color={canIncrement ? colors.forest : colors.muted} />
+        <Ionicons
+          name="add"
+          size={chrome.countIcon}
+          color={canIncrement ? colors.forest : colors.muted}
+        />
       </Pressable>
     </View>
   );
@@ -57,26 +102,23 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-  },
-  button: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    backgroundColor: colors.card,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  button: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
   buttonDisabled: {
-    opacity: 0.45,
+    opacity: 0.4,
   },
   value: {
-    minWidth: 22,
     textAlign: 'center',
     fontFamily: fontFamily.manrope.semibold,
-    fontSize: 16,
+    fontVariant: ['tabular-nums'],
     color: colors.forest,
   },
 });

@@ -22,6 +22,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.manrope.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: '#B42318',
+    color: '#A33A2E',
   },
 });

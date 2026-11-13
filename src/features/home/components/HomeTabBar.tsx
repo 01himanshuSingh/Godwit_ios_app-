@@ -1,9 +1,17 @@
 import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useHomeTabBarVisibility } from '@/features/home/tabBar/HomeTabBarVisibility';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -31,7 +39,6 @@ type HomeTabBarProps = {
 };
 
 function TabIcon({ tabKey, icon, tint }: { tabKey: string; icon?: FeatherIconName; tint: string }) {
-  // Same airplane + upper-right tilt as Flight / Private jet on New request.
   if (tabKey === 'trips') {
     return (
       <View style={styles.tripsIconTilt}>
@@ -45,11 +52,38 @@ function TabIcon({ tabKey, icon, tint }: { tabKey: string; icon?: FeatherIconNam
 
 export function HomeTabBar({ activeTab = 'home', onTabPress }: HomeTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { hidden, suppressed } = useHomeTabBarVisibility();
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  const bottomPad = Math.max(insets.bottom, 12);
+  /** Enough to clear the pill + safe area when sliding off-screen. */
+  const hideDistance = 72 + bottomPad;
+  const offScreen = suppressed || hidden;
+
+  useEffect(() => {
+    translateY.value = withTiming(offScreen ? hideDistance : 0, {
+      duration: suppressed ? 0 : 240,
+      easing: Easing.out(Easing.cubic),
+    });
+    opacity.value = withTiming(offScreen ? 0 : 1, {
+      duration: suppressed ? 0 : 200,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [hideDistance, offScreen, opacity, suppressed, translateY]);
+
+  /** Hooks must run every render — never return before this. */
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
+  }));
 
   return (
-    <View
-      style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}
-      pointerEvents="box-none"
+    <Animated.View
+      style={[styles.wrapper, { paddingBottom: bottomPad }, animatedStyle]}
+      pointerEvents={offScreen ? 'none' : 'box-none'}
+      accessibilityElementsHidden={offScreen}
+      importantForAccessibility={offScreen ? 'no-hide-descendants' : 'auto'}
     >
       <View style={styles.pill}>
         {PHASE1_TABS.map((tab) => {
@@ -73,7 +107,7 @@ export function HomeTabBar({ activeTab = 'home', onTabPress }: HomeTabBarProps) 
           );
         })}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -85,6 +119,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 20,
     paddingTop: 8,
+    zIndex: 50,
   },
   pill: {
     flexDirection: 'row',

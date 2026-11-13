@@ -12,6 +12,7 @@ import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
 type DateTimeFieldPickerProps = {
+  /** Pass empty string when a parent FieldBlock already shows the label. */
   label: string;
   value: Date | null;
   onChange: (next: Date | null) => void;
@@ -83,23 +84,27 @@ function DateTimeFieldPickerComponent({
         ? 'datetime'
         : mode;
 
+  const showLabel = Boolean(label?.trim());
+
   return (
     <View style={styles.field}>
-      <Text
-        style={[
-          styles.label,
-          {
-            fontSize: chrome.labelSize,
-            letterSpacing: chrome.labelLetter,
-            marginBottom: chrome.labelMarginBottom,
-          },
-        ]}
-      >
-        {label}
-      </Text>
+      {showLabel ? (
+        <Text
+          style={[
+            styles.label,
+            {
+              fontSize: chrome.labelSize,
+              letterSpacing: chrome.labelLetter,
+              marginBottom: chrome.labelMarginBottom,
+            },
+          ]}
+        >
+          {label}
+        </Text>
+      ) : null}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityLabel={accessibilityLabel ?? (showLabel ? label : placeholder)}
         onPress={() => {
           setAndroidStep('date');
           setOpen(true);

@@ -18,6 +18,7 @@ export type HotelFormSubmitInput = {
   checkIn: Date | null;
   checkOut: Date | null;
   preferredHotel?: string;
+  preferredHotelBrandId?: string | null;
   counts: TravellerCounts;
   roomCount: number;
   notes: string;
@@ -36,11 +37,13 @@ export function mapHotelFormToAppRequest(input: HotelFormSubmitInput): AppReques
   const roomCount = Math.max(0, Math.floor(input.roomCount));
   const roomsLabel = `${roomCount} Room${roomCount === 1 ? '' : 's'}`;
   const preferredHotel = (input.preferredHotel || '').trim();
+  const preferredHotelBrandId = (input.preferredHotelBrandId || '').trim();
 
   const remarkLines = [
     `Guests: ${guestLabel}`,
     `Rooms: ${roomsLabel}`,
     preferredHotel ? `Preferred hotel: ${preferredHotel}` : null,
+    preferredHotelBrandId ? `preferredHotelBrandId: ${preferredHotelBrandId}` : null,
     checkInIso ? `Check-in: ${checkInIso}` : null,
     checkOutIso ? `Check-out: ${checkOutIso}` : null,
     input.placeId ? `placeId: ${input.placeId}` : null,
@@ -67,6 +70,7 @@ export function mapHotelFormToAppRequest(input: HotelFormSubmitInput): AppReques
       category: guestLabel,
       route: roomsLabel,
       ...(preferredHotel ? { preferredHotel } : {}),
+      ...(preferredHotelBrandId ? { preferredHotelBrandId } : {}),
       ...(input.placeId ? { placeId: input.placeId } : {}),
     },
   };

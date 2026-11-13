@@ -8,6 +8,7 @@ import { GreetingSection } from '@/features/home/components/GreetingSection';
 import { NewRequestButton } from '@/features/home/components/NewRequestButton';
 import { PaymentsDueCard } from '@/features/home/components/PaymentsDueCard';
 import { staticHomeViewModel } from '@/features/home/schemas/homeViewModel';
+import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
 import { RequestsScreen } from '@/features/requests';
 import { familyLabelFromClientName } from '@/lib/firebase/clients';
 import { getHomePaymentsDueSafe } from '@/lib/firebase/payments';
@@ -31,6 +32,7 @@ export function HomeScreen() {
   const { profile, isHydrating } = useActiveClientProfile();
   const homeData = staticHomeViewModel;
   const [showRequests, setShowRequests] = useState(false);
+  const tabBarScroll = useHomeTabBarScrollProps();
 
   const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
@@ -104,7 +106,7 @@ export function HomeScreen() {
   }
 
   if (showRequests) {
-    return <RequestsScreen onBack={handleRequestsBack} clearTabBar />;
+    return <RequestsScreen onBack={handleRequestsBack} />;
   }
 
   const familyName = sessionHome?.familyName ?? homeData.familyName;
@@ -116,6 +118,8 @@ export function HomeScreen() {
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      onScroll={tabBarScroll.onScroll}
+      scrollEventThrottle={tabBarScroll.scrollEventThrottle}
     >
       <GreetingSection
         familyName={familyName}

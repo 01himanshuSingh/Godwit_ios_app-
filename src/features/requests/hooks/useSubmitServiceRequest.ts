@@ -21,23 +21,38 @@ export type SubmitServiceRequestInput = {
   remarkLines?: string[];
 };
 
+export type SubmitRequestOptions = {
+  suppressSuccessAlert?: boolean;
+};
+
+export type SubmitRequestResult = {
+  ok: boolean;
+  requestId?: string;
+};
+
 /**
  * Shared submit for all request forms → one CRM enquiry writer.
  * Generates a stable appRequestId per press so retries stay idempotent.
  */
 export function useSubmitServiceRequest(): {
   submitting: boolean;
-  submit: (input: SubmitServiceRequestInput) => Promise<boolean>;
-  submitRequest: (request: AppRequest) => Promise<boolean>;
+  submit: (
+    input: SubmitServiceRequestInput,
+    options?: SubmitRequestOptions,
+  ) => Promise<SubmitRequestResult>;
+  submitRequest: (
+    request: AppRequest,
+    options?: SubmitRequestOptions,
+  ) => Promise<SubmitRequestResult>;
 } {
   const { profile } = useActiveClientProfile();
   const [submitting, setSubmitting] = useState(false);
   const inFlightRef = useRef(false);
 
   const submitRequest = useCallback(
-    async (request: AppRequest): Promise<boolean> => {
+    async (request: AppRequest, options?: SubmitRequestOptions): Promise<SubmitRequestResult> => {
       if (inFlightRef.current) {
-        return false;
+        return { ok: false };
       }
 
       const adminId = profile?.adminId?.trim() ?? '';
@@ -49,13 +64,13 @@ export function useSubmitServiceRequest(): {
           'Sign in required',
           'Your session is missing client details. Please sign out and sign in again.',
         );
-        return false;
+        return { ok: false };
       }
 
       const main = request.main.trim();
       if (!main) {
         Alert.alert('Missing details', 'Please fill in the main details for this request.');
-        return false;
+        return { ok: false };
       }
       const appRequestId = createEnquiryRequestId(adminId);
 
@@ -73,11 +88,13 @@ export function useSubmitServiceRequest(): {
           },
           appRequestId,
         );
-        Alert.alert('Request sent', 'Your Godwit team can see this on the client Enquiries tab.');
-        return true;
+        if (!options?.suppressSuccessAlert) {
+          Alert.alert('Request sent', 'Your Godwit team can see this on the client Enquiries tab.');
+        }
+        return { ok: true, requestId: appRequestId };
       } catch (error) {
         Alert.alert('Couldn’t send', mapEnquirySubmitErrorToMessage(error));
-        return false;
+        return { ok: false };
       } finally {
         inFlightRef.current = false;
         setSubmitting(false);
@@ -87,18 +104,24 @@ export function useSubmitServiceRequest(): {
   );
 
   const submit = useCallback(
-    async (input: SubmitServiceRequestInput): Promise<boolean> => {
-      return submitRequest({
-        category: input.category,
-        main: input.main,
-        when: input.when,
-        extra: input.extra,
-        notes: input.notes,
-        travellerIds: input.travellerIds,
-        travellers: input.travellers,
-        crmFields: input.crmFields,
-        remarkLines: input.remarkLines,
-      });
+    async (
+      input: SubmitServiceRequestInput,
+      options?: SubmitRequestOptions,
+    ): Promise<SubmitRequestResult> => {
+      return submitRequest(
+        {
+          category: input.category,
+          main: input.main,
+          when: input.when,
+          extra: input.extra,
+          notes: input.notes,
+          travellerIds: input.travellerIds,
+          travellers: input.travellers,
+          crmFields: input.crmFields,
+          remarkLines: input.remarkLines,
+        },
+        options,
+      );
     },
     [submitRequest],
   );

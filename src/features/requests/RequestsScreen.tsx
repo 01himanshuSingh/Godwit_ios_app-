@@ -1,9 +1,10 @@
 /**
  * New request — pick a service starting point, then open the matching form.
- * Opened from Home → New request (in-tab so HomeTabBar stays visible).
+ * HomeTabBar is suppressed for a full-screen responsive layout.
  */
 import { useCallback, useState } from 'react';
 
+import { useSuppressHomeTabBar } from '@/features/home/tabBar/HomeTabBarVisibility';
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
 import { AirportVipRequestScreen } from '@/features/requests/airport-vip/AirportVipRequestScreen';
 import { RequestServicesGrid } from '@/features/requests/components/RequestServicesGrid';
@@ -16,18 +17,17 @@ import { SomethingElseRequestScreen } from '@/features/requests/something-else/S
 import { VillaRequestScreen } from '@/features/requests/villa/VillaRequestScreen';
 import { YachtRequestScreen } from '@/features/requests/yacht/YachtRequestScreen';
 
-const TAB_BAR_CLEARANCE = 96;
-
 type ActiveRequestFormId = RequestServiceId;
 
 type RequestsScreenProps = {
   /** In-tab back handler; omit to use router.back() (stack route). */
   onBack?: () => void;
-  /** Extra scroll inset so the grid clears the floating tab bar. */
+  /** @deprecated Tab bar is suppressed on this screen — clearance unused. */
   clearTabBar?: boolean;
 };
 
-export function RequestsScreen({ onBack, clearTabBar = false }: RequestsScreenProps) {
+export function RequestsScreen({ onBack }: RequestsScreenProps) {
+  useSuppressHomeTabBar(true);
   const [activeServiceId, setActiveServiceId] = useState<ActiveRequestFormId | null>(null);
 
   const onSelectService = useCallback((service: RequestService) => {
@@ -39,35 +39,35 @@ export function RequestsScreen({ onBack, clearTabBar = false }: RequestsScreenPr
   }, []);
 
   if (activeServiceId === 'hotel') {
-    return <HotelRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+    return <HotelRequestScreen onBack={onFormBack} />;
   }
 
   if (activeServiceId === 'flight') {
-    return <FlightRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+    return <FlightRequestScreen onBack={onFormBack} />;
   }
 
   if (activeServiceId === 'privateJet') {
-    return <PrivateJetRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+    return <PrivateJetRequestScreen onBack={onFormBack} />;
   }
 
   if (activeServiceId === 'villa') {
-    return <VillaRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+    return <VillaRequestScreen onBack={onFormBack} />;
   }
 
   if (activeServiceId === 'yacht') {
-    return <YachtRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+    return <YachtRequestScreen onBack={onFormBack} />;
   }
 
   if (activeServiceId === 'chauffeur') {
-    return <ChauffeurRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+    return <ChauffeurRequestScreen onBack={onFormBack} />;
   }
 
   if (activeServiceId === 'airportVip') {
-    return <AirportVipRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+    return <AirportVipRequestScreen onBack={onFormBack} />;
   }
 
   if (activeServiceId === 'somethingElse') {
-    return <SomethingElseRequestScreen onBack={onFormBack} clearTabBar={clearTabBar} />;
+    return <SomethingElseRequestScreen onBack={onFormBack} />;
   }
 
   return (
@@ -77,7 +77,6 @@ export function RequestsScreen({ onBack, clearTabBar = false }: RequestsScreenPr
       backLabel="Requests"
       onBack={onBack}
       layoutPreset="requests"
-      contentBottomInset={clearTabBar ? TAB_BAR_CLEARANCE : 0}
     >
       <RequestServicesGrid onSelectService={onSelectService} />
     </ProfileSectionShell>

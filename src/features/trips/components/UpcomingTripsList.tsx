@@ -3,6 +3,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
 import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
+import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
 import { UpcomingDayCard } from '@/features/trips/components/UpcomingDayCard';
 import {
   buildUpcomingDayGroups,
@@ -38,6 +39,7 @@ export function UpcomingTripsList({
   mode = 'upcoming',
   onTripPress,
 }: UpcomingTripsListProps) {
+  const tabBarScroll = useHomeTabBarScrollProps();
   const {
     data,
     error,
@@ -119,6 +121,8 @@ export function UpcomingTripsList({
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       contentContainerStyle={styles.listContent}
+      onScroll={tabBarScroll.onScroll}
+      scrollEventThrottle={tabBarScroll.scrollEventThrottle}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.4}
       refreshControl={

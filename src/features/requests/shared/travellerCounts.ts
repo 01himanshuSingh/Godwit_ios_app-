@@ -1,5 +1,6 @@
 /**
  * Shared adult / child / infant party counts for request forms.
+ * Default is one adult — Travellers / Passengers can be skipped with this assumed.
  */
 
 export type TravellerCounts = {
@@ -8,11 +9,26 @@ export type TravellerCounts = {
   infants: number;
 };
 
+/** Prefill for every New-request Travellers / Passengers section. */
+export const DEFAULT_PARTY_SIZE = 1;
+
 export const INITIAL_TRAVELLER_COUNTS: TravellerCounts = {
-  adults: 2,
+  adults: DEFAULT_PARTY_SIZE,
   children: 0,
   infants: 0,
 };
+
+/** If the client skips or clears the party, assume one adult. */
+export function ensureMinAdultParty(counts: TravellerCounts): TravellerCounts {
+  if (counts.adults >= 1) return counts;
+  return { ...counts, adults: DEFAULT_PARTY_SIZE };
+}
+
+/** Single passenger / guest steppers (chauffeur, jet, yacht). */
+export function ensureMinPartySize(value: number, min = DEFAULT_PARTY_SIZE): number {
+  if (!Number.isFinite(value) || value < min) return min;
+  return Math.floor(value);
+}
 
 export function formatTravellerCountLabel(counts: TravellerCounts): string {
   const parts: string[] = [];

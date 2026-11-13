@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/providers/AuthProvider';
+import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
 import {
   checkFirebaseConnection,
   getClientByAdminAndClientIdSafe,
@@ -494,6 +495,7 @@ export function TestingClientsScreen() {
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
   const { profile } = useActiveClientProfile();
+  const tabBarScroll = useHomeTabBarScrollProps();
   const [signingOut, setSigningOut] = useState(false);
   const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
@@ -635,7 +637,12 @@ export function TestingClientsScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={tabBarScroll.scrollEventThrottle}
+      >
         {/* Always visible on Test tab render — session adminId / clientId */}
         <Text style={styles.sectionLabel}>PERSONAL DOCS · SESSION CLIENT</Text>
         <PersonalDocumentsTestCard

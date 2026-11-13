@@ -1,20 +1,13 @@
 /**
- * Hotel request form — opened from New request → Hotel card.
- * In-tab so HomeTabBar stays visible.
+ * Hotel request — Stay · Travellers · Notes · Review wizard.
  */
-import { RequestFormScreenShell } from '@/features/requests/components/RequestFormScreenShell';
-import { HotelRequestForm } from '@/features/requests/hotel/components/HotelRequestForm';
+import { HotelRequestWizard } from '@/features/requests/hotel/components/HotelRequestWizard';
 
 type HotelRequestScreenProps = {
-  /** Back to category grid (Requests header + Change what you need). */
   onBack: () => void;
   clearTabBar?: boolean;
 };
 
 export function HotelRequestScreen({ onBack, clearTabBar = false }: HotelRequestScreenProps) {
-  return (
-    <RequestFormScreenShell title="Hotel" onBack={onBack} clearTabBar={clearTabBar}>
-      <HotelRequestForm />
-    </RequestFormScreenShell>
-  );
+  return <HotelRequestWizard onBack={onBack} clearTabBar={clearTabBar} />;
 }

@@ -1,8 +1,7 @@
 /**
- * Private jet request form — opened from New request → Private jet card.
+ * Private jet request — opened from New request → Private jet card.
  */
-import { RequestFormScreenShell } from '@/features/requests/components/RequestFormScreenShell';
-import { PrivateJetRequestForm } from '@/features/requests/private-jet/components/PrivateJetRequestForm';
+import { PrivateJetRequestWizard } from '@/features/requests/private-jet/components/PrivateJetRequestWizard';
 
 type PrivateJetRequestScreenProps = {
   onBack: () => void;
@@ -13,9 +12,5 @@ export function PrivateJetRequestScreen({
   onBack,
   clearTabBar = false,
 }: PrivateJetRequestScreenProps) {
-  return (
-    <RequestFormScreenShell title="Private jet" onBack={onBack} clearTabBar={clearTabBar}>
-      <PrivateJetRequestForm />
-    </RequestFormScreenShell>
-  );
+  return <PrivateJetRequestWizard onBack={onBack} clearTabBar={clearTabBar} />;
 }

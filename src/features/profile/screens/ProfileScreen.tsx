@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 
+import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
 import { ProfileAccountCard } from '@/features/profile/components/ProfileAccountCard';
 import { ProfileMenuCard } from '@/features/profile/components/ProfileMenuCard';
 import {
@@ -33,6 +34,7 @@ export function ProfileScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { profile: sessionProfile, isHydrating } = useActiveClientProfile();
+  const tabBarScroll = useHomeTabBarScrollProps();
 
   const pagePad = width < 360 ? 16 : width >= 768 ? 40 : 24;
   const titleSize = width < 360 ? 34 : width >= 768 ? 48 : 42;
@@ -101,6 +103,8 @@ export function ProfileScreen() {
         },
       ]}
       showsVerticalScrollIndicator={false}
+      onScroll={tabBarScroll.onScroll}
+      scrollEventThrottle={tabBarScroll.scrollEventThrottle}
     >
       <View style={styles.hero}>
         <Text

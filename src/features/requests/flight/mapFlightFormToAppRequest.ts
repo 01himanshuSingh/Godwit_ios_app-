@@ -24,6 +24,8 @@ export type FlightFormSubmitInput = {
   departure: Date | null;
   returnDate: Date | null;
   preferredAirline?: string;
+  preferredAirlineId?: string | null;
+  preferredAirlineCode?: string | null;
   cabinClass: string;
   counts: TravellerCounts;
   notes: string;
@@ -55,6 +57,8 @@ export function mapFlightFormToAppRequest(input: FlightFormSubmitInput): AppRequ
   const guestLabel = formatTravellerCountLabel(input.counts);
   const cabin = input.cabinClass.trim();
   const airline = (input.preferredAirline || '').trim();
+  const airlineId = (input.preferredAirlineId || '').trim();
+  const airlineCode = (input.preferredAirlineCode || '').trim();
   const tripLabel = tripTypeLabel(input.tripType);
 
   const remarkLines = [
@@ -62,6 +66,8 @@ export function mapFlightFormToAppRequest(input: FlightFormSubmitInput): AppRequ
     `Guests: ${guestLabel}`,
     cabin ? `Cabin: ${cabin}` : null,
     airline ? `Preferred airline: ${airline}` : null,
+    airlineId ? `preferredAirlineId: ${airlineId}` : null,
+    airlineCode ? `preferredAirlineCode: ${airlineCode}` : null,
     departureIso ? `Departure: ${departureIso}` : null,
     returnIso && input.tripType !== 'one_way' ? `Return: ${returnIso}` : null,
     input.fromPlaceId ? `fromPlaceId: ${input.fromPlaceId}` : null,
@@ -91,6 +97,8 @@ export function mapFlightFormToAppRequest(input: FlightFormSubmitInput): AppRequ
       infants: input.counts.infants,
       category: guestLabel,
       ...(airline ? { preferredAirline: airline } : {}),
+      ...(airlineId ? { preferredAirlineId: airlineId } : {}),
+      ...(airlineCode ? { preferredAirlineCode: airlineCode } : {}),
       ...(input.fromPlaceId ? { fromPlaceId: input.fromPlaceId } : {}),
       ...(input.toPlaceId ? { toPlaceId: input.toPlaceId } : {}),
     },

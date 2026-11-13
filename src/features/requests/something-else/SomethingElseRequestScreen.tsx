@@ -1,12 +1,9 @@
 /**
- * Something else request form — opened from New request → Something else card.
- * In-tab so HomeTabBar stays visible.
+ * Something else request — Details · Travellers · Notes · Review wizard.
  */
-import { RequestFormScreenShell } from '@/features/requests/components/RequestFormScreenShell';
-import { SomethingElseRequestForm } from '@/features/requests/something-else/components/SomethingElseRequestForm';
+import { SomethingElseRequestWizard } from '@/features/requests/something-else/components/SomethingElseRequestWizard';
 
 type SomethingElseRequestScreenProps = {
-  /** Back to category grid (Requests header + Change what you need). */
   onBack: () => void;
   clearTabBar?: boolean;
 };
@@ -15,9 +12,5 @@ export function SomethingElseRequestScreen({
   onBack,
   clearTabBar = false,
 }: SomethingElseRequestScreenProps) {
-  return (
-    <RequestFormScreenShell title="Something else" onBack={onBack} clearTabBar={clearTabBar}>
-      <SomethingElseRequestForm />
-    </RequestFormScreenShell>
-  );
+  return <SomethingElseRequestWizard onBack={onBack} clearTabBar={clearTabBar} />;
 }

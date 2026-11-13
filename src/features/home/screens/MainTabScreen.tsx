@@ -1,9 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { HomeTabBar } from '@/features/home/components/HomeTabBar';
 import { HomeScreen } from '@/features/home/screens/HomeScreen';
 import { TestingClientsScreen } from '@/features/home/screens/TestingClientsScreen';
+import {
+  HomeTabBarVisibilityProvider,
+  useHomeTabBarVisibility,
+} from '@/features/home/tabBar/HomeTabBarVisibility';
 import { ProfileScreen } from '@/features/profile/screens/ProfileScreen';
 import { TripsScreen } from '@/features/trips/screens/TripsScreen';
 import { useGodwitFonts } from '@/ui/fonts/useGodwitFonts';
@@ -20,13 +24,22 @@ function PlaceholderTab({ title }: { title: string }) {
   );
 }
 
-export function MainTabScreen() {
+function MainTabBody() {
   const fontsLoaded = useGodwitFonts();
   const [activeTab, setActiveTab] = useState<MainTabKey>('home');
+  const { reveal } = useHomeTabBarVisibility();
 
-  const handleTabPress = useCallback((tabKey: string) => {
-    setActiveTab(tabKey as MainTabKey);
-  }, []);
+  const handleTabPress = useCallback(
+    (tabKey: string) => {
+      setActiveTab(tabKey as MainTabKey);
+      reveal();
+    },
+    [reveal],
+  );
+
+  useEffect(() => {
+    reveal();
+  }, [activeTab, reveal]);
 
   if (!fontsLoaded) {
     return (
@@ -38,7 +51,6 @@ export function MainTabScreen() {
 
   return (
     <View style={styles.root}>
-      {/* AppChromeHeader lives in app/_layout.tsx — every route. */}
       <View style={styles.body}>
         {activeTab === 'home' ? <HomeScreen /> : null}
         {activeTab === 'testing' ? <TestingClientsScreen /> : null}
@@ -49,6 +61,14 @@ export function MainTabScreen() {
 
       <HomeTabBar activeTab={activeTab} onTabPress={handleTabPress} />
     </View>
+  );
+}
+
+export function MainTabScreen() {
+  return (
+    <HomeTabBarVisibilityProvider>
+      <MainTabBody />
+    </HomeTabBarVisibilityProvider>
   );
 }
 
