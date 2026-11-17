@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingTop: 2,
+    paddingTop: 12,
   },
   backRow: {
     flexDirection: 'row',
@@ -159,9 +159,9 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   titleBlock: {
-    paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 8,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   title: {
     fontFamily: fontFamily.cormorant.regular,
