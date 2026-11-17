@@ -1,5 +1,3 @@
-import '../../global.css';
-
 import 'react-native-gesture-handler';
 
 import { Stack, useSegments, type ErrorBoundaryProps } from 'expo-router';
@@ -44,8 +42,10 @@ export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   return (
     <View style={styles.errorRoot}>
       <Text style={styles.errorTitle}>Something went wrong</Text>
-      <Pressable onPress={retry} style={styles.errorButton}>
-        <Text style={styles.errorButtonText}>Retry</Text>
+      <Pressable onPress={retry} style={styles.pressable}>
+        <View style={styles.errorButton}>
+          <Text style={styles.errorButtonText}>Retry</Text>
+        </View>
       </Pressable>
     </View>
   );
@@ -74,6 +74,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: colors.forest,
   },
+  pressable: {},
   errorButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,

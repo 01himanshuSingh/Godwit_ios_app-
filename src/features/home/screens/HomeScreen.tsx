@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { CurrentTripCard, CurrentTripEmptyCard } from '@/features/home/components/CurrentTripCard';
 import { GreetingSection } from '@/features/home/components/GreetingSection';
-import { NewRequestButton } from '@/features/home/components/NewRequestButton';
+import { GreetingUnavailableCard } from '@/features/home/components/GreetingUnavailableCard';
+import { HomeQuickActions } from '@/features/home/components/HomeQuickActions';
+import { HomeScreenSkeleton } from '@/features/home/components/HomeScreenSkeleton';
 import { PaymentsDueCard } from '@/features/home/components/PaymentsDueCard';
-import { staticHomeViewModel } from '@/features/home/schemas/homeViewModel';
 import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
 import { RequestsScreen } from '@/features/requests';
 import { familyLabelFromClientName } from '@/lib/firebase/clients';
@@ -30,13 +31,13 @@ export function HomeScreen() {
   const router = useRouter();
   const fontsLoaded = useGodwitFonts();
   const { profile, isHydrating } = useActiveClientProfile();
-  const homeData = staticHomeViewModel;
   const [showRequests, setShowRequests] = useState(false);
   const tabBarScroll = useHomeTabBarScrollProps();
 
   const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
   const ready = !isHydrating && Boolean(adminId && clientId);
+  const hasProfileName = Boolean(profile?.name?.trim());
 
   const handleNewRequest = useCallback(() => {
     setShowRequests(true);
@@ -46,12 +47,12 @@ export function HomeScreen() {
     setShowRequests(false);
   }, []);
 
-  useEffect(() => {
-    if (isHydrating || profile?.name.trim()) {
-      return;
-    }
-    void getClientByAdminAndClientIdSafe();
-  }, [isHydrating, profile]);
+  const profileResolveQuery = useQuery({
+    queryKey: ['home', 'resolve-profile', adminId, clientId],
+    queryFn: () => getClientByAdminAndClientIdSafe(),
+    enabled: !isHydrating && !hasProfileName,
+    retry: 1,
+  });
 
   const currentTripQuery = useQuery({
     queryKey: ['home', 'current-trip', adminId, clientId],
@@ -68,50 +69,68 @@ export function HomeScreen() {
   });
 
   const currentTrip = currentTripQuery.data?.card ?? null;
+  const tripLoadFailed = Boolean(currentTripQuery.data?.errorMessage) || currentTripQuery.isError;
   const paymentsDue = paymentsDueQuery.data?.card ?? null;
 
   const sessionHome = useMemo(() => {
-    if (!profile?.name.trim()) {
+    const name = profile?.name?.trim();
+    if (!name) {
       return null;
     }
 
-    const firstName = getProfileFirstName(profile.name);
-    const eyebrow = familyLabelFromClientName(profile.name).toUpperCase();
-
     return {
-      familyName: eyebrow,
-      userName: firstName,
+      familyName: familyLabelFromClientName(name).toUpperCase(),
+      userName: getProfileFirstName(name),
       greeting: greetingForLocalTime(),
-      profileInitials: getProfileInitial(profile.name),
+      profileInitials: getProfileInitial(name),
     };
   }, [profile]);
 
   const onViewTrip = useCallback(
     (primarySaleId: string) => {
-      router.push(`/trips/${encodeURIComponent(primarySaleId)}`);
+      const saleId = primarySaleId.trim();
+      const tripAdminId = profile?.adminId?.trim() || '';
+      const tripClientId = profile?.clientId?.trim() || '';
+      if (!saleId || !tripAdminId || !tripClientId) {
+        return;
+      }
+      router.push({
+        pathname: '/trips/[saleId]',
+        params: {
+          saleId,
+          adminId: tripAdminId,
+          clientId: tripClientId,
+        },
+      });
     },
-    [router],
+    [router, profile],
   );
 
   const onViewPayments = useCallback(() => {
     router.push('/profile/payments');
   }, [router]);
 
-  if (!fontsLoaded || isHydrating) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.forest} />
-      </View>
-    );
-  }
+  const tripLoading = ready && currentTripQuery.isPending && !currentTripQuery.data;
+  const paymentsLoading = ready && paymentsDueQuery.isPending && !paymentsDueQuery.data;
+  const bootLoading = !fontsLoaded || isHydrating;
+  const hasIdentity = Boolean(sessionHome);
 
   if (showRequests) {
     return <RequestsScreen onBack={handleRequestsBack} />;
   }
 
-  const familyName = sessionHome?.familyName ?? homeData.familyName;
-  const userName = sessionHome?.userName ?? homeData.userName;
-  const greeting = sessionHome?.greeting ?? homeData.greeting;
+  if (bootLoading) {
+    return (
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={false}
+      >
+        <HomeScreenSkeleton />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView
@@ -121,21 +140,23 @@ export function HomeScreen() {
       onScroll={tabBarScroll.onScroll}
       scrollEventThrottle={tabBarScroll.scrollEventThrottle}
     >
-      <GreetingSection
-        familyName={familyName}
-        greeting={greeting}
-        userName={userName}
-        updatesCount={homeData.updatesCount}
-      />
-      <NewRequestButton onPress={handleNewRequest} />
+      {hasIdentity && sessionHome ? (
+        <GreetingSection
+          familyName={sessionHome.familyName}
+          greeting={sessionHome.greeting}
+          userName={sessionHome.userName}
+          updatesCount={null}
+        />
+      ) : (
+        <GreetingUnavailableCard
+          isRetrying={profileResolveQuery.isFetching}
+          onRetry={() => void profileResolveQuery.refetch()}
+        />
+      )}
 
-      {currentTripQuery.isPending && !currentTrip ? (
-        <View style={styles.tripLoading}>
-          <ActivityIndicator color={colors.forest} />
-        </View>
-      ) : null}
+      {tripLoading ? <HomeScreenSkeleton hideGreeting /> : null}
 
-      {!currentTripQuery.isPending && currentTrip ? (
+      {!tripLoading && currentTrip ? (
         <CurrentTripCard
           card={currentTrip}
           onViewTrip={(saleId) => {
@@ -144,9 +165,22 @@ export function HomeScreen() {
         />
       ) : null}
 
-      {!currentTripQuery.isPending && !currentTrip ? <CurrentTripEmptyCard /> : null}
+      {!tripLoading && !currentTrip ? (
+        <CurrentTripEmptyCard
+          variant={tripLoadFailed ? 'error' : 'empty'}
+          onNewRequest={handleNewRequest}
+        />
+      ) : null}
 
-      {paymentsDue ? <PaymentsDueCard card={paymentsDue} onViewPayments={onViewPayments} /> : null}
+      {!tripLoading ? (
+        <HomeQuickActions onNewRequest={handleNewRequest} onPayments={onViewPayments} />
+      ) : null}
+
+      {!tripLoading && paymentsLoading ? <HomeScreenSkeleton paymentsOnly /> : null}
+
+      {!tripLoading && !paymentsLoading && paymentsDue ? (
+        <PaymentsDueCard card={paymentsDue} onViewPayments={onViewPayments} />
+      ) : null}
     </ScrollView>
   );
 }
@@ -158,16 +192,5 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: TAB_BAR_CLEARANCE,
-  },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
-  tripLoading: {
-    marginTop: 28,
-    paddingVertical: 24,
-    alignItems: 'center',
   },
 });

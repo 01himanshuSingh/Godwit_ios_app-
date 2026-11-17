@@ -1,23 +1,19 @@
 /**
- * Private jet Active Trip detail body — DETAILS card.
- * Rows: CARRIER / AIRCRAFT / ROUTE / TRAVELLERS
+ * Private jet Active Trip detail body — premium chrome.
+ * Rows: CARRIER / AIRCRAFT / ROUTE / TRAVELLERS (same extract as before; UI only).
  */
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
 
+import type { ActiveTripBodyLayout } from '@/features/trips/components/ActiveTripDetailParts';
 import {
-  ActiveTripChipRow,
-  ActiveTripDetailsCard,
-  ActiveTripTitleBlock,
-  buildDetailChips,
-  type ActiveTripBodyLayout,
-} from '@/features/trips/components/ActiveTripDetailParts';
-import { CancellationTermsCard } from '@/features/trips/components/CancellationTermsCard';
-import { MessageGodwitCard } from '@/features/trips/components/MessageGodwitCard';
+  ActiveTripPremiumShell,
+  buildPremiumStatusChips,
+} from '@/features/trips/components/ActiveTripPremiumShell';
 import type { ActiveTripDetailBase, DetailRow } from '@/lib/firebase/sales/getActiveTripDetail';
 import { extractPrivateJetSaleDetails } from '@/lib/firebase/sales/privateJetServices';
 
 const PRIVATE_JET_DETAIL_ROW_ORDER = ['CARRIER', 'AIRCRAFT', 'ROUTE', 'TRAVELLERS'] as const;
+const DETAIL_VALUE_MEDIUM = new Set(['CARRIER', 'AIRCRAFT', 'ROUTE', 'TRAVELLERS']);
 
 type PrivateJetActiveTripBodyProps = {
   detail: ActiveTripDetailBase;
@@ -33,10 +29,15 @@ function upsertRow(rows: DetailRow[], label: string, value: string | null): Deta
   return next;
 }
 
-export function PrivateJetActiveTripBody({ detail, layout }: PrivateJetActiveTripBodyProps) {
-  const chips = useMemo(() => buildDetailChips(detail), [detail]);
+function rowValue(rows: DetailRow[], label: string): string | null {
+  return rows.find((r) => r.label === label)?.value?.trim() || null;
+}
 
-  const { detailRows, subtitle } = useMemo(() => {
+export function PrivateJetActiveTripBody({
+  detail,
+  layout: _layout,
+}: PrivateJetActiveTripBodyProps) {
+  const { detailRows, subtitle, summary } = useMemo(() => {
     const extracted = extractPrivateJetSaleDetails(detail.raw ?? {});
 
     let rows = [...(detail.detailRows ?? [])];
@@ -44,7 +45,6 @@ export function PrivateJetActiveTripBody({ detail, layout }: PrivateJetActiveTri
     rows = upsertRow(rows, 'AIRCRAFT', extracted.aircraft);
     rows = upsertRow(rows, 'ROUTE', extracted.route);
     rows = upsertRow(rows, 'TRAVELLERS', extracted.travellers);
-    // Drop air-style DEPARTS / ARRIVES if present on older mapped payloads.
     rows = rows.filter((r) => r.label !== 'DEPARTS' && r.label !== 'ARRIVES');
 
     const sorted = rows.sort((a, b) => {
@@ -57,43 +57,35 @@ export function PrivateJetActiveTripBody({ detail, layout }: PrivateJetActiveTri
       return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
     });
 
+    const carrier = rowValue(sorted, 'CARRIER');
+    const aircraft = rowValue(sorted, 'AIRCRAFT');
+    const route = rowValue(sorted, 'ROUTE');
+
     return {
       detailRows: sorted,
       subtitle: detail.subtitle ?? extracted.route,
+      summary: [
+        carrier ? { key: 'carrier', label: 'CARRIER', value: carrier } : null,
+        aircraft ? { key: 'aircraft', label: 'AIRCRAFT', value: aircraft } : null,
+        route ? { key: 'route', label: 'ROUTE', value: route } : null,
+      ].filter(Boolean) as { key: string; label: string; value: string }[],
     };
   }, [detail.detailRows, detail.raw, detail.subtitle]);
 
+  const statusChips = useMemo(() => buildPremiumStatusChips(detail), [detail]);
+
   return (
-    <View style={styles.root}>
-      <ActiveTripTitleBlock
-        title={detail.title}
-        subtitle={subtitle}
-        titleSize={layout.titleSize}
-        titleLineHeight={layout.titleLineHeight}
-        subtitleSize={layout.subtitleSize}
-        subtitleStyle={styles.subtitle}
-      />
-
-      <ActiveTripChipRow chips={chips} />
-
-      <ActiveTripDetailsCard
-        rows={detailRows}
-        detailValueSize={layout.detailValueSize}
-        tone="soft"
-      />
-
-      <CancellationTermsCard terms={detail.cancellationTerms} />
-      {detail.showMessageGodwitCta ? <MessageGodwitCard /> : null}
-    </View>
+    <ActiveTripPremiumShell
+      typeLabel={detail.serviceTypeLabel || 'Private jet'}
+      iconName="airplane"
+      title={detail.title}
+      subtitle={subtitle}
+      statusChips={statusChips}
+      summary={summary}
+      detailRows={detailRows}
+      detailValueMediumLabels={DETAIL_VALUE_MEDIUM}
+      cancellationTerms={detail.cancellationTerms}
+      showMessageGodwitCta={detail.showMessageGodwitCta}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    width: '100%',
-  },
-  subtitle: {
-    marginTop: 4,
-    marginBottom: 2,
-  },
-});

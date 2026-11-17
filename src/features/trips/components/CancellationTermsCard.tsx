@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { activeTripType } from '@/features/trips/components/activeTripDetailTypography';
 import { colors } from '@/ui/tokens/colors';
-import { fontFamily } from '@/ui/tokens/typography';
 
 type CancellationTermsCardProps = {
   /** Paragraph from extractHotelCancellationTerms — hide when null/empty. */
@@ -31,27 +31,22 @@ export function CancellationTermsCard({ terms }: CancellationTermsCardProps) {
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    marginTop: 12,
-    borderRadius: 16,
-    backgroundColor: '#F8F7F5',
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 18,
   },
   heading: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 11,
-    letterSpacing: 1.4,
+    ...activeTripType.sectionHeading,
     color: colors.muted,
     marginBottom: 12,
     textTransform: 'uppercase',
   },
   body: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 15,
-    lineHeight: 22,
+    ...activeTripType.sectionBody,
     color: colors.forest,
   },
 });

@@ -2,14 +2,13 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { RequestsScreen } from '@/features/requests';
+import { TripsScreenSkeleton } from '@/features/trips/components/TripsScreenSkeleton';
 import { UpcomingTripsList } from '@/features/trips/components/UpcomingTripsList';
 import type { ClientSaleTrip } from '@/lib/firebase/sales/getClientUpcomingSales';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
-
-const TAB_BAR_CLEARANCE = 96;
 
 type TripsSegment = 'current' | 'upcoming' | 'past';
 
@@ -23,42 +22,60 @@ export function TripsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [segment, setSegment] = useState<TripsSegment>('upcoming');
+  const [showRequests, setShowRequests] = useState(false);
   const { profile, isHydrating } = useActiveClientProfile();
   const pagePad = width < 360 ? 16 : width >= 768 ? 32 : 24;
-  const titleSize = width < 360 ? 34 : width >= 768 ? 44 : 40;
+  const headerTop = width < 360 ? 16 : width >= 768 ? 28 : 22;
 
-  const { adminId, clientId } = useMemo(
-    () => ({
-      adminId: profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID,
-      clientId: profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID,
-    }),
-    [profile],
-  );
+  const { adminId, clientId, hasScope } = useMemo(() => {
+    const nextAdminId = profile?.adminId?.trim() ?? '';
+    const nextClientId = profile?.clientId?.trim() ?? '';
+    return {
+      adminId: nextAdminId,
+      clientId: nextClientId,
+      hasScope: Boolean(nextAdminId && nextClientId),
+    };
+  }, [profile]);
 
   const handleTripPress = useCallback(
     (trip: ClientSaleTrip) => {
+      const saleId = trip.saleId?.trim();
+      const tripAdminId = trip.adminId?.trim() || adminId;
+      const tripClientId = trip.clientId?.trim() || clientId;
+      if (!saleId || !tripAdminId || !tripClientId) {
+        return;
+      }
       router.push({
         pathname: '/trips/[saleId]',
         params: {
-          saleId: trip.saleId,
-          adminId: trip.adminId || adminId,
-          clientId: trip.clientId || clientId,
+          saleId,
+          adminId: tripAdminId,
+          clientId: tripClientId,
         },
       });
     },
     [router, adminId, clientId],
   );
 
+  const handleNewRequest = useCallback(() => {
+    setShowRequests(true);
+  }, []);
+
+  const handleRequestsBack = useCallback(() => {
+    setShowRequests(false);
+  }, []);
+
+  if (showRequests) {
+    return <RequestsScreen onBack={handleRequestsBack} />;
+  }
+
   return (
     <View style={styles.root}>
-      <View style={[styles.header, { paddingHorizontal: pagePad }]}>
-        <Text
-          style={[styles.title, { fontSize: titleSize, lineHeight: titleSize + 6 }]}
-          accessibilityRole="header"
-        >
+      <View style={[styles.header, { paddingHorizontal: pagePad, paddingTop: headerTop }]}>
+        <Text style={styles.title} accessibilityRole="header">
           Trips
         </Text>
-        <Text style={styles.subtitle}>Everything arranged, In order.</Text>
+        <Text style={styles.subtitle}>Everything arranged, in order.</Text>
       </View>
 
       <View style={[styles.segmentRow, { paddingHorizontal: pagePad }]}>
@@ -83,32 +100,41 @@ export function TripsScreen() {
       <View style={styles.segmentBaseLine} />
 
       <View style={styles.body}>
-        {isHydrating ? <Text style={styles.empty}>Loading client session…</Text> : null}
+        {isHydrating ? <TripsScreenSkeleton /> : null}
 
-        {!isHydrating && segment === 'current' ? (
+        {!isHydrating && !hasScope ? (
+          <Text style={styles.empty}>
+            Account details are missing. Please sign in again to see your trips.
+          </Text>
+        ) : null}
+
+        {!isHydrating && hasScope && segment === 'current' ? (
           <UpcomingTripsList
             adminId={adminId}
             clientId={clientId}
             mode="current"
             onTripPress={handleTripPress}
+            onNewRequest={handleNewRequest}
           />
         ) : null}
 
-        {!isHydrating && segment === 'upcoming' ? (
+        {!isHydrating && hasScope && segment === 'upcoming' ? (
           <UpcomingTripsList
             adminId={adminId}
             clientId={clientId}
             mode="upcoming"
             onTripPress={handleTripPress}
+            onNewRequest={handleNewRequest}
           />
         ) : null}
 
-        {!isHydrating && segment === 'past' ? (
+        {!isHydrating && hasScope && segment === 'past' ? (
           <UpcomingTripsList
             adminId={adminId}
             clientId={clientId}
             mode="past"
             onTripPress={handleTripPress}
+            onNewRequest={handleNewRequest}
           />
         ) : null}
       </View>
@@ -122,18 +148,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingTop: 8,
     paddingBottom: 18,
     gap: 6,
   },
   title: {
     fontFamily: fontFamily.cormorant.regular,
+    fontSize: 28,
+    lineHeight: 34,
     color: colors.forest,
   },
   subtitle: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.muted,
   },
   segmentRow: {
@@ -146,15 +173,18 @@ const styles = StyleSheet.create({
   },
   segmentLabel: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.muted,
   },
   segmentLabelActive: {
+    fontFamily: fontFamily.manrope.semibold,
     color: colors.forest,
   },
   segmentUnderline: {
     marginTop: 10,
-    height: 2,
+    height: 2.5,
+    borderRadius: 2,
     backgroundColor: 'transparent',
   },
   segmentUnderlineActive: {
@@ -166,7 +196,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    paddingBottom: TAB_BAR_CLEARANCE,
+    minHeight: 0,
   },
   empty: {
     fontFamily: fontFamily.manrope.regular,

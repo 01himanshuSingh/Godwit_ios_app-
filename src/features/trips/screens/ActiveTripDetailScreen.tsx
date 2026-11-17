@@ -35,6 +35,7 @@ import { PrivateJetActiveTripBody } from '@/features/trips/private-jet/PrivateJe
 import { VipActiveTripBody } from '@/features/trips/vip/VipActiveTripBody';
 import { YachtActiveTripBody } from '@/features/trips/yacht/YachtActiveTripBody';
 import { getClientSaleActiveTripDetailSafe } from '@/lib/firebase/sales/getActiveTripDetail';
+import { mapTripsLoadErrorToMessage } from '@/lib/firebase/sales/mapTripsLoadError';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -76,14 +77,30 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
     [layout.contentMaxWidth, layout.pagePad],
   );
 
+  const scopedAdminId = adminId.trim();
+  const scopedClientId = clientId.trim();
+  const scopedSaleId = saleId.trim();
+  const hasScope = Boolean(scopedAdminId && scopedClientId);
+  const hasSaleId = Boolean(scopedSaleId);
+  const canFetch = hasScope && hasSaleId;
+
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['trips', 'active-detail', adminId, clientId, saleId],
-    queryFn: () => getClientSaleActiveTripDetailSafe(adminId, clientId, saleId),
-    enabled: Boolean(adminId && clientId && saleId),
+    queryKey: ['trips', 'active-detail', scopedAdminId, scopedClientId, scopedSaleId],
+    queryFn: () => getClientSaleActiveTripDetailSafe(scopedAdminId, scopedClientId, scopedSaleId),
+    enabled: canFetch,
   });
 
   const detail = data?.detail ?? null;
-  const loadError = data?.errorMessage ?? (isError ? String(error) : null);
+  const queryErrorMessage = data?.errorMessage
+    ? mapTripsLoadErrorToMessage(new Error(data.errorMessage))
+    : isError
+      ? mapTripsLoadErrorToMessage(error)
+      : null;
+  const loadError = !hasSaleId
+    ? 'Missing booking reference.'
+    : !hasScope
+      ? 'Account details are missing. Please sign in again.'
+      : queryErrorMessage;
   const isHotel = detail?.serviceType === 'hotel' || detail?.serviceType === 'hotelRoomExtension';
   const isAir =
     detail?.serviceType === 'air' ||
@@ -110,27 +127,31 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
           accessibilityLabel="Back to itinerary"
           onPress={() => router.back()}
           hitSlop={12}
-          style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}
+          style={styles.backPressable}
         >
-          <Feather name="chevron-left" size={22} color={colors.muted} />
-          <Text style={styles.backLabel} numberOfLines={1}>
-            Itinerary
-          </Text>
+          <View style={styles.backInner}>
+            <Feather name="chevron-left" size={20} color={colors.muted} />
+            <Text style={styles.backLabel} numberOfLines={1}>
+              Itinerary
+            </Text>
+          </View>
         </Pressable>
       </View>
 
-      {isPending ? (
+      {canFetch && isPending ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.forest} />
         </View>
       ) : null}
 
-      {!isPending && (loadError || !detail) ? (
+      {!canFetch || (!isPending && (loadError || !detail)) ? (
         <View style={styles.centered}>
           <Text style={styles.empty}>{loadError || 'Booking not found.'}</Text>
-          <Pressable onPress={() => void refetch()} style={styles.retry}>
-            <Text style={styles.retryLabel}>{isFetching ? 'Retrying…' : 'Retry'}</Text>
-          </Pressable>
+          {canFetch ? (
+            <Pressable onPress={() => void refetch()} style={styles.retry}>
+              <Text style={styles.retryLabel}>{isFetching ? 'Retrying…' : 'Retry'}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -160,8 +181,12 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
             <GenericActiveTripBody detail={detail} layout={bodyLayout} />
           )}
 
-          {/* All services — sale.confirmationDoc → voucherUrl */}
-          <TripDocumentsCard voucherUrl={detail.voucherUrl} fileLabel={detail.title} />
+          {/* Hotel owns documents in-body; other services append below with spacing */}
+          {!isHotel ? (
+            <View style={styles.documentsSlot}>
+              <TripDocumentsCard voucherUrl={detail.voucherUrl} fileLabel={detail.title} />
+            </View>
+          ) : null}
         </ScrollView>
       ) : null}
     </View>
@@ -173,23 +198,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  backRow: {
+  backPressable: {
+    alignSelf: 'flex-start',
+  },
+  backInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 8,
-    paddingVertical: 12,
+    gap: 2,
+    minHeight: 40,
+    paddingVertical: 8,
   },
   backLabel: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 16,
-    color: colors.forest,
+    fontSize: 15,
+    color: colors.muted,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
+    gap: 14,
+  },
+  documentsSlot: {
+    width: '100%',
   },
   centered: {
     flex: 1,
@@ -212,8 +244,5 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.manrope.medium,
     fontSize: 14,
     color: colors.forest,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });

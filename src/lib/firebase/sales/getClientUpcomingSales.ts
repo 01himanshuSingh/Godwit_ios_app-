@@ -68,7 +68,7 @@ export type ClientSaleTrip = {
   travellers: ClientSaleTraveller[];
   serviceModelList: DocumentData[];
   walkInModel: DocumentData;
-  /** Display time HH:mm (hotel defaults to 15:00 check-in when CRM has none). */
+  /** Display time HH:mm when CRM provides a clock time; null when unknown. */
   displayTime: string | null;
   /** Subtitle under the service title (route, city · room, etc.). */
   detailLine: string | null;
@@ -394,11 +394,8 @@ function parseHm(value: unknown): string | null {
   return `${hm[1].padStart(2, '0')}:${hm[2]}`;
 }
 
-/** Hotel Instant Sale: CRM rarely stores check-in clock time → default 15:00. */
-const HOTEL_DEFAULT_CHECK_IN = '15:00';
-
 function extractDisplayTime(
-  serviceType: SaleServiceType,
+  _serviceType: SaleServiceType,
   walkIn: DocumentData,
   data: DocumentData,
   travelDateRaw: string | null,
@@ -432,10 +429,6 @@ function extractDisplayTime(
         return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
       }
     }
-  }
-
-  if (serviceType === 'hotel' || serviceType === 'hotelRoomExtension') {
-    return HOTEL_DEFAULT_CHECK_IN;
   }
 
   return null;

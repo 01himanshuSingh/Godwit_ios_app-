@@ -11,7 +11,7 @@ type UpcomingDayCardProps = {
   onTripPress?: (trip: ClientSaleTrip) => void;
 };
 
-/** Date label + card of trips (underline between rows only — matches yacht mock). */
+/** Date header + white card of timeline service rows. */
 export function UpcomingDayCard({ group, onTripPress }: UpcomingDayCardProps) {
   return (
     <View style={styles.wrap}>
@@ -21,7 +21,8 @@ export function UpcomingDayCard({ group, onTripPress }: UpcomingDayCardProps) {
           <UpcomingTripRow
             key={trip.saleId}
             trip={trip}
-            showBottomLine={index < group.trips.length - 1}
+            isFirst={index === 0}
+            isLast={index === group.trips.length - 1}
             onPress={onTripPress}
           />
         ))}
@@ -32,20 +33,20 @@ export function UpcomingDayCard({ group, onTripPress }: UpcomingDayCardProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: 12,
+    marginBottom: 18,
   },
   dateHeader: {
     fontFamily: fontFamily.manrope.medium,
     fontSize: 11,
     letterSpacing: 1.2,
-    color: colors.forest,
+    color: colors.muted,
     marginBottom: 10,
-    marginLeft: 4,
+    marginLeft: 2,
     textTransform: 'uppercase',
   },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     overflow: 'hidden',

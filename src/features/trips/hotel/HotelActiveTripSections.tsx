@@ -1,6 +1,12 @@
+/**
+ * Hotel Active Trip lower cards — special requests + Godwit benefits.
+ * Hidden when backend arrays are empty.
+ */
+import Feather from '@expo/vector-icons/Feather';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { activeTripType } from '@/features/trips/components/activeTripDetailTypography';
 import type { GodwitBenefit } from '@/lib/firebase/sales/getActiveTripDetail';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
@@ -24,16 +30,20 @@ type SpecialRequestsCardProps = {
 };
 
 export function SpecialRequestsCard({ lines }: SpecialRequestsCardProps) {
-  if (!lines.length) {
+  const items = lines.map((l) => l.trim()).filter(Boolean);
+  if (!items.length) {
     return null;
   }
   return (
     <SectionCard heading="SPECIAL REQUESTS">
       <View style={styles.listBlock}>
-        {lines.map((line) => (
-          <Text key={line} style={styles.body} selectable>
-            {line}
-          </Text>
+        {items.map((line) => (
+          <View key={line} style={styles.bulletRow}>
+            <Text style={styles.bullet}>{'\u2022'}</Text>
+            <Text style={styles.body} selectable>
+              {line}
+            </Text>
+          </View>
         ))}
       </View>
     </SectionCard>
@@ -55,17 +65,17 @@ export function GodwitBenefitsCard({ benefits }: GodwitBenefitsCardProps) {
   }
 
   return (
-    <View style={styles.benefitsCardShell} accessibilityRole="summary">
-      <Text style={styles.benefitsHeading}>YOUR GODWIT BENEFITS</Text>
-      <View style={styles.benefitsList}>
+    <View style={styles.card} accessibilityRole="summary">
+      <Text style={styles.heading}>YOUR GODWIT BENEFITS</Text>
+      <View style={styles.listBlock}>
         {lines.map((b, index) => {
           const title = b.title.trim();
           const note = b.note?.trim() || null;
           return (
             <View key={`${title}-${note ?? ''}-${index}`} style={styles.benefitRow}>
-              <Text style={styles.bullet}>{'\u2022'}</Text>
+              <Feather name="star" size={16} color={colors.forest} style={styles.star} />
               <View style={styles.benefitText}>
-                <Text style={styles.benefitTitle} selectable>
+                <Text style={styles.benefitBody} selectable>
                   {title}
                 </Text>
                 {note ? (
@@ -84,78 +94,58 @@ export function GodwitBenefitsCard({ benefits }: GodwitBenefitsCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 18,
     width: '100%',
-    marginTop: 12,
   },
   heading: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 11,
-    letterSpacing: 1.4,
+    ...activeTripType.sectionHeading,
     color: colors.muted,
     marginBottom: 14,
     textTransform: 'uppercase',
   },
   listBlock: {
-    gap: 8,
+    gap: 12,
   },
-  body: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.forest,
-  },
-  /** Soft sand card matching hotel benefits mock. */
-  benefitsCardShell: {
-    width: '100%',
-    marginTop: 12,
-    borderRadius: 16,
-    backgroundColor: '#F2F1ED',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 20,
-  },
-  benefitsHeading: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 11,
-    letterSpacing: 1.4,
-    color: colors.muted,
-    marginBottom: 16,
-    textTransform: 'uppercase',
-  },
-  benefitsList: {
-    gap: 14,
-  },
-  benefitRow: {
+  bulletRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
   },
   bullet: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 15,
+    fontSize: 12,
     lineHeight: 22,
     color: colors.forest,
     width: 12,
-    marginTop: 0,
+  },
+  body: {
+    ...activeTripType.sectionBody,
+    flex: 1,
+    minWidth: 0,
+    color: colors.forest,
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  star: {
+    marginTop: 2,
   },
   benefitText: {
     flex: 1,
     minWidth: 0,
     gap: 2,
   },
-  benefitTitle: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 15,
-    lineHeight: 22,
+  benefitBody: {
+    ...activeTripType.sectionBody,
+    lineHeight: 21,
     color: colors.forest,
   },
   benefitNote: {
