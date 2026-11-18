@@ -1,9 +1,9 @@
 /**
- * One upcoming-payment row: date | title+subtitle | amount+status.
- * Fonts: Cormorant title/amount · Manrope date/meta/badge.
+ * One upcoming-payment row: sand date block | title+subtitle | amount+status.
+ * CRM fields only from UpcomingPaymentItem.
  */
-import { memo, useMemo } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { memo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import type { UpcomingPaymentItem } from '@/lib/firebase/payments';
 import { colors } from '@/ui/tokens/colors';
@@ -14,123 +14,68 @@ type UpcomingPaymentRowProps = {
   showDivider: boolean;
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      padH: 16,
-      padV: 14,
-      dateColW: 40,
-      daySize: 16,
-      monthSize: 10,
-      titleSize: 15,
-      titleLineHeight: 20,
-      metaSize: 12,
-      metaLineHeight: 16,
-      amountSize: 15,
-      amountLineHeight: 20,
-      badgeSize: 11,
-      colGap: 10,
-      amountColMax: 108,
-    };
-  }
-  return {
-    padH: 22,
-    padV: 18,
-    dateColW: 46,
-    daySize: 18,
-    monthSize: 11,
-    titleSize: 17,
-    titleLineHeight: 23,
-    metaSize: 13,
-    metaLineHeight: 18,
-    amountSize: 16,
-    amountLineHeight: 21,
-    badgeSize: 12,
-    colGap: 12,
-    amountColMax: 124,
-  };
-}
-
-function badgeColors(status: UpcomingPaymentItem['status']): {
-  bg: string;
-  fg: string;
-} {
+function StatusBadge({ status, label }: { status: UpcomingPaymentItem['status']; label: string }) {
   if (status === 'overdue') {
-    return { bg: '#F0E4E1', fg: '#8B4A3F' };
+    return (
+      <View style={[styles.badge, styles.badgeOverdue]}>
+        <View style={styles.overdueDot} />
+        <Text style={styles.badgeOverdueLabel}>{label}</Text>
+      </View>
+    );
   }
   if (status === 'partial') {
-    return { bg: '#E8E6E1', fg: colors.muted };
+    return (
+      <View style={[styles.badge, styles.badgePartial]}>
+        <Text style={styles.badgePartialLabel}>{label}</Text>
+      </View>
+    );
   }
-  return { bg: '#E4EAE1', fg: '#4A5C45' };
+  return (
+    <View style={[styles.badge, styles.badgeDue]}>
+      <Text style={styles.badgeDueLabel}>{label}</Text>
+    </View>
+  );
 }
 
 function UpcomingPaymentRowComponent({ item, showDivider }: UpcomingPaymentRowProps) {
-  const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
-  const badge = badgeColors(item.status);
+  const hasDate = Boolean(item.dayLabel?.trim() || item.monthLabel?.trim());
 
   return (
     <View>
-      {showDivider ? <View style={[styles.divider, { marginHorizontal: layout.padH }]} /> : null}
-      <View
-        style={[
-          styles.row,
-          {
-            paddingHorizontal: layout.padH,
-            paddingVertical: layout.padV,
-            gap: layout.colGap,
-          },
-        ]}
-      >
-        <View style={[styles.dateCol, { width: layout.dateColW }]}>
-          {item.dayLabel ? (
-            <Text style={[styles.day, { fontSize: layout.daySize }]}>{item.dayLabel}</Text>
-          ) : null}
-          {item.monthLabel ? (
-            <Text style={[styles.month, { fontSize: layout.monthSize }]}>{item.monthLabel}</Text>
-          ) : null}
-        </View>
+      {showDivider ? <View style={styles.divider} /> : null}
+      <View style={styles.row}>
+        {hasDate ? (
+          <View style={styles.dateBlock}>
+            {item.dayLabel?.trim() ? <Text style={styles.day}>{item.dayLabel.trim()}</Text> : null}
+            {item.monthLabel?.trim() ? (
+              <Text style={styles.month}>{item.monthLabel.trim()}</Text>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.dateBlockEmpty} />
+        )}
 
         <View style={styles.textCol}>
-          <Text
-            style={[
-              styles.title,
-              { fontSize: layout.titleSize, lineHeight: layout.titleLineHeight },
-            ]}
-            numberOfLines={2}
-          >
+          <Text style={styles.title} numberOfLines={2}>
             {item.title}
           </Text>
-          {item.subtitle ? (
-            <Text
-              style={[
-                styles.subtitle,
-                { fontSize: layout.metaSize, lineHeight: layout.metaLineHeight },
-              ]}
-              numberOfLines={2}
-            >
-              {item.subtitle}
+          {item.subtitle?.trim() ? (
+            <Text style={styles.subtitle} numberOfLines={2}>
+              {item.subtitle.trim()}
             </Text>
           ) : null}
         </View>
 
-        <View style={[styles.amountCol, { maxWidth: layout.amountColMax }]}>
+        <View style={styles.amountCol}>
           <Text
-            style={[
-              styles.amount,
-              { fontSize: layout.amountSize, lineHeight: layout.amountLineHeight },
-            ]}
+            style={styles.amount}
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.75}
           >
             {item.amountLabel}
           </Text>
-          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-            <Text style={[styles.badgeLabel, { fontSize: layout.badgeSize, color: badge.fg }]}>
-              {item.statusLabel}
-            </Text>
-          </View>
+          <StatusBadge status={item.status} label={item.statusLabel} />
         </View>
       </View>
     </View>
@@ -143,54 +88,116 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  dateCol: {
-    alignItems: 'flex-start',
-    paddingTop: 2,
+  dateBlock: {
+    width: 44,
+    borderRadius: 10,
+    backgroundColor: colors.sand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    flexShrink: 0,
+  },
+  dateBlockEmpty: {
+    width: 44,
     flexShrink: 0,
   },
   day: {
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 13,
+    lineHeight: 16,
     color: colors.forest,
   },
   month: {
     fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
+    fontSize: 9,
+    lineHeight: 11,
     letterSpacing: 0.6,
+    color: colors.muted,
+    textTransform: 'uppercase',
     marginTop: 2,
   },
   textCol: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    gap: 3,
+    paddingTop: 2,
   },
   title: {
-    fontFamily: fontFamily.cormorant.regular,
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.forest,
   },
   subtitle: {
     fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
   },
   amountCol: {
     alignItems: 'flex-end',
-    gap: 8,
+    gap: 6,
     flexShrink: 0,
+    maxWidth: 118,
+    paddingTop: 2,
   },
   amount: {
-    fontFamily: fontFamily.cormorant.medium,
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.forest,
     textAlign: 'right',
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  badgeLabel: {
-    fontFamily: fontFamily.manrope.regular,
+  badgeDue: {
+    backgroundColor: colors.sand,
+  },
+  badgeDueLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.forest,
+  },
+  badgeOverdue: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#8B3A3A',
+  },
+  overdueDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#8B3A3A',
+  },
+  badgeOverdueLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: '#8B3A3A',
+  },
+  badgePartial: {
+    backgroundColor: '#E8E6EF',
+  },
+  badgePartialLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.muted,
   },
   divider: {
+    marginLeft: 72,
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
   },

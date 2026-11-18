@@ -1,28 +1,39 @@
 /**
  * Profile → Payments → Invoice detail.
- * Scope: admins/{adminId}/clients/{clientId}/sales/{saleId}
+ * CRM sale only — loading skeleton · mapped exceptions · no test-client fallbacks.
  */
 import { useQuery } from '@tanstack/react-query';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
 
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
+import { PaymentsExceptionCard } from '@/features/profile/payments/components/PaymentsExceptionCard';
 import { InvoiceDetailCard } from '@/features/profile/payments/invoice/components/InvoiceDetailCard';
-import { getClientInvoiceSafe } from '@/lib/firebase/payments';
+import { InvoiceDetailSkeleton } from '@/features/profile/payments/invoice/components/InvoiceDetailSkeleton';
+import {
+  classifyPaymentsLoadError,
+  getClientInvoiceSafe,
+  mapPaymentsLoadErrorToMessage,
+  type PaymentsLoadErrorKind,
+} from '@/lib/firebase/payments';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
-import { colors } from '@/ui/tokens/colors';
-import { fontFamily } from '@/ui/tokens/typography';
 
 type InvoiceDetailScreenProps = {
   saleId: string;
 };
 
+type ScreenException = {
+  kind: PaymentsLoadErrorKind;
+  message: string;
+  canRetry: boolean;
+};
+
 export function InvoiceDetailScreen({ saleId }: InvoiceDetailScreenProps) {
   const { profile, isHydrating } = useActiveClientProfile();
-  const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
-  const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
+  const adminId = profile?.adminId?.trim() ?? '';
+  const clientId = profile?.clientId?.trim() ?? '';
   const sid = saleId.trim();
-  const ready = !isHydrating && Boolean(adminId && clientId && sid);
+  const hasScope = Boolean(adminId && clientId && sid);
+  const ready = !isHydrating && hasScope;
 
   const invoiceQuery = useQuery({
     queryKey: ['profile', 'payments', 'invoice', adminId, clientId, sid],
@@ -32,73 +43,75 @@ export function InvoiceDetailScreen({ saleId }: InvoiceDetailScreenProps) {
   });
 
   const invoice = invoiceQuery.data?.invoice ?? null;
-  const loadError =
-    invoiceQuery.data?.errorMessage ??
-    (invoiceQuery.isError
-      ? invoiceQuery.error instanceof Error
-        ? invoiceQuery.error.message
-        : 'Failed to load invoice'
-      : null);
 
-  const loading = isHydrating || (invoiceQuery.isPending && !invoice && !loadError);
+  const exception = useMemo((): ScreenException | null => {
+    if (isHydrating) return null;
 
-  const title = invoice?.invoiceNumber || 'Invoice';
-  const subtitle = invoice?.title || null;
+    if (!hasScope) {
+      return {
+        kind: 'missing_scope',
+        message: 'Account details are missing. Please sign in again.',
+        canRetry: false,
+      };
+    }
+
+    if (invoiceQuery.isError) {
+      const kind = classifyPaymentsLoadError(invoiceQuery.error);
+      return {
+        kind,
+        message: mapPaymentsLoadErrorToMessage(invoiceQuery.error),
+        canRetry: kind !== 'missing_scope' && kind !== 'auth',
+      };
+    }
+
+    const mapped = invoiceQuery.data?.errorMessage?.trim();
+    if (mapped && !invoice) {
+      const kind: PaymentsLoadErrorKind = mapped.toLowerCase().includes('found')
+        ? 'unknown'
+        : classifyPaymentsLoadError(new Error(mapped));
+      return {
+        kind,
+        message: mapped,
+        canRetry: kind !== 'missing_scope' && kind !== 'auth',
+      };
+    }
+
+    return null;
+  }, [
+    hasScope,
+    invoice,
+    invoiceQuery.data?.errorMessage,
+    invoiceQuery.error,
+    invoiceQuery.isError,
+    isHydrating,
+  ]);
+
+  const loading = isHydrating || (ready && invoiceQuery.isPending && !invoice && !exception);
+
+  /** CRM invoiceNo / service title only — never placeholders while loading. */
+  const title = invoice?.invoiceNumber?.trim() || (!loading && exception ? 'Invoice' : null);
+  const subtitle = invoice?.title?.trim() || null;
 
   return (
-    <ProfileSectionShell title={title} subtitle={subtitle} backLabel="Payments">
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.forest} />
-        </View>
+    <ProfileSectionShell
+      title={title}
+      subtitle={subtitle}
+      backLabel="Payments"
+      layoutPreset="invoiceDetail"
+    >
+      {loading ? <InvoiceDetailSkeleton /> : null}
+
+      {!loading && exception ? (
+        <PaymentsExceptionCard
+          kind={exception.kind}
+          message={exception.message}
+          scope="invoice"
+          isRetrying={invoiceQuery.isFetching}
+          onRetry={exception.canRetry ? () => void invoiceQuery.refetch() : undefined}
+        />
       ) : null}
 
-      {!loading && loadError ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{loadError}</Text>
-          <Pressable
-            onPress={() => {
-              void invoiceQuery.refetch();
-            }}
-            style={styles.retry}
-          >
-            <Text style={styles.retryLabel}>{invoiceQuery.isFetching ? 'Retrying…' : 'Retry'}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      {!loading && !loadError && invoice ? <InvoiceDetailCard invoice={invoice} /> : null}
+      {!loading && !exception && invoice ? <InvoiceDetailCard invoice={invoice} /> : null}
     </ProfileSectionShell>
   );
 }
-
-const styles = StyleSheet.create({
-  centered: {
-    paddingVertical: 28,
-    alignItems: 'center',
-  },
-  errorBox: {
-    borderRadius: 16,
-    backgroundColor: '#F8F7F4',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: 20,
-    gap: 10,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  retry: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  retryLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
-    color: colors.forest,
-  },
-});

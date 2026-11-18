@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { RequestsScreen } from '@/features/requests';
+import { TripsExceptionCard } from '@/features/trips/components/TripsExceptionCard';
 import { TripsScreenSkeleton } from '@/features/trips/components/TripsScreenSkeleton';
 import { UpcomingTripsList } from '@/features/trips/components/UpcomingTripsList';
 import type { ClientSaleTrip } from '@/lib/firebase/sales/getClientUpcomingSales';
@@ -78,35 +79,31 @@ export function TripsScreen() {
         <Text style={styles.subtitle}>Everything arranged, in order.</Text>
       </View>
 
-      <View style={[styles.segmentRow, { paddingHorizontal: pagePad }]}>
-        {SEGMENTS.map((item) => {
-          const active = item.key === segment;
-          return (
-            <Pressable
-              key={item.key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              onPress={() => setSegment(item.key)}
-              style={styles.segmentHit}
-            >
-              <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>
-                {item.label}
-              </Text>
-              <View style={[styles.segmentUnderline, active && styles.segmentUnderlineActive]} />
-            </Pressable>
-          );
-        })}
+      <View style={[styles.segmentTrackWrap, { paddingHorizontal: pagePad }]}>
+        <View style={styles.segmentTrack}>
+          {SEGMENTS.map((item) => {
+            const active = item.key === segment;
+            return (
+              <Pressable
+                key={item.key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                onPress={() => setSegment(item.key)}
+                style={[styles.segmentHit, active && styles.segmentHitActive]}
+              >
+                <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
-      <View style={styles.segmentBaseLine} />
 
       <View style={styles.body}>
         {isHydrating ? <TripsScreenSkeleton /> : null}
 
-        {!isHydrating && !hasScope ? (
-          <Text style={styles.empty}>
-            Account details are missing. Please sign in again to see your trips.
-          </Text>
-        ) : null}
+        {!isHydrating && !hasScope ? <TripsExceptionCard variant="missing_scope" /> : null}
 
         {!isHydrating && hasScope && segment === 'current' ? (
           <UpcomingTripsList
@@ -163,47 +160,45 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.muted,
   },
-  segmentRow: {
+  segmentTrackWrap: {
+    paddingBottom: 14,
+  },
+  segmentTrack: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 28,
+    alignItems: 'center',
+    gap: 2,
+    padding: 3,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   segmentHit: {
-    paddingBottom: 10,
+    flex: 1,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  segmentHitActive: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   segmentLabel: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.muted,
   },
   segmentLabelActive: {
     fontFamily: fontFamily.manrope.semibold,
     color: colors.forest,
   },
-  segmentUnderline: {
-    marginTop: 10,
-    height: 2.5,
-    borderRadius: 2,
-    backgroundColor: 'transparent',
-  },
-  segmentUnderlineActive: {
-    backgroundColor: colors.forest,
-  },
-  segmentBaseLine: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-  },
   body: {
     flex: 1,
     minHeight: 0,
-  },
-  empty: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-    marginTop: 48,
-    paddingHorizontal: 24,
   },
 });

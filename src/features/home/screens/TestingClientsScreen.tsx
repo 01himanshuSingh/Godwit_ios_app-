@@ -6,6 +6,8 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { useAuth } from '@/auth/providers/AuthProvider';
 import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
+import { TripsEmptyCard } from '@/features/trips/components/TripsEmptyCard';
+import { TripsExceptionCard } from '@/features/trips/components/TripsExceptionCard';
 import {
   checkFirebaseConnection,
   getClientByAdminAndClientIdSafe,
@@ -643,6 +645,30 @@ export function TestingClientsScreen() {
         onScroll={tabBarScroll.onScroll}
         scrollEventThrottle={tabBarScroll.scrollEventThrottle}
       >
+        <Text style={styles.sectionLabel}>TRIPS UI · EXCEPTION CARDS</Text>
+        <Text style={styles.clientMeta}>
+          Preview only — same surfaces used on Trips list / detail. Retry is a no-op here.
+        </Text>
+        <View style={styles.uiPreviewBleed}>
+          <TripsExceptionCard
+            embedded
+            variant="load_error"
+            message="Connection issue. Check your network and try again."
+            onRetry={() => undefined}
+          />
+          <TripsExceptionCard
+            embedded
+            variant="load_error"
+            title="Couldn’t load booking"
+            message="You don’t have access to trips for this account."
+            onRetry={() => undefined}
+          />
+          <TripsExceptionCard embedded variant="missing_scope" />
+          <TripsExceptionCard embedded variant="missing_sale" />
+          <TripsExceptionCard embedded variant="not_found" onRetry={() => undefined} />
+          <TripsEmptyCard mode="upcoming" onNewRequest={() => undefined} />
+        </View>
+
         {/* Always visible on Test tab render — session adminId / clientId */}
         <Text style={styles.sectionLabel}>PERSONAL DOCS · SESSION CLIENT</Text>
         <PersonalDocumentsTestCard
@@ -832,6 +858,11 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: TAB_BAR_CLEARANCE,
     gap: 12,
+  },
+  /** Cancel scroll horizontal pad so TripsExceptionCard owns its own inset. */
+  uiPreviewBleed: {
+    marginHorizontal: -24,
+    gap: 8,
   },
   loader: {
     marginVertical: 48,

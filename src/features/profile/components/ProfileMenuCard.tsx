@@ -1,200 +1,242 @@
 /**
- * Profile hub menu list — all sections clickable.
- *
- *   [icon] Title
- *          subtitle…                    >
+ * Profile hub menu — grouped section cards (Travel / Billing / Account).
+ * Visual styles on View; Pressable is a plain touch wrapper.
  */
 import Feather from '@expo/vector-icons/Feather';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ProfileMenuIcon } from '@/features/profile/menu/profileMenuItems';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
+
+export type ProfileMenuTrailing =
+  | { kind: 'text'; label: string }
+  | { kind: 'badge'; label: string }
+  | { kind: 'secured' }
+  | { kind: 'dot' };
 
 export type ProfileMenuCardItem = {
   key: string;
   icon: ProfileMenuIcon;
   title: string;
   subtitle: string;
+  trailing?: ProfileMenuTrailing | null;
   onPress?: () => void;
 };
 
-type ProfileMenuCardProps = {
+export type ProfileMenuGroupCard = {
+  key: string;
+  title: string;
+  trailing?: string | null;
   items: ProfileMenuCardItem[];
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      padH: 18,
-      padV: 18,
-      rowGap: 14,
-      iconSize: 18,
-      iconGap: 12,
-      titleSize: 15,
-      titleLineHeight: 20,
-      subtitleSize: 12,
-      subtitleLineHeight: 16,
-      chevronSize: 16,
-      radius: 20,
-      textGap: 4,
-    };
+type ProfileMenuCardProps = {
+  groups?: ProfileMenuGroupCard[] | null;
+};
+
+function TrailingMeta({ trailing }: { trailing: ProfileMenuTrailing }) {
+  if (trailing.kind === 'badge') {
+    return (
+      <View style={styles.activeBadge}>
+        <Text style={styles.activeBadgeLabel}>{trailing.label}</Text>
+      </View>
+    );
   }
-  if (width < 768) {
-    return {
-      padH: 22,
-      padV: 20,
-      rowGap: 16,
-      iconSize: 20,
-      iconGap: 12,
-      titleSize: 16,
-      titleLineHeight: 22,
-      subtitleSize: 13,
-      subtitleLineHeight: 18,
-      chevronSize: 18,
-      radius: 20,
-      textGap: 5,
-    };
+  if (trailing.kind === 'secured') {
+    return (
+      <View style={styles.securedRow}>
+        <Feather name="lock" size={11} color={colors.muted} />
+        <Text style={styles.metaText}>Secured</Text>
+      </View>
+    );
   }
-  return {
-    padH: 26,
-    padV: 24,
-    rowGap: 18,
-    iconSize: 22,
-    iconGap: 14,
-    titleSize: 17,
-    titleLineHeight: 24,
-    subtitleSize: 14,
-    subtitleLineHeight: 20,
-    chevronSize: 18,
-    radius: 20,
-    textGap: 5,
-  };
+  if (trailing.kind === 'dot') {
+    return <View style={styles.alertDot} />;
+  }
+  return (
+    <Text style={styles.metaText} numberOfLines={1}>
+      {trailing.label}
+    </Text>
+  );
 }
 
-export function ProfileMenuCard({ items }: ProfileMenuCardProps) {
-  const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
-  const subtitleIndent = layout.iconSize + layout.iconGap;
+function MenuRow({ item, isLast }: { item: ProfileMenuCardItem; isLast: boolean }) {
+  return (
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${item.title}. ${item.subtitle}`}
+        onPress={item.onPress}
+        style={styles.rowPressable}
+      >
+        <View style={styles.row}>
+          <View style={styles.iconWell}>
+            <Feather name={item.icon} size={18} color={colors.forest} />
+          </View>
+
+          <View style={styles.copyCol}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text style={styles.rowSubtitle} numberOfLines={2}>
+              {item.subtitle}
+            </Text>
+          </View>
+
+          <View style={styles.trailingCol}>
+            {item.trailing ? <TrailingMeta trailing={item.trailing} /> : null}
+            <Feather name="chevron-right" size={16} color="#C4C0B8" />
+          </View>
+        </View>
+      </Pressable>
+      {!isLast ? <View style={styles.divider} /> : null}
+    </View>
+  );
+}
+
+export function ProfileMenuCard({ groups }: ProfileMenuCardProps) {
+  const safeGroups = Array.isArray(groups) ? groups : [];
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          borderRadius: layout.radius,
-          paddingHorizontal: layout.padH,
-          paddingTop: layout.padV,
-          paddingBottom: layout.padV,
-        },
-      ]}
-    >
-      {items.map((item, index) => (
-        <View key={item.key}>
-          {index > 0 ? (
-            <View
-              style={[
-                styles.divider,
-                {
-                  marginLeft: subtitleIndent,
-                  marginVertical: layout.rowGap / 2,
-                },
-              ]}
-            />
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${item.title}. ${item.subtitle}`}
-            onPress={item.onPress}
-            style={styles.rowPressable}
-          >
-            <View
-              style={[
-                styles.block,
-                { gap: layout.textGap },
-                index === 0 ? null : { paddingTop: layout.rowGap / 2 },
-                index === items.length - 1 ? null : { paddingBottom: layout.rowGap / 2 },
-              ]}
-            >
-              <View style={[styles.titleLine, { gap: layout.iconGap }]}>
-                <Feather name={item.icon} size={layout.iconSize} color={colors.muted} />
-                <Text
-                  style={[
-                    styles.title,
-                    {
-                      fontSize: layout.titleSize,
-                      lineHeight: layout.titleLineHeight,
-                    },
-                  ]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {item.title}
+    <View style={styles.root}>
+      {safeGroups.map((group) => {
+        const items = Array.isArray(group.items) ? group.items : [];
+        return (
+          <View key={group.key} style={styles.group}>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>{group.title}</Text>
+              {group.trailing ? (
+                <Text style={styles.groupTrailing} numberOfLines={1}>
+                  {group.trailing}
                 </Text>
-              </View>
-
-              <View style={[styles.subtitleLine, { marginLeft: subtitleIndent, gap: 8 }]}>
-                <Text
-                  style={[
-                    styles.subtitle,
-                    {
-                      fontSize: layout.subtitleSize,
-                      lineHeight: layout.subtitleLineHeight,
-                    },
-                  ]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {item.subtitle}
-                </Text>
-                <Feather name="chevron-right" size={layout.chevronSize} color="#C4C0B8" />
-              </View>
+              ) : null}
             </View>
-          </Pressable>
-        </View>
-      ))}
+
+            <View style={styles.card}>
+              {items.map((item, index) => (
+                <MenuRow key={item.key} item={item} isLast={index === items.length - 1} />
+              ))}
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    width: '100%',
+    gap: 18,
+  },
+  group: {
+    gap: 10,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 2,
+  },
+  groupTitle: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 1.2,
+    color: colors.muted,
+  },
+  groupTrailing: {
+    flexShrink: 1,
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 0.8,
+    color: colors.muted,
+    textAlign: 'right',
+  },
   card: {
     width: '100%',
-    backgroundColor: '#F8F7F4',
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
   rowPressable: {
     width: '100%',
   },
-  block: {
-    width: '100%',
-  },
-  titleLine: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 0,
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
-  title: {
+  iconWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.card,
+  },
+  copyCol: {
     flex: 1,
     minWidth: 0,
+    gap: 3,
+  },
+  rowTitle: {
     fontFamily: fontFamily.manrope.medium,
+    fontSize: 15,
+    lineHeight: 20,
     color: colors.forest,
   },
-  subtitleLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 0,
-  },
-  subtitle: {
-    flex: 1,
-    minWidth: 0,
+  rowSubtitle: {
     fontFamily: fontFamily.manrope.regular,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.muted,
   },
+  trailingCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  metaText: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.muted,
+    maxWidth: 96,
+  },
+  activeBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(61, 79, 56, 0.12)',
+  },
+  activeBadgeLabel: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 10,
+    lineHeight: 12,
+    color: colors.accent,
+  },
+  securedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  alertDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.forest,
+  },
   divider: {
+    marginLeft: 66,
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
   },

@@ -1,52 +1,103 @@
 /**
  * Profile → Payments.
- * Amount due → upcoming payments → invoices → payments received → credits & refunds.
+ *
+ * States:
+ *   boot loading → PaymentsSkeleton
+ *   scope/auth   → PaymentsExceptionCard (full screen)
+ *   ready        → hero + tabs; each tab has own loading / exception / list + pagination
+ *
+ * Never invents balances; never surfaces adminId / clientId / raw DB errors.
  */
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
 import { AmountDueCard } from '@/features/profile/payments/components/AmountDueCard';
 import { CreditsAndRefundsListCard } from '@/features/profile/payments/components/CreditsAndRefundsListCard';
 import { InvoicesListCard } from '@/features/profile/payments/components/InvoicesListCard';
+import { PaymentsExceptionCard } from '@/features/profile/payments/components/PaymentsExceptionCard';
 import { PaymentsReceivedListCard } from '@/features/profile/payments/components/PaymentsReceivedListCard';
+import { PaymentsSkeleton } from '@/features/profile/payments/components/PaymentsSkeleton';
+import {
+  PaymentsTabs,
+  type PaymentsTabId,
+} from '@/features/profile/payments/components/PaymentsTabs';
 import { UpcomingPaymentsListCard } from '@/features/profile/payments/components/UpcomingPaymentsListCard';
 import {
+  classifyPaymentsLoadError,
   getClientCreditsAndRefundsPage,
-  getClientInvoicesSafe,
+  getClientInvoicesPage,
   getClientPaymentsCardSafe,
   getClientPaymentsReceivedPage,
   getClientUpcomingPaymentsSafe,
   mapPaymentsLoadErrorToMessage,
   type CreditRefundItem,
   type CreditsRefundsPageCursor,
+  type ClientInvoiceItem,
+  type InvoicesPageCursor,
   type PaymentReceivedItem,
+  type PaymentsLoadErrorKind,
   type PaymentsReceivedPageCursor,
+  type UpcomingPaymentItem,
 } from '@/lib/firebase/payments';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
-export function PaymentsScreen() {
-  const { width } = useWindowDimensions();
-  const actionSize = width < 360 ? 12 : 14;
-  const actionLineHeight = width < 360 ? 16 : 20;
+const UPCOMING_PAGE_SIZE = 10;
 
+type TabException = {
+  kind: PaymentsLoadErrorKind;
+  message: string;
+  canRetry: boolean;
+};
+
+function earliestUpcomingIso(items: UpcomingPaymentItem[]): string | null {
+  let earliest: Date | null = null;
+  for (const item of items) {
+    if (!item.date || Number.isNaN(item.date.getTime())) continue;
+    if (!earliest || item.date.getTime() < earliest.getTime()) {
+      earliest = item.date;
+    }
+  }
+  if (!earliest) return null;
+  const y = earliest.getFullYear();
+  const m = String(earliest.getMonth() + 1).padStart(2, '0');
+  const day = String(earliest.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function toException(error: unknown, fallbackMessage: string): TabException {
+  const kind = classifyPaymentsLoadError(error);
+  const mapped = mapPaymentsLoadErrorToMessage(error);
+  return {
+    kind,
+    message: mapped || fallbackMessage,
+    canRetry: kind !== 'missing_scope' && kind !== 'auth',
+  };
+}
+
+export function PaymentsScreen() {
   const { profile, isHydrating } = useActiveClientProfile();
-  const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
-  const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
+  const adminId = profile?.adminId?.trim() ?? '';
+  const clientId = profile?.clientId?.trim() ?? '';
   const hasScope = Boolean(adminId && clientId);
   const ready = !isHydrating && hasScope;
+  const [activeTab, setActiveTab] = useState<PaymentsTabId>('upcoming');
+  const [upcomingVisibleCount, setUpcomingVisibleCount] = useState(UPCOMING_PAGE_SIZE);
+  const [upcomingResetKey, setUpcomingResetKey] = useState('');
+  const [visitedTabs, setVisitedTabs] = useState<Record<PaymentsTabId, boolean>>({
+    upcoming: true,
+    invoices: false,
+    received: false,
+    credits: false,
+  });
+
+  const selectTab = (next: PaymentsTabId) => {
+    setActiveTab(next);
+    setVisitedTabs((prev) => (prev[next] ? prev : { ...prev, [next]: true }));
+  };
 
   const paymentsQuery = useQuery({
     queryKey: ['profile', 'payments', 'amount-due', adminId, clientId],
@@ -58,41 +109,55 @@ export function PaymentsScreen() {
   const upcomingQuery = useQuery({
     queryKey: ['profile', 'payments', 'upcoming', adminId, clientId],
     queryFn: () => getClientUpcomingPaymentsSafe(adminId, clientId),
-    enabled: ready,
+    enabled: ready && (activeTab === 'upcoming' || visitedTabs.upcoming),
     retry: 2,
   });
 
-  const invoicesQuery = useQuery({
-    queryKey: ['profile', 'payments', 'invoices', adminId, clientId],
-    queryFn: () => getClientInvoicesSafe(adminId, clientId),
-    enabled: ready,
+  const invoicesQuery = useInfiniteQuery({
+    queryKey: ['profile', 'payments', 'invoices', 'infinite', adminId, clientId],
+    initialPageParam: null as InvoicesPageCursor,
+    queryFn: async ({ pageParam }) => getClientInvoicesPage(adminId, clientId, pageParam),
+    getNextPageParam: (last) => (last?.hasMore ? last.nextCursor : undefined),
+    enabled: ready && (activeTab === 'invoices' || visitedTabs.invoices),
     retry: 2,
   });
 
   const receivedQuery = useInfiniteQuery({
-    queryKey: ['profile', 'payments', 'received', adminId, clientId],
+    queryKey: ['profile', 'payments', 'received', 'infinite', adminId, clientId],
     initialPageParam: null as PaymentsReceivedPageCursor,
     queryFn: async ({ pageParam }) => getClientPaymentsReceivedPage(adminId, clientId, pageParam),
-    getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),
-    enabled: ready,
+    getNextPageParam: (last) => (last?.hasMore ? last.nextCursor : undefined),
+    enabled: ready && (activeTab === 'received' || visitedTabs.received),
     retry: 2,
   });
 
   const creditsQuery = useInfiniteQuery({
-    queryKey: ['profile', 'payments', 'credits-refunds', adminId, clientId],
+    queryKey: ['profile', 'payments', 'credits-refunds', 'infinite', adminId, clientId],
     initialPageParam: null as CreditsRefundsPageCursor,
     queryFn: async ({ pageParam }) => getClientCreditsAndRefundsPage(adminId, clientId, pageParam),
-    getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),
-    enabled: ready,
+    getNextPageParam: (last) => (last?.hasMore ? last.nextCursor : undefined),
+    enabled: ready && (activeTab === 'credits' || visitedTabs.credits),
     retry: 2,
   });
+
+  const {
+    hasNextPage: invoicesHasNextPage,
+    isFetchingNextPage: invoicesIsFetchingNextPage,
+    isPending: invoicesIsPending,
+    isError: invoicesIsError,
+    isFetching: invoicesIsFetching,
+    fetchNextPage: fetchNextInvoicesPage,
+    refetch: refetchInvoices,
+  } = invoicesQuery;
 
   const {
     hasNextPage: receivedHasNextPage,
     isFetchingNextPage: receivedIsFetchingNextPage,
     isPending: receivedIsPending,
     isError: receivedIsError,
+    isFetching: receivedIsFetching,
     fetchNextPage: fetchNextReceivedPage,
+    refetch: refetchReceived,
   } = receivedQuery;
 
   const {
@@ -100,16 +165,47 @@ export function PaymentsScreen() {
     isFetchingNextPage: creditsIsFetchingNextPage,
     isPending: creditsIsPending,
     isError: creditsIsError,
+    isFetching: creditsIsFetching,
     fetchNextPage: fetchNextCreditsPage,
+    refetch: refetchCredits,
   } = creditsQuery;
 
   const card = paymentsQuery.data?.card ?? null;
   const upcoming = upcomingQuery.data?.data ?? null;
-  const upcomingItems = upcoming?.items ?? [];
-  const invoices = invoicesQuery.data?.invoices ?? [];
+  const upcomingItems = useMemo(() => upcoming?.items ?? [], [upcoming?.items]);
+
+  // Reset client-side upcoming window when scope/list size changes (render-time adjust).
+  const nextUpcomingResetKey = `${adminId}:${clientId}:${upcomingItems.length}`;
+  if (nextUpcomingResetKey !== upcomingResetKey) {
+    setUpcomingResetKey(nextUpcomingResetKey);
+    setUpcomingVisibleCount(UPCOMING_PAGE_SIZE);
+  }
+
+  const visibleUpcoming = useMemo(
+    () => upcomingItems.slice(0, upcomingVisibleCount),
+    [upcomingItems, upcomingVisibleCount],
+  );
+  const hasMoreUpcoming = upcomingVisibleCount < upcomingItems.length;
+
+  const invoices = useMemo(() => {
+    const pages = invoicesQuery.data?.pages;
+    const merged = Array.isArray(pages)
+      ? pages.flatMap((p) => (Array.isArray(p?.invoices) ? p.invoices : []))
+      : [];
+    const byId = new Map<string, ClientInvoiceItem>();
+    for (const item of merged) {
+      byId.set(item.saleId, item);
+    }
+    return [...byId.values()].sort((a, b) =>
+      String(b.issuedAtKey || '').localeCompare(String(a.issuedAtKey || '')),
+    );
+  }, [invoicesQuery.data]);
 
   const received = useMemo(() => {
-    const merged = receivedQuery.data?.pages.flatMap((p) => p.items) ?? [];
+    const pages = receivedQuery.data?.pages;
+    const merged = Array.isArray(pages)
+      ? pages.flatMap((p) => (Array.isArray(p?.items) ? p.items : []))
+      : [];
     const byId = new Map<string, PaymentReceivedItem>();
     for (const item of merged) {
       byId.set(item.entryId || `${item.amountLabel}-${item.subtitle}`, item);
@@ -118,7 +214,10 @@ export function PaymentsScreen() {
   }, [receivedQuery.data]);
 
   const credits = useMemo(() => {
-    const merged = creditsQuery.data?.pages.flatMap((p) => p.items) ?? [];
+    const pages = creditsQuery.data?.pages;
+    const merged = Array.isArray(pages)
+      ? pages.flatMap((p) => (Array.isArray(p?.items) ? p.items : []))
+      : [];
     const byId = new Map<string, CreditRefundItem>();
     for (const item of merged) {
       byId.set(item.entryId || `${item.amountLabel}-${item.subtitle}`, item);
@@ -126,17 +225,25 @@ export function PaymentsScreen() {
     return [...byId.values()].sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
   }, [creditsQuery.data]);
 
+  const nextPaymentDue = useMemo(() => {
+    if (card?.nextPaymentDue) return card.nextPaymentDue;
+    return earliestUpcomingIso(upcomingItems);
+  }, [card, upcomingItems]);
+
   useEffect(() => {
     if (
-      received.length === 0 &&
-      receivedHasNextPage &&
-      !receivedIsFetchingNextPage &&
-      !receivedIsPending &&
-      !receivedIsError
+      activeTab !== 'received' ||
+      received.length > 0 ||
+      !receivedHasNextPage ||
+      receivedIsFetchingNextPage ||
+      receivedIsPending ||
+      receivedIsError
     ) {
-      void fetchNextReceivedPage();
+      return;
     }
+    void fetchNextReceivedPage();
   }, [
+    activeTab,
     received.length,
     receivedHasNextPage,
     receivedIsFetchingNextPage,
@@ -147,15 +254,18 @@ export function PaymentsScreen() {
 
   useEffect(() => {
     if (
-      credits.length === 0 &&
-      creditsHasNextPage &&
-      !creditsIsFetchingNextPage &&
-      !creditsIsPending &&
-      !creditsIsError
+      activeTab !== 'credits' ||
+      credits.length > 0 ||
+      !creditsHasNextPage ||
+      creditsIsFetchingNextPage ||
+      creditsIsPending ||
+      creditsIsError
     ) {
-      void fetchNextCreditsPage();
+      return;
     }
+    void fetchNextCreditsPage();
   }, [
+    activeTab,
     credits.length,
     creditsHasNextPage,
     creditsIsFetchingNextPage,
@@ -163,6 +273,68 @@ export function PaymentsScreen() {
     creditsIsError,
     fetchNextCreditsPage,
   ]);
+
+  const screenException = useMemo(() => {
+    if (!isHydrating && !hasScope) {
+      return toException(new Error('Missing adminId or clientId'), 'Account details are missing.');
+    }
+    return null;
+  }, [isHydrating, hasScope]);
+
+  const heroException = useMemo(() => {
+    if (!ready) return null;
+    const raw =
+      paymentsQuery.data?.errorMessage != null
+        ? new Error(paymentsQuery.data.errorMessage)
+        : paymentsQuery.isError
+          ? paymentsQuery.error
+          : null;
+    if (!raw || card) return null;
+    return toException(raw, 'Couldn’t load amount due.');
+  }, [ready, paymentsQuery.data, paymentsQuery.isError, paymentsQuery.error, card]);
+
+  const upcomingException = useMemo(() => {
+    if (!ready || activeTab !== 'upcoming') return null;
+    const raw =
+      upcomingQuery.data?.errorMessage != null
+        ? new Error(upcomingQuery.data.errorMessage)
+        : upcomingQuery.isError
+          ? upcomingQuery.error
+          : null;
+    if (!raw || upcomingItems.length > 0) return null;
+    return toException(raw, 'Couldn’t load upcoming payments.');
+  }, [
+    ready,
+    activeTab,
+    upcomingQuery.data,
+    upcomingQuery.isError,
+    upcomingQuery.error,
+    upcomingItems,
+  ]);
+
+  const invoicesException = useMemo(() => {
+    if (!ready || activeTab !== 'invoices') return null;
+    if (!invoicesIsError || invoices.length > 0) return null;
+    return toException(invoicesQuery.error, 'Couldn’t load invoices.');
+  }, [ready, activeTab, invoicesIsError, invoices.length, invoicesQuery.error]);
+
+  const receivedException = useMemo(() => {
+    if (!ready || activeTab !== 'received') return null;
+    if (!receivedIsError || received.length > 0) return null;
+    return toException(receivedQuery.error, 'Couldn’t load payments received.');
+  }, [ready, activeTab, receivedIsError, received.length, receivedQuery.error]);
+
+  const creditsException = useMemo(() => {
+    if (!ready || activeTab !== 'credits') return null;
+    if (!creditsIsError || credits.length > 0) return null;
+    return toException(creditsQuery.error, 'Couldn’t load credits and refunds.');
+  }, [ready, activeTab, creditsIsError, credits.length, creditsQuery.error]);
+
+  const invoicesScanning =
+    invoices.length === 0 &&
+    Boolean(invoicesHasNextPage) &&
+    !invoicesIsError &&
+    (invoicesIsPending || invoicesIsFetchingNextPage);
 
   const receivedScanning =
     received.length === 0 &&
@@ -176,54 +348,150 @@ export function PaymentsScreen() {
     !creditsIsError &&
     (creditsIsPending || creditsIsFetchingNextPage);
 
-  const loadError =
-    (!isHydrating && !hasScope
-      ? mapPaymentsLoadErrorToMessage(new Error('Missing adminId or clientId'))
-      : null) ??
-    paymentsQuery.data?.errorMessage ??
-    upcomingQuery.data?.errorMessage ??
-    invoicesQuery.data?.errorMessage ??
-    (paymentsQuery.isError ? mapPaymentsLoadErrorToMessage(paymentsQuery.error) : null) ??
-    (upcomingQuery.isError ? mapPaymentsLoadErrorToMessage(upcomingQuery.error) : null) ??
-    (invoicesQuery.isError ? mapPaymentsLoadErrorToMessage(invoicesQuery.error) : null) ??
-    (receivedIsError ? mapPaymentsLoadErrorToMessage(receivedQuery.error) : null) ??
-    (creditsIsError ? mapPaymentsLoadErrorToMessage(creditsQuery.error) : null);
+  const bootLoading = isHydrating || (ready && paymentsQuery.isPending && !card && !heroException);
 
-  const loading =
-    isHydrating ||
-    (hasScope &&
-      (paymentsQuery.isPending ||
-        upcomingQuery.isPending ||
-        invoicesQuery.isPending ||
-        receivedIsPending ||
-        creditsIsPending) &&
-      !card &&
-      upcomingItems.length === 0 &&
-      invoices.length === 0 &&
-      received.length === 0 &&
-      credits.length === 0 &&
-      !loadError);
+  const upcomingLoading =
+    upcomingQuery.isPending && upcomingItems.length === 0 && !upcomingException;
+  const invoicesLoading =
+    invoicesIsPending && invoices.length === 0 && !invoicesException && !invoicesScanning;
+  const receivedLoading =
+    receivedIsPending && received.length === 0 && !receivedException && !receivedScanning;
+  const creditsLoading =
+    creditsIsPending && credits.length === 0 && !creditsException && !creditsScanning;
 
-  const refetchAll = () => {
-    void paymentsQuery.refetch();
-    void upcomingQuery.refetch();
-    void invoicesQuery.refetch();
-    void receivedQuery.refetch();
-    void creditsQuery.refetch();
+  const [upcomingPaging, setUpcomingPaging] = useState(false);
+
+  const loadMoreUpcoming = () => {
+    setUpcomingPaging(true);
+    setUpcomingVisibleCount((n) => Math.min(n + UPCOMING_PAGE_SIZE, upcomingItems.length));
+    requestAnimationFrame(() => setUpcomingPaging(false));
   };
 
-  const isRefetching =
-    paymentsQuery.isFetching ||
-    upcomingQuery.isFetching ||
-    invoicesQuery.isFetching ||
-    receivedQuery.isFetching ||
-    creditsQuery.isFetching;
+  const showStickyChrome = !bootLoading && !screenException;
+
+  const heroBlock = showStickyChrome ? (
+    card ? (
+      <AmountDueCard card={card} nextPaymentDue={nextPaymentDue} />
+    ) : heroException ? (
+      <PaymentsExceptionCard
+        kind={heroException.kind}
+        message={heroException.message}
+        scope="screen"
+        isRetrying={paymentsQuery.isFetching}
+        onRetry={heroException.canRetry ? () => void paymentsQuery.refetch() : undefined}
+      />
+    ) : null
+  ) : null;
+
+  const tabsBlock = showStickyChrome ? (
+    <View style={styles.tabsWrap}>
+      <PaymentsTabs active={activeTab} onChange={selectTab} />
+      <View style={styles.tabsBaseLine} />
+    </View>
+  ) : null;
+
+  const tabBody = !showStickyChrome ? null : (
+    <View style={styles.stack}>
+      {activeTab === 'upcoming' ? (
+        upcomingException ? (
+          <PaymentsExceptionCard
+            kind={upcomingException.kind}
+            message={upcomingException.message}
+            scope="upcoming"
+            isRetrying={upcomingQuery.isFetching}
+            onRetry={upcomingException.canRetry ? () => void upcomingQuery.refetch() : undefined}
+          />
+        ) : upcomingLoading ? (
+          <PaymentsSkeleton tabOnly />
+        ) : (
+          <UpcomingPaymentsListCard
+            items={visibleUpcoming}
+            hasDue={upcoming?.hasDue}
+            hasMore={hasMoreUpcoming}
+            isLoading={upcomingLoading}
+            isFetchingMore={upcomingPaging}
+            onLoadMore={loadMoreUpcoming}
+          />
+        )
+      ) : null}
+
+      {activeTab === 'invoices' ? (
+        invoicesException ? (
+          <PaymentsExceptionCard
+            kind={invoicesException.kind}
+            message={invoicesException.message}
+            scope="invoices"
+            isRetrying={invoicesIsFetching}
+            onRetry={invoicesException.canRetry ? () => void refetchInvoices() : undefined}
+          />
+        ) : invoicesLoading ? (
+          <PaymentsSkeleton tabOnly />
+        ) : (
+          <InvoicesListCard
+            invoices={invoices}
+            hasMore={Boolean(invoicesHasNextPage)}
+            isFetchingMore={invoicesIsFetchingNextPage}
+            isLoading={invoicesLoading}
+            isScanning={invoicesScanning}
+            onLoadMore={() => void fetchNextInvoicesPage()}
+          />
+        )
+      ) : null}
+
+      {activeTab === 'received' ? (
+        receivedException ? (
+          <PaymentsExceptionCard
+            kind={receivedException.kind}
+            message={receivedException.message}
+            scope="received"
+            isRetrying={receivedIsFetching}
+            onRetry={receivedException.canRetry ? () => void refetchReceived() : undefined}
+          />
+        ) : receivedLoading ? (
+          <PaymentsSkeleton tabOnly />
+        ) : (
+          <PaymentsReceivedListCard
+            items={received}
+            hasMore={Boolean(receivedHasNextPage)}
+            isFetchingMore={receivedIsFetchingNextPage}
+            isLoading={receivedLoading}
+            isScanning={receivedScanning}
+            onLoadMore={() => void fetchNextReceivedPage()}
+          />
+        )
+      ) : null}
+
+      {activeTab === 'credits' ? (
+        creditsException ? (
+          <PaymentsExceptionCard
+            kind={creditsException.kind}
+            message={creditsException.message}
+            scope="credits"
+            isRetrying={creditsIsFetching}
+            onRetry={creditsException.canRetry ? () => void refetchCredits() : undefined}
+          />
+        ) : creditsLoading ? (
+          <PaymentsSkeleton tabOnly />
+        ) : (
+          <CreditsAndRefundsListCard
+            items={credits}
+            hasMore={Boolean(creditsHasNextPage)}
+            isFetchingMore={creditsIsFetchingNextPage}
+            isLoading={creditsLoading}
+            isScanning={creditsScanning}
+            onLoadMore={() => void fetchNextCreditsPage()}
+          />
+        )
+      ) : null}
+    </View>
+  );
 
   return (
     <ProfileSectionShell
       title="Payments"
       subtitle="Everything owed to Godwit, and everything you have paid."
-      subtitleTrailing={
+      layoutPreset="payments"
+      titleTrailing={
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Account statement"
@@ -234,94 +502,55 @@ export function PaymentsScreen() {
               'Your Godwit account statement will be available here soon.',
             );
           }}
-          style={styles.statementHit}
         >
-          <Text
-            style={[styles.statementLabel, { fontSize: actionSize, lineHeight: actionLineHeight }]}
-          >
-            Account{'\n'}statement
-          </Text>
+          <View style={styles.statementPill}>
+            <Text style={styles.statementLabel}>Account / statement</Text>
+          </View>
         </Pressable>
       }
+      collapsibleBody={heroBlock}
+      stickyHeader={tabsBlock}
     >
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.forest} />
-        </View>
+      {bootLoading ? <PaymentsSkeleton /> : null}
+
+      {!bootLoading && screenException ? (
+        <PaymentsExceptionCard
+          kind={screenException.kind}
+          message={screenException.message}
+          scope="screen"
+        />
       ) : null}
 
-      {!loading && loadError ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{loadError}</Text>
-          <Pressable onPress={refetchAll} style={styles.retry}>
-            <Text style={styles.retryLabel}>{isRefetching ? 'Retrying…' : 'Retry'}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      {!loading && !loadError ? (
-        <View style={styles.stack}>
-          {card ? <AmountDueCard card={card} /> : null}
-          <UpcomingPaymentsListCard items={upcomingItems} hasDue={upcoming?.hasDue} />
-          <InvoicesListCard invoices={invoices} />
-          <PaymentsReceivedListCard
-            items={received}
-            hasMore={Boolean(receivedHasNextPage)}
-            isFetchingMore={receivedIsFetchingNextPage}
-            isScanning={receivedScanning}
-            onLoadMore={() => void fetchNextReceivedPage()}
-          />
-          <CreditsAndRefundsListCard
-            items={credits}
-            hasMore={Boolean(creditsHasNextPage)}
-            isFetchingMore={creditsIsFetchingNextPage}
-            isScanning={creditsScanning}
-            onLoadMore={() => void fetchNextCreditsPage()}
-          />
-        </View>
-      ) : null}
+      {tabBody}
     </ProfileSectionShell>
   );
 }
 
 const styles = StyleSheet.create({
-  statementHit: {
-    alignItems: 'flex-end',
-  },
-  statementLabel: {
-    fontFamily: fontFamily.manrope.regular,
-    color: colors.muted,
-    textAlign: 'right',
-  },
-  stack: {
-    gap: 22,
-  },
-  centered: {
-    paddingVertical: 28,
-    alignItems: 'center',
-  },
-  errorBox: {
-    borderRadius: 16,
-    backgroundColor: '#F8F7F4',
+  statementPill: {
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: 20,
-    gap: 10,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  retry: {
-    paddingHorizontal: 14,
+    borderColor: colors.forest,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  retryLabel: {
+  statementLabel: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
+    fontSize: 10,
+    lineHeight: 13,
     color: colors.forest,
+  },
+  stack: {
+    gap: 18,
+  },
+  tabsWrap: {
+    gap: 0,
+    backgroundColor: colors.background,
+  },
+  tabsBaseLine: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginTop: -2,
   },
 });

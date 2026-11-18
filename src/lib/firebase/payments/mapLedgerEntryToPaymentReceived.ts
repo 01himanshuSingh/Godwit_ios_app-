@@ -53,7 +53,7 @@ function formatDateLabel(date: Date | null): string | null {
   if (!date) return null;
   return date.toLocaleDateString('en-GB', {
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   });
 }

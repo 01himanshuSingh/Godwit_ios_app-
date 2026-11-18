@@ -20,62 +20,92 @@ export type ProfileMenuSectionId =
 export type ProfileMenuItemDef = {
   id: ProfileMenuSectionId;
   title: string;
-  /** Static subtitle; travellers can be overridden with a live count. */
+  /** Static subtitle; travellers meta can use live count separately. */
   subtitle: string;
   icon: ProfileMenuIcon;
   /** Expo Router path under /profile/[section] */
   href: `/profile/${ProfileMenuSectionId}`;
 };
 
+export type ProfileMenuGroupId = 'travel' | 'billing' | 'account';
+
+export type ProfileMenuGroupDef = {
+  id: ProfileMenuGroupId;
+  title: string;
+  trailing?: string;
+  itemIds: Exclude<ProfileMenuSectionId, 'support'>[];
+};
+
 export const PROFILE_MENU_ITEMS: readonly ProfileMenuItemDef[] = [
   {
     id: 'travellers',
     title: 'Travellers',
-    subtitle: 'Details, documents, loyalty, preferences',
+    subtitle: 'Family manifests & VIP profiles',
     icon: 'users',
     href: '/profile/travellers',
   },
   {
+    id: 'documents',
+    title: 'Documents',
+    subtitle: 'Passports, visas & yacht registries',
+    icon: 'folder',
+    href: '/profile/documents',
+  },
+  {
     id: 'payments',
     title: 'Payments',
-    subtitle: 'Invoices, payments received and statement',
+    subtitle: 'Private accounts & retainer ledger',
     icon: 'credit-card',
     href: '/profile/payments',
   },
   {
-    id: 'documents',
-    title: 'Documents',
-    subtitle: 'Vouchers, tickets and travel documents',
-    icon: 'file-text',
-    href: '/profile/documents',
-  },
-  {
     id: 'notifications',
     title: 'Notifications',
-    subtitle: 'What your Godwit team has sent you',
+    subtitle: 'Flight alerts, charter updates, alerts',
     icon: 'bell',
     href: '/profile/notifications',
   },
   {
     id: 'account-access',
     title: 'Account access',
-    subtitle: 'Who may use this Godwit account',
-    icon: 'key',
+    subtitle: 'Executive assistants & delegate rights',
+    icon: 'user-check',
     href: '/profile/account-access',
   },
   {
     id: 'security',
     title: 'Security',
-    subtitle: 'Sign-in, devices and sessions',
+    subtitle: 'Biometric key & encrypted passkeys',
     icon: 'shield',
     href: '/profile/security',
   },
   {
     id: 'support',
-    title: 'Godwit support',
-    subtitle: 'Your travel team, available 24/7',
-    icon: 'help-circle',
+    title: 'Godwit Support',
+    subtitle: 'Private desk direct dispatch. Average response under 90 seconds.',
+    icon: 'headphones',
     href: '/profile/support',
+  },
+] as const;
+
+/** Hub layout groups — support is a featured card, not a list row. */
+export const PROFILE_MENU_GROUPS: readonly ProfileMenuGroupDef[] = [
+  {
+    id: 'travel',
+    title: 'TRAVEL',
+    trailing: 'CONCIERGE ACTIVE',
+    itemIds: ['travellers', 'documents'],
+  },
+  {
+    id: 'billing',
+    title: 'BILLING',
+    trailing: 'SWISS CREDIT FACILITY',
+    itemIds: ['payments'],
+  },
+  {
+    id: 'account',
+    title: 'ACCOUNT',
+    itemIds: ['notifications', 'account-access', 'security'],
   },
 ] as const;
 

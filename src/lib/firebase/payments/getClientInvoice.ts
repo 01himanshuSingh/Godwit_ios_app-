@@ -6,6 +6,7 @@
 import { doc, getDoc, type DocumentData } from 'firebase/firestore';
 
 import type { GetClientInvoiceResult } from '@/lib/firebase/payments/invoiceDetailTypes';
+import { mapPaymentsLoadErrorToMessage } from '@/lib/firebase/payments/mapPaymentsLoadError';
 import { mapSaleToInvoiceDetail } from '@/lib/firebase/payments/mapSaleToInvoiceDetail';
 import { db } from '@/lib/firebase/firestore';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
@@ -58,15 +59,30 @@ export async function getClientInvoiceSafe(
   clientId: string,
   saleId: string,
 ): Promise<GetClientInvoiceResult> {
+  const aid = adminId.trim();
+  const cid = clientId.trim();
+  const sid = saleId.trim();
+  if (!aid || !cid || !sid) {
+    return {
+      invoice: null,
+      errorMessage: 'Account details are missing. Please sign in again.',
+    };
+  }
+
   try {
-    const invoice = await getClientInvoice(adminId, clientId, saleId);
+    const invoice = await getClientInvoice(aid, cid, sid);
     if (!invoice) {
-      return { invoice: null, errorMessage: 'Invoice not found' };
+      return {
+        invoice: null,
+        errorMessage: 'This invoice couldn’t be found.',
+      };
     }
     return { invoice, errorMessage: null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load invoice';
     console.error('[getClientInvoice]', error);
-    return { invoice: null, errorMessage: message };
+    return {
+      invoice: null,
+      errorMessage: mapPaymentsLoadErrorToMessage(error),
+    };
   }
 }

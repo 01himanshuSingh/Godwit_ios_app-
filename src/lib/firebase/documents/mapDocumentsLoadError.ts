@@ -5,7 +5,7 @@
 
 export type DocumentsLoadErrorKind = 'missing_scope' | 'permission' | 'offline' | 'unknown';
 
-export type DocumentsSurface = 'trips' | 'personal' | 'file';
+export type DocumentsSurface = 'trips' | 'personal' | 'identity' | 'file';
 
 export function classifyDocumentsLoadError(error: unknown): DocumentsLoadErrorKind {
   if (!(error instanceof Error) && typeof error !== 'object') {
@@ -67,17 +67,19 @@ export function mapDocumentsLoadErrorToMessage(
     return 'Account details are missing. Please sign in again.';
   }
   if (kind === 'permission') {
-    return surface === 'personal'
-      ? 'You don’t have access to personal documents for this account.'
-      : 'You don’t have access to trip documents for this account.';
+    if (surface === 'personal' || surface === 'identity') {
+      return 'You don’t have access to identity documents for this account.';
+    }
+    return 'You don’t have access to trip documents for this account.';
   }
   if (kind === 'offline') {
     return 'Connection issue. Check your network and try again.';
   }
 
-  return surface === 'personal'
-    ? 'Couldn’t load personal documents. Please try again.'
-    : 'Couldn’t load trip documents. Please try again.';
+  if (surface === 'personal' || surface === 'identity') {
+    return 'Couldn’t load identity documents. Please try again.';
+  }
+  return 'Couldn’t load trip documents. Please try again.';
 }
 
 /** View / Download action copy (Alerts). */

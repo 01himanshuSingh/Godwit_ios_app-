@@ -1,9 +1,10 @@
 /**
- * Expandable Travel Documents card — passport / visa / membership rows.
- * Status badge: Valid | Renew soon | Expired | Unknown.
+ * Expandable Travel Documents — nested doc cards with status pills.
+ * Only renders fields present on TravelDocItem (real CRM data).
+ * Visual styles on View; Pressable is a plain touch wrapper.
  */
 import Feather from '@expo/vector-icons/Feather';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   LayoutAnimation,
   Linking,
@@ -12,11 +13,10 @@ import {
   StyleSheet,
   Text,
   UIManager,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
-import type { TravelDocItem, TravellerTravelDocs } from '@/lib/firebase/customers';
+import type { TravelDocItem, TravelDocStatus, TravellerTravelDocs } from '@/lib/firebase/customers';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -29,126 +29,100 @@ type TravelDocumentsCardProps = {
   initiallyExpanded?: boolean;
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      padH: 18,
-      padV: 16,
-      radius: 18,
-      sectionLabelSize: 11,
-      summarySize: 14,
-      summaryLineHeight: 20,
-      titleSize: 15,
-      titleLineHeight: 20,
-      metaSize: 13,
-      metaLineHeight: 18,
-      badgeSize: 12,
-      chevronSize: 18,
-      rowGap: 4,
-      footerSize: 12,
-    };
+function StatusBadge({ status }: { status: TravelDocStatus }) {
+  if (status === 'Valid') {
+    return (
+      <View style={[styles.badge, styles.badgeValid]}>
+        <Text style={styles.badgeValidLabel}>Valid</Text>
+      </View>
+    );
   }
-  return {
-    padH: 22,
-    padV: 18,
-    radius: 20,
-    sectionLabelSize: 11,
-    summarySize: 15,
-    summaryLineHeight: 22,
-    titleSize: 16,
-    titleLineHeight: 22,
-    metaSize: 14,
-    metaLineHeight: 20,
-    badgeSize: 12,
-    chevronSize: 20,
-    rowGap: 5,
-    footerSize: 13,
-  };
+  if (status === 'Renew soon') {
+    return (
+      <View style={[styles.badge, styles.badgeRenew]}>
+        <Feather name="clock" size={9} color={colors.forest} />
+        <Text style={styles.badgeRenewLabel}>Renew soon</Text>
+      </View>
+    );
+  }
+  if (status === 'Expired') {
+    return (
+      <View style={[styles.badge, styles.badgeExpired]}>
+        <Text style={styles.badgeExpiredLabel}>Expired</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.badge, styles.badgeUnknown]}>
+      <Text style={styles.badgeUnknownLabel}>Unknown</Text>
+    </View>
+  );
 }
 
-function DocRow({
-  item,
-  layout,
-  showDivider,
-}: {
-  item: TravelDocItem;
-  layout: ReturnType<typeof layoutForWidth>;
-  showDivider: boolean;
-}) {
+function DocItemCard({ item }: { item: TravelDocItem }) {
+  const canOpen = Boolean(item.docUrl?.trim());
   const openDoc = () => {
     const url = item.docUrl?.trim();
     if (!url) return;
     void Linking.openURL(url);
   };
 
-  return (
-    <View>
-      {showDivider ? <View style={styles.rowDivider} /> : null}
-      <Pressable
-        accessibilityRole={item.docUrl ? 'link' : 'none'}
-        accessibilityLabel={item.title}
-        disabled={!item.docUrl}
-        onPress={openDoc}
-        style={styles.rowPressable}
-      >
-        <View style={styles.row}>
-          <View style={[styles.rowText, { gap: layout.rowGap }]}>
-            <View style={styles.titleLine}>
-              <Text
-                style={[
-                  styles.docTitle,
-                  {
-                    fontSize: layout.titleSize,
-                    lineHeight: layout.titleLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {item.title}
-              </Text>
-              <View style={styles.statusBadge}>
-                <Text
-                  style={[styles.statusLabel, { fontSize: layout.badgeSize }]}
-                  numberOfLines={1}
-                >
-                  {item.status}
-                </Text>
-              </View>
-            </View>
-            {item.detailLine ? (
-              <Text
-                style={[
-                  styles.meta,
-                  {
-                    fontSize: layout.metaSize,
-                    lineHeight: layout.metaLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {item.detailLine}
-              </Text>
+  const content = (
+    <View style={styles.docCard}>
+      <View style={styles.docIcon}>
+        <Feather name="file-text" size={16} color={colors.forest} />
+      </View>
+
+      <View style={styles.docCopy}>
+        <Text style={styles.docTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+        {item.country?.trim() || item.maskedNumber?.trim() ? (
+          <Text style={styles.docMeta} numberOfLines={1} ellipsizeMode="tail">
+            {item.country?.trim() ? (
+              <Text style={styles.docMetaCountry}>{item.country.trim()}</Text>
             ) : null}
-            {item.expiresAtLabel ? (
-              <Text
-                style={[
-                  styles.meta,
-                  {
-                    fontSize: layout.metaSize,
-                    lineHeight: layout.metaLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {item.expiresAtLabel}
-              </Text>
+            {item.country?.trim() && item.maskedNumber?.trim() ? (
+              <Text style={styles.docMetaCountry}> </Text>
             ) : null}
-          </View>
-        </View>
-      </Pressable>
+            {item.maskedNumber?.trim() ? (
+              <Text style={styles.docMetaNumber}>{item.maskedNumber.trim()}</Text>
+            ) : null}
+          </Text>
+        ) : item.detailLine ? (
+          <Text style={styles.docMeta} numberOfLines={1} ellipsizeMode="tail">
+            {item.detailLine}
+          </Text>
+        ) : null}
+        {item.expiresAtLabel ? (
+          <Text
+            style={[styles.docExpiry, item.status === 'Expired' && styles.docExpiryExpired]}
+            numberOfLines={1}
+          >
+            {item.expiresAtLabel}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={styles.docTrailing}>
+        <StatusBadge status={item.status} />
+        {canOpen ? <Feather name="chevron-right" size={16} color="#C4C0B8" /> : null}
+      </View>
     </View>
+  );
+
+  if (!canOpen) {
+    return content;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`${item.title}. ${item.status}`}
+      onPress={openDoc}
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -156,11 +130,8 @@ export function TravelDocumentsCard({
   travelDocs,
   initiallyExpanded = true,
 }: TravelDocumentsCardProps) {
-  const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
   const [expanded, setExpanded] = useState(initiallyExpanded);
-
-  const summary = travelDocs.summaryLine || '0 on file · numbers always masked';
+  const summary = travelDocs.summaryLine?.trim() || null;
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -168,17 +139,7 @@ export function TravelDocumentsCard({
   };
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          borderRadius: layout.radius,
-          paddingHorizontal: layout.padH,
-          paddingTop: layout.padV,
-          paddingBottom: layout.padV,
-        },
-      ]}
-    >
+    <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -187,62 +148,39 @@ export function TravelDocumentsCard({
         hitSlop={8}
         style={styles.headerPressable}
       >
-        <View style={styles.header}>
-          <Text
-            style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
-          >
-            TRAVEL DOCUMENTS
-          </Text>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryTextWrap}>
-              <Text
-                style={[
-                  styles.summary,
-                  {
-                    fontSize: layout.summarySize,
-                    lineHeight: layout.summaryLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {summary}
-              </Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.sectionLabel}>TRAVEL DOCUMENTS</Text>
+          <View style={styles.headerTrailing}>
+            <View style={styles.managedBadge}>
+              <Feather name="lock" size={9} color={colors.forest} />
+              <Text style={styles.managedLabel}>Managed by Godwit</Text>
             </View>
-            <View style={styles.chevronWrap} pointerEvents="none">
-              <Feather
-                name={expanded ? 'chevron-up' : 'chevron-down'}
-                size={layout.chevronSize}
-                color="#C4C0B8"
-              />
-            </View>
+            <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color="#C4C0B8" />
           </View>
         </View>
+        {summary ? <Text style={styles.summary}>{summary}</Text> : null}
       </Pressable>
 
       {expanded ? (
-        <>
-          <View style={styles.divider} />
+        <View style={styles.body}>
           {travelDocs.items.length === 0 ? (
             <Text style={styles.empty}>No travel documents on file yet.</Text>
           ) : (
-            travelDocs.items.map((item, index) => (
-              <DocRow key={item.id} item={item} layout={layout} showDivider={index > 0} />
-            ))
+            <View style={styles.docList}>
+              {travelDocs.items.map((item) => (
+                <DocItemCard key={item.id} item={item} />
+              ))}
+            </View>
           )}
-          <Text
-            style={[
-              styles.footer,
-              {
-                fontSize: layout.footerSize,
-                marginTop: travelDocs.items.length === 0 ? 12 : 16,
-              },
-            ]}
-          >
-            A new or renewed document is uploaded securely by your Godwit team — request the change
-            below.
-          </Text>
-        </>
+
+          <View style={styles.footer}>
+            <Feather name="info" size={13} color={colors.muted} />
+            <Text style={styles.footerText}>
+              A new or renewed document is uploaded securely by your Godwit team — request the
+              change below.
+            </Text>
+          </View>
+        </View>
       ) : null}
     </View>
   );
@@ -251,98 +189,193 @@ export function TravelDocumentsCard({
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    backgroundColor: '#F8F7F4',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   headerPressable: {
     width: '100%',
+    gap: 6,
   },
-  header: {
-    width: '100%',
-    gap: 8,
-  },
-  sectionLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
-    textTransform: 'uppercase',
-  },
-  summaryRow: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    gap: 12,
-  },
-  summaryTextWrap: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  summary: {
-    width: '100%',
-    fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
-  },
-  chevronWrap: {
-    flexGrow: 0,
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginTop: 16,
-    marginBottom: 4,
-  },
-  rowPressable: {
-    width: '100%',
-  },
-  row: {
-    paddingVertical: 14,
-  },
-  rowDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-  },
-  rowText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  titleLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
   },
-  docTitle: {
-    flex: 1,
-    minWidth: 0,
+  sectionLabel: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    color: colors.muted,
+    textTransform: 'uppercase',
+    flexShrink: 1,
+  },
+  headerTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  managedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    backgroundColor: colors.sand,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  managedLabel: {
     fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
     color: colors.forest,
   },
-  statusBadge: {
-    flexShrink: 0,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: '#E8E6E1',
-  },
-  statusLabel: {
-    fontFamily: fontFamily.manrope.medium,
+  summary: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
   },
-  meta: {
+  body: {
+    marginTop: 14,
+    gap: 12,
+  },
+  docList: {
+    gap: 10,
+  },
+  docCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  docIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sand,
+  },
+  docCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  docTitle: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.forest,
+  },
+  docMeta: {
     fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.muted,
+  },
+  docMetaCountry: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.muted,
+  },
+  docMetaNumber: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.muted,
+  },
+  docExpiry: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.muted,
+  },
+  docExpiryExpired: {
+    color: '#8B3A3A',
+  },
+  docTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  badgeValid: {
+    backgroundColor: colors.sand,
+  },
+  badgeValidLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.forest,
+  },
+  badgeRenew: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.forest,
+  },
+  badgeRenewLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.forest,
+  },
+  badgeExpired: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#8B3A3A',
+  },
+  badgeExpiredLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: '#8B3A3A',
+  },
+  badgeUnknown: {
+    backgroundColor: colors.surface,
+  },
+  badgeUnknownLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
     color: colors.muted,
   },
   footer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingTop: 4,
+  },
+  footerText: {
+    flex: 1,
     fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
-    lineHeight: 18,
   },
   empty: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
+    fontSize: 10,
     color: colors.muted,
     paddingVertical: 8,
   },

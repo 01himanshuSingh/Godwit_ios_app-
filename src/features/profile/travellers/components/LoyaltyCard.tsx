@@ -1,9 +1,10 @@
 /**
- * Expandable Loyalty card — programme rows + masked numbers + optional tier.
- * Matches traveller detail mock (toggle open / close).
+ * Expandable Loyalty card — programme rows from CRM memberships.
+ * Only renders fields present on TravellerLoyaltyRow.
+ * Visual styles on View; Pressable is a plain touch wrapper.
  */
 import Feather from '@expo/vector-icons/Feather';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   LayoutAnimation,
   Platform,
@@ -11,7 +12,6 @@ import {
   StyleSheet,
   Text,
   UIManager,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -28,125 +28,50 @@ type LoyaltyCardProps = {
   initiallyExpanded?: boolean;
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      padH: 18,
-      padV: 16,
-      radius: 18,
-      sectionLabelSize: 11,
-      summarySize: 14,
-      summaryLineHeight: 20,
-      programSize: 15,
-      programLineHeight: 20,
-      memberSize: 13,
-      memberLineHeight: 18,
-      numberSize: 13,
-      numberLineHeight: 18,
-      tierSize: 12,
-      chevronSize: 18,
-      rowGap: 4,
-      footerSize: 12,
-    };
-  }
-  return {
-    padH: 22,
-    padV: 18,
-    radius: 20,
-    sectionLabelSize: 11,
-    summarySize: 15,
-    summaryLineHeight: 22,
-    programSize: 16,
-    programLineHeight: 22,
-    memberSize: 14,
-    memberLineHeight: 20,
-    numberSize: 14,
-    numberLineHeight: 20,
-    tierSize: 12,
-    chevronSize: 20,
-    rowGap: 5,
-    footerSize: 13,
-  };
-}
+function LoyaltyProgramCard({ row }: { row: TravellerLoyaltyRow }) {
+  const hasFooter = Boolean(row.memberName?.trim() || row.memberNumberMasked?.trim());
 
-function LoyaltyRowItem({
-  row,
-  layout,
-  showDivider,
-}: {
-  row: TravellerLoyaltyRow;
-  layout: ReturnType<typeof layoutForWidth>;
-  showDivider: boolean;
-}) {
   return (
-    <View>
-      {showDivider ? <View style={styles.rowDivider} /> : null}
-      <View style={styles.row}>
-        <View style={[styles.rowText, { gap: layout.rowGap }]}>
-          <View style={styles.programLine}>
-            <Text
-              style={[
-                styles.programName,
-                {
-                  fontSize: layout.programSize,
-                  lineHeight: layout.programLineHeight,
-                },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {row.programName}
-            </Text>
-            {row.tier ? (
-              <View style={styles.tierBadge}>
-                <Text style={[styles.tierLabel, { fontSize: layout.tierSize }]} numberOfLines={1}>
-                  {row.tier}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          {row.memberName ? (
-            <Text
-              style={[
-                styles.memberName,
-                {
-                  fontSize: layout.memberSize,
-                  lineHeight: layout.memberLineHeight,
-                },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {row.memberName}
-            </Text>
-          ) : null}
-          {row.memberNumberMasked ? (
-            <Text
-              style={[
-                styles.memberNumber,
-                {
-                  fontSize: layout.numberSize,
-                  lineHeight: layout.numberLineHeight,
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {row.memberNumberMasked}
-            </Text>
+    <View style={styles.programCard}>
+      <View style={styles.accentBar} />
+      <View style={styles.programBody}>
+        <View style={styles.programTop}>
+          <Text style={styles.programName} numberOfLines={2}>
+            {row.programName}
+          </Text>
+          {row.tier?.trim() ? (
+            <View style={styles.tierBadge}>
+              <Text style={styles.tierLabel} numberOfLines={1}>
+                {row.tier.trim()}
+              </Text>
+            </View>
           ) : null}
         </View>
+
+        {hasFooter ? (
+          <View style={styles.programBottom}>
+            {row.memberName?.trim() ? (
+              <Text style={styles.memberName} numberOfLines={1} ellipsizeMode="tail">
+                {row.memberName.trim()}
+              </Text>
+            ) : (
+              <View style={styles.memberNameSpacer} />
+            )}
+            {row.memberNumberMasked?.trim() ? (
+              <Text style={styles.memberNumber} numberOfLines={1}>
+                {row.memberNumberMasked.trim()}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </View>
   );
 }
 
 export function LoyaltyCard({ loyalty, initiallyExpanded = true }: LoyaltyCardProps) {
-  const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
   const [expanded, setExpanded] = useState(initiallyExpanded);
-
-  const summary =
-    loyalty.summaryLine || (loyalty.rows.length === 0 ? 'No programmes yet' : 'Loyalty programmes');
+  const summary = loyalty.summaryLine?.trim() || null;
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -154,17 +79,7 @@ export function LoyaltyCard({ loyalty, initiallyExpanded = true }: LoyaltyCardPr
   };
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          borderRadius: layout.radius,
-          paddingHorizontal: layout.padH,
-          paddingTop: layout.padV,
-          paddingBottom: layout.padV,
-        },
-      ]}
-    >
+    <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -173,59 +88,42 @@ export function LoyaltyCard({ loyalty, initiallyExpanded = true }: LoyaltyCardPr
         hitSlop={8}
         style={styles.headerPressable}
       >
-        <View style={styles.header}>
-          <Text
-            style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
-          >
-            LOYALTY
-          </Text>
-          <View style={styles.summaryRow}>
-            <Text
-              style={[
-                styles.summary,
-                {
-                  fontSize: layout.summarySize,
-                  lineHeight: layout.summaryLineHeight,
-                },
-              ]}
-              numberOfLines={2}
-              ellipsizeMode="tail"
-            >
-              {summary}
-            </Text>
-            <View style={styles.chevronWrap} pointerEvents="none">
-              <Feather
-                name={expanded ? 'chevron-up' : 'chevron-down'}
-                size={layout.chevronSize}
-                color="#C4C0B8"
-              />
+        <View style={styles.headerTop}>
+          <Text style={styles.sectionLabel}>LOYALTY</Text>
+          <View style={styles.headerTrailing}>
+            <View style={styles.managedBadge}>
+              <Feather name="lock" size={9} color={colors.forest} />
+              <Text style={styles.managedLabel}>Managed by Godwit</Text>
             </View>
+            <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color="#C4C0B8" />
           </View>
         </View>
+        {summary ? (
+          <Text style={styles.summary} numberOfLines={2} ellipsizeMode="tail">
+            {summary}
+          </Text>
+        ) : null}
       </Pressable>
 
       {expanded ? (
-        <>
-          <View style={styles.divider} />
+        <View style={styles.body}>
           {loyalty.rows.length === 0 ? (
             <Text style={styles.empty}>No loyalty programmes linked yet.</Text>
           ) : (
-            loyalty.rows.map((row, index) => (
-              <LoyaltyRowItem key={row.id} row={row} layout={layout} showDivider={index > 0} />
-            ))
+            <View style={styles.list}>
+              {loyalty.rows.map((row) => (
+                <LoyaltyProgramCard key={row.id} row={row} />
+              ))}
+            </View>
           )}
-          <Text
-            style={[
-              styles.footer,
-              {
-                fontSize: layout.footerSize,
-                marginTop: loyalty.rows.length === 0 ? 12 : 16,
-              },
-            ]}
-          >
-            Membership numbers are added and verified by your Godwit team.
-          </Text>
-        </>
+
+          <View style={styles.footer}>
+            <Feather name="shield" size={13} color={colors.muted} />
+            <Text style={styles.footerText}>
+              Membership numbers are added and verified by your Godwit team.
+            </Text>
+          </View>
+        </View>
       ) : null}
     </View>
   );
@@ -234,98 +132,154 @@ export function LoyaltyCard({ loyalty, initiallyExpanded = true }: LoyaltyCardPr
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    backgroundColor: '#F8F7F4',
+    borderRadius: 20,
+    backgroundColor: colors.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   headerPressable: {
     width: '100%',
+    gap: 6,
   },
-  header: {
-    width: '100%',
-    gap: 8,
-  },
-  sectionLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
-    textTransform: 'uppercase',
-  },
-  summaryRow: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    width: '100%',
+    gap: 10,
   },
-  summary: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: fontFamily.manrope.medium,
+  sectionLabel: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 10,
+    letterSpacing: 0.9,
     color: colors.muted,
+    textTransform: 'uppercase',
+    flexShrink: 1,
   },
-  chevronWrap: {
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingLeft: 4,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginTop: 16,
-    marginBottom: 4,
-  },
-  row: {
-    paddingVertical: 14,
-  },
-  rowDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-  },
-  rowText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  programLine: {
+  headerTrailing: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  managedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    backgroundColor: colors.sand,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  managedLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.forest,
+  },
+  summary: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.muted,
+  },
+  body: {
+    marginTop: 14,
+    gap: 12,
+  },
+  list: {
+    gap: 10,
+  },
+  programCard: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  accentBar: {
+    width: 4,
+    backgroundColor: colors.forest,
+  },
+  programBody: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  programTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: 10,
   },
   programName: {
     flex: 1,
     minWidth: 0,
     fontFamily: fontFamily.manrope.medium,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.forest,
   },
   tierBadge: {
     flexShrink: 0,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#E8E6E1',
+    backgroundColor: colors.sand,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   tierLabel: {
     fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.forest,
+  },
+  programBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   memberName: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
+  },
+  memberNameSpacer: {
+    flex: 1,
   },
   memberNumber: {
-    fontFamily: fontFamily.manrope.regular,
+    flexShrink: 0,
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   footer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingTop: 2,
+  },
+  footerText: {
+    flex: 1,
     fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
-    lineHeight: 18,
   },
   empty: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
+    fontSize: 10,
     color: colors.muted,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
 });

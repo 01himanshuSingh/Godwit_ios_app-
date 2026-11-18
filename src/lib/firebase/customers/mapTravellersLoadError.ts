@@ -2,7 +2,8 @@
  * Map travellers-list failures to short, user-facing copy for Profile → Travellers.
  */
 
-export type TravellersLoadErrorKind = 'missing_scope' | 'permission' | 'offline' | 'unknown';
+export type TravellersLoadErrorKind =
+  'missing_scope' | 'auth' | 'permission' | 'offline' | 'unknown';
 
 export function classifyTravellersLoadError(error: unknown): TravellersLoadErrorKind {
   if (!(error instanceof Error) && typeof error !== 'object') {
@@ -23,9 +24,21 @@ export function classifyTravellersLoadError(error: unknown): TravellersLoadError
   if (
     blob.includes('missing_scope') ||
     blob.includes('missing admin') ||
-    blob.includes('missing client')
+    blob.includes('missing client') ||
+    blob.includes('adminid or clientid')
   ) {
     return 'missing_scope';
+  }
+
+  if (
+    blob.includes('unauthenticated') ||
+    blob.includes('auth/user-token-expired') ||
+    blob.includes('auth/id-token-expired') ||
+    blob.includes('auth/invalid-user-token') ||
+    blob.includes('session expired') ||
+    blob.includes('token expired')
+  ) {
+    return 'auth';
   }
 
   if (
@@ -51,10 +64,14 @@ export function classifyTravellersLoadError(error: unknown): TravellersLoadError
   return 'unknown';
 }
 
-/** Concise copy for the existing Travellers error card. */
+/**
+ * Concise client-facing copy for Travellers exceptions.
+ * Authentication / Permissions / Connectivity / Default Fail — never raw DB.
+ */
 export function mapTravellersLoadErrorToMessage(error: unknown): string {
   switch (classifyTravellersLoadError(error)) {
     case 'missing_scope':
+    case 'auth':
       return 'Account details are missing. Please sign in again.';
     case 'permission':
       return 'You don’t have access to travellers for this account.';

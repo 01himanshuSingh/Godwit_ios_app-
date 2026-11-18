@@ -11,10 +11,10 @@
  *   map    → mapPaymentsCardToHomeDue.ts
  *   fetch  → getHomePaymentsDue.ts
  *
- * Invoices list (sales):
+ * Invoices list (sales, cursor pages):
  *   types  → invoiceTypes.ts
  *   map    → mapSaleToInvoiceItem.ts
- *   fetch  → getClientInvoices.ts
+ *   fetch  → getClientInvoices.ts (getClientInvoicesPage)
  *
  * Invoice detail (one sale):
  *   types  → invoiceDetailTypes.ts
@@ -72,11 +72,21 @@ export { mapPaymentsCardToHomeDue } from './mapPaymentsCardToHomeDue';
 
 export { getHomePaymentsDue, getHomePaymentsDueSafe } from './getHomePaymentsDue';
 
-export type { ClientInvoiceItem, GetClientInvoicesResult } from './invoiceTypes';
+export type {
+  ClientInvoiceItem,
+  ClientInvoicesPage,
+  InvoicesPageCursor,
+  GetClientInvoicesResult,
+} from './invoiceTypes';
 
 export { invoiceTitle, mapSaleToInvoiceItem } from './mapSaleToInvoiceItem';
 
-export { getClientInvoices, getClientInvoicesSafe } from './getClientInvoices';
+export {
+  getClientInvoices,
+  getClientInvoicesPage,
+  getClientInvoicesSafe,
+  INVOICES_SALES_PAGE_SIZE,
+} from './getClientInvoices';
 
 export type {
   InvoiceLineItem,

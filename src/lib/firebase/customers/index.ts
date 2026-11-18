@@ -12,6 +12,7 @@
  *     types → travellerPersonalDetailsTypes.ts
  *     map   → mapTravellerPersonalDetails.ts
  *     fetch → getTravellerPersonalDetails.ts
+ *     errors → mapTravellerDetailLoadError.ts
  *
  *   shared profile:
  *     load → loadCustomerProfile.ts
@@ -51,6 +52,12 @@ export {
   mapTravellersLoadErrorToMessage,
   type TravellersLoadErrorKind,
 } from './mapTravellersLoadError';
+
+export {
+  classifyTravellerDetailLoadError,
+  mapTravellerDetailLoadErrorToMessage,
+  type TravellerDetailLoadErrorKind,
+} from './mapTravellerDetailLoadError';
 
 export type {
   TravellerPersonalDetails,

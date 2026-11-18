@@ -14,3 +14,5 @@ export type { ClientProfileView, GetClientProfileResult } from './clientProfileT
 export { familyLabelFromClientName, mapClientDocToProfileView } from './mapClientProfile';
 
 export { getClientProfile, getClientProfileSafe } from './getClientProfile';
+
+export { classifyProfileLoadError, mapProfileLoadErrorToMessage } from './mapProfileLoadError';

@@ -1,13 +1,16 @@
 /**
- * ACCOUNT card — matches Profile mock:
- * left: name (serif) / email / role · right: YOUR DIRECTOR (right-aligned)
+ * Profile identity card — dark forest premium shell.
+ * Same backend props; layout matches Profile mock (avatar · family · name · role · email).
+ * Visual styles on View; Pressable not used here.
  */
+import Feather from '@expo/vector-icons/Feather';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
 type ProfileAccountCardProps = {
+  familyLabel: string;
   displayName: string;
   contactEmail: string | null;
   accountRole: string | null;
@@ -15,7 +18,21 @@ type ProfileAccountCardProps = {
   directorTitle: string | null;
 };
 
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return '?';
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  const first = parts[0]?.charAt(0) ?? '';
+  const last = parts[parts.length - 1]?.charAt(0) ?? '';
+  return `${first}${last}`.toUpperCase();
+}
+
 export function ProfileAccountCard({
+  familyLabel,
   displayName,
   contactEmail,
   accountRole,
@@ -24,76 +41,93 @@ export function ProfileAccountCard({
 }: ProfileAccountCardProps) {
   const { width } = useWindowDimensions();
   const isCompact = width < 360;
-  const stack = width < 340;
-  const nameSize = isCompact ? 24 : width >= 768 ? 30 : 28;
-  const emailSize = isCompact ? 13 : 14;
-  const directorNameSize = isCompact ? 14 : 15;
-  const directorTitleSize = isCompact ? 12 : 13;
-  const padH = isCompact ? 18 : width >= 768 ? 26 : 22;
-  const padV = isCompact ? 18 : width >= 768 ? 24 : 20;
+  const stack = width < 380;
 
+  const padH = isCompact ? 18 : width >= 768 ? 26 : 22;
+  const padV = isCompact ? 20 : width >= 768 ? 26 : 22;
+  const avatarSize = isCompact ? 56 : 64;
+
+  const name = displayName.trim();
+  const initials = initialsFromName(name);
+  const family = familyLabel.trim();
   const showDirector = Boolean(directorName?.trim());
+  /** Never invent a name — card only renders fields that exist on the fetched profile. */
+  const hasIdentityCopy = Boolean(family || name || accountRole?.trim() || contactEmail?.trim());
 
   return (
     <View
-      style={[styles.card, { paddingHorizontal: padH, paddingTop: padV, paddingBottom: padV + 2 }]}
+      style={[styles.card, { paddingHorizontal: padH, paddingTop: padV, paddingBottom: padV }]}
       accessibilityRole="summary"
     >
-      <View style={[styles.columns, stack && styles.columnsStack]}>
-        <View style={[styles.accountCol, !stack && showDirector && styles.accountColWithDirector]}>
-          <Text style={styles.eyebrow}>ACCOUNT</Text>
-          <Text
-            style={[styles.name, { fontSize: nameSize, lineHeight: nameSize + 4 }]}
-            selectable
-            numberOfLines={2}
+      <View pointerEvents="none" style={styles.shieldWatermark}>
+        <Feather name="shield" size={148} color="rgba(247, 246, 244, 0.07)" />
+      </View>
+
+      <View style={[styles.row, stack && styles.rowStack]}>
+        <View style={[styles.identityRow, stack && styles.identityRowStack]}>
+          <View
+            style={[
+              styles.avatar,
+              {
+                width: avatarSize,
+                height: avatarSize,
+                borderRadius: avatarSize / 2,
+              },
+            ]}
           >
-            {displayName || '—'}
-          </Text>
-          {contactEmail ? (
-            <Text
-              style={[styles.meta, { fontSize: emailSize, lineHeight: emailSize + 6 }]}
-              selectable
-              numberOfLines={2}
-            >
-              {contactEmail}
-            </Text>
-          ) : null}
-          {accountRole ? (
-            <Text
-              style={[styles.meta, { fontSize: emailSize, lineHeight: emailSize + 6 }]}
-              selectable
-              numberOfLines={2}
-            >
-              {accountRole}
-            </Text>
-          ) : null}
+            <Text style={styles.avatarInitials}>{initials}</Text>
+          </View>
+
+          <View style={styles.copyCol}>
+            {family ? (
+              <Text style={styles.familyEyebrow} numberOfLines={1}>
+                {family}
+              </Text>
+            ) : null}
+
+            {name ? (
+              <Text style={styles.name} selectable numberOfLines={2}>
+                {name}
+              </Text>
+            ) : null}
+
+            {accountRole?.trim() ? (
+              <View style={styles.rolePill}>
+                <Text style={styles.rolePillLabel} numberOfLines={2}>
+                  {accountRole.trim()}
+                </Text>
+              </View>
+            ) : null}
+
+            {contactEmail?.trim() ? (
+              <Text style={styles.email} selectable numberOfLines={2}>
+                {contactEmail.trim()}
+              </Text>
+            ) : null}
+
+            {!hasIdentityCopy ? (
+              <Text style={styles.email}>Profile details unavailable</Text>
+            ) : null}
+          </View>
         </View>
 
         {showDirector ? (
           <View style={[styles.directorCol, stack && styles.directorColStack]}>
-            <Text style={[styles.eyebrow, !stack && styles.alignRight]}>YOUR DIRECTOR</Text>
+            <Text style={[styles.directorEyebrow, !stack && styles.alignRight]}>YOUR DIRECTOR</Text>
             <Text
-              style={[
-                styles.directorName,
-                { fontSize: directorNameSize, lineHeight: directorNameSize + 5 },
-                !stack && styles.alignRight,
-              ]}
+              style={[styles.directorName, !stack && styles.alignRight]}
               selectable
               numberOfLines={2}
             >
               {directorName}
             </Text>
-            {directorTitle ? (
+            {directorTitle?.trim() ? (
               <Text
-                style={[
-                  styles.directorTitle,
-                  { fontSize: directorTitleSize, lineHeight: directorTitleSize + 4 },
-                  !stack && styles.alignRight,
-                ]}
+                style={[styles.directorTitle, !stack && styles.alignRight]}
                 selectable
                 numberOfLines={2}
               >
-                {directorTitle}
+                {directorTitle.trim()}
               </Text>
             ) : null}
           </View>
@@ -106,70 +140,129 @@ export function ProfileAccountCard({
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    borderRadius: 20,
-    backgroundColor: '#F8F7F4',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderRadius: 24,
+    backgroundColor: colors.forest,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  columns: {
+  shieldWatermark: {
+    position: 'absolute',
+    right: -18,
+    bottom: -28,
+    opacity: 1,
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 16,
+    zIndex: 1,
   },
-  columnsStack: {
+  rowStack: {
     flexDirection: 'column',
-    gap: 20,
   },
-  accountCol: {
+  identityRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
     minWidth: 0,
   },
-  accountColWithDirector: {
-    flexGrow: 1.15,
-    flexShrink: 1,
-    paddingRight: 4,
+  identityRowStack: {
+    width: '100%',
+  },
+  avatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sand,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(247, 246, 244, 0.22)',
+  },
+  avatarInitials: {
+    fontFamily: fontFamily.cormorant.medium,
+    fontSize: 15,
+    lineHeight: 18,
+    color: colors.forest,
+  },
+  copyCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 8,
+    paddingTop: 2,
+  },
+  familyEyebrow: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: 'rgba(247, 246, 244, 0.55)',
+  },
+  name: {
+    fontFamily: fontFamily.cormorant.medium,
+    fontSize: 22,
+    lineHeight: 28,
+    color: colors.primaryForeground,
+  },
+  rolePill: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(61, 79, 56, 0.72)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(216, 205, 184, 0.28)',
+  },
+  rolePillLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 10,
+    lineHeight: 13,
+    color: 'rgba(247, 246, 244, 0.88)',
+  },
+  email: {
+    marginTop: 2,
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(247, 246, 244, 0.62)',
   },
   directorCol: {
-    flexGrow: 0.85,
     flexShrink: 1,
-    minWidth: 118,
-    maxWidth: '42%',
+    minWidth: 112,
+    maxWidth: '38%',
+    paddingTop: 4,
+    zIndex: 1,
   },
   directorColStack: {
     maxWidth: '100%',
     width: '100%',
     minWidth: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: 16,
+    borderTopColor: 'rgba(247, 246, 244, 0.14)',
+    paddingTop: 14,
+    marginTop: 4,
   },
-  eyebrow: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 10,
-    letterSpacing: 1.6,
-    color: colors.muted,
+  directorEyebrow: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 9,
+    letterSpacing: 1.3,
     textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  name: {
-    fontFamily: fontFamily.cormorant.medium,
-    color: colors.forest,
-    marginBottom: 6,
-  },
-  meta: {
-    fontFamily: fontFamily.manrope.regular,
-    color: colors.muted,
-    marginTop: 2,
+    color: 'rgba(247, 246, 244, 0.45)',
+    marginBottom: 8,
   },
   directorName: {
     fontFamily: fontFamily.manrope.semibold,
-    color: colors.forest,
+    fontSize: 14,
+    lineHeight: 19,
+    color: colors.primaryForeground,
     marginBottom: 4,
   },
   directorTitle: {
     fontFamily: fontFamily.manrope.regular,
-    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(247, 246, 244, 0.58)',
   },
   alignRight: {
     textAlign: 'right',

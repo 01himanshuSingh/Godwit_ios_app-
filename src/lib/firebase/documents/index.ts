@@ -17,6 +17,7 @@
  */
 
 export type {
+  TripDocumentIconKind,
   TripDocumentItem,
   TripDocumentsPageCursor,
   ClientTripDocumentsPage,

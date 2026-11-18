@@ -1,32 +1,36 @@
 /**
  * Profile → Travellers list.
- * Scope: same adminId/clientId as Profile / Trips / Testing.
  *
- * Errors (friendly copy from getTravellersForClientSafe):
- *   missing admin/client · permission · offline/timeout
- * Empty list is success → TravellerListCard empty state.
+ * States:
+ *   loading   → TravellersListSkeleton
+ *   exception → TravellersExceptionCard (auth / permission / offline / default)
+ *   empty     → TravellersEmptyCard (success, zero travellers)
+ *   data      → TravellerListCard
+ *
+ * Never invents travellers; never surfaces adminId / clientId / raw DB errors.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
 
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
 import { TravellerListCard } from '@/features/profile/travellers/components/TravellerListCard';
+import { TravellersEmptyCard } from '@/features/profile/travellers/components/TravellersEmptyCard';
+import { TravellersExceptionCard } from '@/features/profile/travellers/components/TravellersExceptionCard';
+import { TravellersListSkeleton } from '@/features/profile/travellers/components/TravellersListSkeleton';
 import type { ClientTraveller } from '@/lib/firebase/customers';
 import {
+  classifyTravellersLoadError,
   getTravellersForClientSafe,
   mapTravellersLoadErrorToMessage,
 } from '@/lib/firebase/customers';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
-import { colors } from '@/ui/tokens/colors';
-import { fontFamily } from '@/ui/tokens/typography';
 
 export function TravellersScreen() {
   const router = useRouter();
   const { profile, isHydrating } = useActiveClientProfile();
-  const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
-  const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
+  const adminId = profile?.adminId?.trim() ?? '';
+  const clientId = profile?.clientId?.trim() ?? '';
   const hasScope = Boolean(adminId && clientId);
 
   const openTraveller = (traveller: ClientTraveller) => {
@@ -43,73 +47,56 @@ export function TravellersScreen() {
   });
 
   const travellers = data?.travellers ?? [];
-  const loadError =
-    (!isHydrating && !hasScope
-      ? mapTravellersLoadErrorToMessage(new Error('Missing adminId or clientId'))
-      : null) ??
-    data?.errorMessage ??
-    (isError ? mapTravellersLoadErrorToMessage(error) : null);
-  const loading = isHydrating || (hasScope && isPending && travellers.length === 0 && !loadError);
+
+  const exception = useMemo(() => {
+    if (!isHydrating && !hasScope) {
+      const scopeError = new Error('Missing adminId or clientId');
+      return {
+        kind: classifyTravellersLoadError(scopeError),
+        message: mapTravellersLoadErrorToMessage(scopeError),
+        canRetry: false,
+      };
+    }
+
+    const raw = data?.errorMessage != null ? new Error(data.errorMessage) : isError ? error : null;
+
+    if (!raw) return null;
+
+    const kind = classifyTravellersLoadError(raw);
+    return {
+      kind,
+      message: mapTravellersLoadErrorToMessage(raw),
+      canRetry: kind !== 'missing_scope' && kind !== 'auth',
+    };
+  }, [isHydrating, hasScope, data, isError, error]);
+
+  const loading = isHydrating || (hasScope && isPending && travellers.length === 0 && !exception);
+  const showEmpty = !loading && !exception && travellers.length === 0;
+  const showList = !loading && !exception && travellers.length > 0;
 
   return (
     <ProfileSectionShell
       title="Travellers"
       subtitle="Details, travel documents, loyalty and preferences."
+      backLabel="Profile"
+      layoutPreset="travellers"
     >
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.forest} />
-        </View>
+      {loading ? <TravellersListSkeleton /> : null}
+
+      {!loading && exception ? (
+        <TravellersExceptionCard
+          kind={exception.kind}
+          message={exception.message}
+          isRetrying={isFetching}
+          onRetry={exception.canRetry ? () => void refetch() : undefined}
+        />
       ) : null}
 
-      {!loading && loadError ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{loadError}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading travellers"
-            onPress={() => void refetch()}
-            style={styles.retry}
-          >
-            <Text style={styles.retryLabel}>{isFetching ? 'Retrying…' : 'Retry'}</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      {showEmpty ? <TravellersEmptyCard /> : null}
 
-      {!loading && !loadError ? (
+      {showList ? (
         <TravellerListCard travellers={travellers} onPressTraveller={openTraveller} />
       ) : null}
     </ProfileSectionShell>
   );
 }
-
-const styles = StyleSheet.create({
-  centered: {
-    paddingVertical: 32,
-    alignItems: 'center',
-  },
-  errorBox: {
-    borderRadius: 16,
-    backgroundColor: '#F8F7F4',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: 20,
-    gap: 10,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  retry: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  retryLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
-    color: colors.forest,
-  },
-});

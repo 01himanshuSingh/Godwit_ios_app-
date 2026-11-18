@@ -61,14 +61,38 @@ function toDateKey(d: Date | null): string | null {
   return `${y}-${m}-${day}`;
 }
 
-function formatExpiryLabel(d: Date | null): string | null {
+function formatExpiryLabel(d: Date | null, status: TravelDocStatus): string | null {
   if (!d) return null;
   const label = d.toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
-  return `Expires ${label}`;
+  return status === 'Expired' ? `Expired ${label}` : `Expires ${label}`;
+}
+
+function readCountry(row: DocumentData, encryptionKey: string): string | null {
+  return (
+    decryptMaybe(row.country, encryptionKey) ||
+    decryptMaybe(row.countryName, encryptionKey) ||
+    decryptMaybe(row.issuingCountry, encryptionKey) ||
+    readString(row.country) ||
+    readString(row.countryName) ||
+    readString(row.issuingCountry) ||
+    readString(row.nationality)
+  );
+}
+
+function readMaskedDocNumber(row: DocumentData, encryptionKey: string): string | null {
+  const raw =
+    decryptMaybe(row.passportNumber, encryptionKey) ||
+    decryptMaybe(row.documentNumber, encryptionKey) ||
+    decryptMaybe(row.number, encryptionKey) ||
+    readString(row.passportNumber) ||
+    readString(row.documentNumber) ||
+    readString(row.number) ||
+    readString(row.visaNumber);
+  return maskLast4(raw);
 }
 
 function statusFromExpiry(d: Date | null, renewDays = 90): TravelDocStatus {
@@ -91,8 +115,11 @@ function readDocUrl(row: DocumentData): string | null {
 }
 
 function buildDetailLine(country: string | null, maskedNumber: string | null): string | null {
-  const bits = [country, maskedNumber].filter(Boolean) as string[];
-  return bits.length ? bits.join(' · ') : null;
+  if (country && maskedNumber) {
+    // maskedNumber already starts with "· · · · " — avoid a double separator.
+    return `${country} ${maskedNumber}`;
+  }
+  return country || maskedNumber || null;
 }
 
 /**
@@ -123,6 +150,9 @@ export function mapTravellerTravelDocs(
       readString(p.expiryEnd) ||
       readString(p.expiryDate);
     const expiryDate = toDate(expiryRaw) || toDate(p.expiryEnd) || toDate(p.expiryDate);
+    const status = statusFromExpiry(expiryDate);
+    const country = readCountry(p, encryptionKey);
+    const maskedNumber = readMaskedDocNumber(p, encryptionKey);
     const docUrl = readDocUrl(p);
     const key = `passport:${docUrl || index}:${toDateKey(expiryDate) || ''}`;
     if (seen.has(key)) return;
@@ -132,29 +162,33 @@ export function mapTravellerTravelDocs(
       id: key,
       type: 'passport',
       title: 'Passport',
-      country: null,
-      maskedNumber: null,
-      detailLine: null,
+      country,
+      maskedNumber,
+      detailLine: buildDetailLine(country, maskedNumber),
       expiresAtKey: toDateKey(expiryDate),
-      expiresAtLabel: formatExpiryLabel(expiryDate),
-      status: statusFromExpiry(expiryDate),
+      expiresAtLabel: formatExpiryLabel(expiryDate, status),
+      status,
       docUrl,
     });
   });
 
   const visas = [...asList(prefs.visas), ...asList(profileData.visas)];
   visas.forEach((v, index) => {
-    const country =
-      decryptMaybe(v.country, encryptionKey) ||
-      decryptMaybe(v.countryName, encryptionKey) ||
-      readString(v.country) ||
-      readString(v.countryName);
+    const country = readCountry(v, encryptionKey);
+    const visaType =
+      readString(v.visaType) ||
+      readString(v.type) ||
+      readString(v.category) ||
+      readString(v.visaCategory);
+    const title = visaType ? `Visa (${visaType})` : 'Visa';
     const expiryRaw =
       decryptMaybe(v.expiryEnd, encryptionKey) ||
       decryptMaybe(v.expiryDate, encryptionKey) ||
       readString(v.expiryEnd) ||
       readString(v.expiryDate);
     const expiryDate = toDate(expiryRaw) || toDate(v.expiryEnd) || toDate(v.expiryDate);
+    const status = statusFromExpiry(expiryDate);
+    const maskedNumber = readMaskedDocNumber(v, encryptionKey);
     const docUrl = readDocUrl(v);
     const key = `visa:${country || ''}:${docUrl || index}:${toDateKey(expiryDate) || ''}`;
     if (seen.has(key)) return;
@@ -163,13 +197,13 @@ export function mapTravellerTravelDocs(
     items.push({
       id: key,
       type: 'visa',
-      title: 'Visa',
+      title,
       country,
-      maskedNumber: null,
-      detailLine: buildDetailLine(country, null),
+      maskedNumber,
+      detailLine: buildDetailLine(country, maskedNumber),
       expiresAtKey: toDateKey(expiryDate),
-      expiresAtLabel: formatExpiryLabel(expiryDate),
-      status: statusFromExpiry(expiryDate),
+      expiresAtLabel: formatExpiryLabel(expiryDate, status),
+      status,
       docUrl,
     });
   });
@@ -186,6 +220,7 @@ export function mapTravellerTravelDocs(
       readString(m.memberNumber) || readString(m.membershipNumber) || readString(m.number);
     const maskedNumber = maskLast4(memberNumber);
     const expiryDate = toDate(m.expiryDate) || toDate(m.expiry) || toDate(m.expiresAt);
+    const status = statusFromExpiry(expiryDate);
     const docUrl = readDocUrl(m);
     const key = `membership:${title}:${docUrl || index}:${toDateKey(expiryDate) || ''}`;
     if (seen.has(key)) return;
@@ -199,8 +234,8 @@ export function mapTravellerTravelDocs(
       maskedNumber,
       detailLine: buildDetailLine(null, maskedNumber),
       expiresAtKey: toDateKey(expiryDate),
-      expiresAtLabel: formatExpiryLabel(expiryDate),
-      status: statusFromExpiry(expiryDate),
+      expiresAtLabel: formatExpiryLabel(expiryDate, status),
+      status,
       docUrl,
     });
   });

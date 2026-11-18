@@ -1,10 +1,17 @@
 /**
  * Profile → Travellers → traveller detail.
  * Scope: admins/{adminId}/customers/{customerId}
- * Loyalty / Hotels: customerProfile under that traveller
+ *
+ * States:
+ *   loading   → TravellerDetailSkeleton
+ *   exception → TravellerDetailExceptionCard (auth / permission / offline / not_found / default)
+ *   data      → hero + tabbed sections
+ *
+ * Never invents identity; never surfaces adminId / customerId / raw DB errors.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
 import { AirlinesCard } from '@/features/profile/travellers/components/AirlinesCard';
@@ -12,20 +19,27 @@ import { HotelsCard } from '@/features/profile/travellers/components/HotelsCard'
 import { LoyaltyCard } from '@/features/profile/travellers/components/LoyaltyCard';
 import { PersonalDetailsCard } from '@/features/profile/travellers/components/PersonalDetailsCard';
 import { TravelDocumentsCard } from '@/features/profile/travellers/components/TravelDocumentsCard';
+import { TravellerDetailExceptionCard } from '@/features/profile/travellers/components/TravellerDetailExceptionCard';
+import { TravellerDetailHero } from '@/features/profile/travellers/components/TravellerDetailHero';
+import { TravellerDetailSkeleton } from '@/features/profile/travellers/components/TravellerDetailSkeleton';
 import {
+  TravellerDetailTabs,
+  type TravellerDetailTabId,
+} from '@/features/profile/travellers/components/TravellerDetailTabs';
+import {
+  classifyTravellerDetailLoadError,
   getTravellerAirlinePrefsSafe,
   getTravellerHotelPrefsSafe,
   getTravellerLoyaltySafe,
   getTravellerPersonalDetailsSafe,
   getTravellerTravelDocsSafe,
+  mapTravellerDetailLoadErrorToMessage,
   updateTravellerAirlinePref,
   updateTravellerHotelPref,
   type TravellerAirlinePrefField,
   type TravellerHotelPrefField,
 } from '@/lib/firebase/customers';
-
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID } from '@/mocks/testingClientSession';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -36,8 +50,10 @@ type TravellerDetailScreenProps = {
 export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps) {
   const queryClient = useQueryClient();
   const { profile, isHydrating } = useActiveClientProfile();
-  const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
+  const adminId = profile?.adminId?.trim() ?? '';
   const cid = customerId.trim();
+  const hasScope = Boolean(adminId && cid);
+  const [activeTab, setActiveTab] = useState<TravellerDetailTabId>('personal');
 
   const hotelsQueryKey = ['profile', 'traveller', 'hotels', adminId, cid] as const;
   const airlinesQueryKey = ['profile', 'traveller', 'airlines', adminId, cid] as const;
@@ -45,13 +61,13 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
   const detailsQuery = useQuery({
     queryKey: ['profile', 'traveller', adminId, cid],
     queryFn: () => getTravellerPersonalDetailsSafe(adminId, cid),
-    enabled: !isHydrating && Boolean(adminId && cid),
+    enabled: !isHydrating && hasScope,
     retry: 2,
   });
 
   const details = detailsQuery.data?.details ?? null;
   const travellerName = details?.fullName ?? null;
-  const profileReady = !isHydrating && Boolean(adminId && cid) && detailsQuery.isSuccess;
+  const profileReady = !isHydrating && hasScope && detailsQuery.isSuccess && Boolean(details);
 
   const travelDocsQuery = useQuery({
     queryKey: ['profile', 'traveller', 'travel-docs', adminId, cid],
@@ -107,15 +123,52 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
     },
   });
 
-  const loadError =
-    detailsQuery.data?.errorMessage ??
-    (detailsQuery.isError ? String(detailsQuery.error) : null) ??
-    (!detailsQuery.isPending && !details ? 'Traveller not found.' : null);
-  const loading = isHydrating || (detailsQuery.isPending && !details && !loadError);
+  const exception = useMemo(() => {
+    if (!isHydrating && !hasScope) {
+      const scopeError = new Error('Missing adminId or customerId');
+      return {
+        kind: classifyTravellerDetailLoadError(scopeError),
+        message: mapTravellerDetailLoadErrorToMessage(scopeError),
+        canRetry: false,
+      };
+    }
 
-  const title = details?.fullName || 'Traveller';
-  // Name → role line under it (CRM relationship, else static "Principal" like the mock).
-  const subtitle = details ? details.relationship?.trim() || 'Principal' : null;
+    const rawFromSafe =
+      detailsQuery.data?.errorMessage != null ? new Error(detailsQuery.data.errorMessage) : null;
+    const rawFromQuery = detailsQuery.isError ? detailsQuery.error : null;
+    const raw = rawFromSafe ?? rawFromQuery;
+
+    if (raw) {
+      const kind = classifyTravellerDetailLoadError(raw);
+      return {
+        kind,
+        message: mapTravellerDetailLoadErrorToMessage(raw),
+        canRetry: kind !== 'missing_scope' && kind !== 'auth' && kind !== 'not_found',
+      };
+    }
+
+    if (!detailsQuery.isPending && detailsQuery.isSuccess && !details) {
+      const notFound = new Error('Traveller not found');
+      return {
+        kind: classifyTravellerDetailLoadError(notFound),
+        message: mapTravellerDetailLoadErrorToMessage(notFound),
+        canRetry: false,
+      };
+    }
+
+    return null;
+  }, [
+    isHydrating,
+    hasScope,
+    detailsQuery.data,
+    detailsQuery.isError,
+    detailsQuery.error,
+    detailsQuery.isPending,
+    detailsQuery.isSuccess,
+    details,
+  ]);
+
+  const loading = isHydrating || (hasScope && detailsQuery.isPending && !details && !exception);
 
   const travelDocs =
     travelDocsQuery.data?.travelDocs ??
@@ -158,63 +211,97 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
         }
       : null);
 
+  const refetchAll = () => {
+    void detailsQuery.refetch();
+    void travelDocsQuery.refetch();
+    void loyaltyQuery.refetch();
+    void hotelsQuery.refetch();
+    void airlinesQuery.refetch();
+  };
+
+  const isRetrying =
+    detailsQuery.isFetching ||
+    travelDocsQuery.isFetching ||
+    loyaltyQuery.isFetching ||
+    hotelsQuery.isFetching ||
+    airlinesQuery.isFetching;
+
   return (
-    <ProfileSectionShell title={title} subtitle={subtitle} backLabel="Travellers">
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.forest} />
-        </View>
+    <ProfileSectionShell backLabel="Travellers" layoutPreset="travellers">
+      {loading ? <TravellerDetailSkeleton /> : null}
+
+      {!loading && exception ? (
+        <TravellerDetailExceptionCard
+          kind={exception.kind}
+          message={exception.message}
+          isRetrying={isRetrying}
+          onRetry={exception.canRetry ? refetchAll : undefined}
+        />
       ) : null}
 
-      {!loading && loadError ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{loadError}</Text>
-          <Pressable
-            onPress={() => {
-              void detailsQuery.refetch();
-              void travelDocsQuery.refetch();
-              void loyaltyQuery.refetch();
-              void hotelsQuery.refetch();
-              void airlinesQuery.refetch();
-            }}
-
-            style={styles.retry}
-          >
-            <Text style={styles.retryLabel}>{detailsQuery.isFetching ? 'Retrying…' : 'Retry'}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      {!loading && !loadError && details ? (
+      {!loading && !exception && details ? (
         <View style={styles.stack}>
-          <PersonalDetailsCard details={details} initiallyExpanded />
-          {travelDocs ? <TravelDocumentsCard travelDocs={travelDocs} initiallyExpanded /> : null}
-          {loyalty ? <LoyaltyCard loyalty={loyalty} initiallyExpanded /> : null}
-          {hotelPrefs ? (
-            <HotelsCard
-              hotelPrefs={hotelPrefs}
-              initiallyExpanded
-              savingField={
-                hotelSaveMutation.isPending ? (hotelSaveMutation.variables?.field ?? null) : null
-              }
-              onSaveField={async (field, value) => {
-                await hotelSaveMutation.mutateAsync({ field, value });
-              }}
-            />
+          <TravellerDetailHero fullName={details.fullName} relationship={details.relationship} />
+
+          <View style={styles.tabsWrap}>
+            <TravellerDetailTabs active={activeTab} onChange={setActiveTab} />
+            <View style={styles.tabsBaseLine} />
+          </View>
+
+          {activeTab === 'personal' ? (
+            <PersonalDetailsCard details={details} initiallyExpanded />
           ) : null}
-          {airlinePrefs ? (
-            <AirlinesCard
-              airlinePrefs={airlinePrefs}
-              initiallyExpanded
-              savingField={
-                airlineSaveMutation.isPending
-                  ? (airlineSaveMutation.variables?.field ?? null)
-                  : null
-              }
-              onSaveField={async (field, value) => {
-                await airlineSaveMutation.mutateAsync({ field, value });
-              }}
-            />
+
+          {activeTab === 'documents' ? (
+            travelDocs ? (
+              <TravelDocumentsCard travelDocs={travelDocs} initiallyExpanded />
+            ) : (
+              <Text style={styles.tabEmpty}>No travel documents available yet.</Text>
+            )
+          ) : null}
+
+          {activeTab === 'loyalty' ? (
+            loyalty ? (
+              <LoyaltyCard loyalty={loyalty} initiallyExpanded />
+            ) : (
+              <Text style={styles.tabEmpty}>No loyalty details available yet.</Text>
+            )
+          ) : null}
+
+          {activeTab === 'hotels' ? (
+            hotelPrefs ? (
+              <HotelsCard
+                hotelPrefs={hotelPrefs}
+                initiallyExpanded
+                savingField={
+                  hotelSaveMutation.isPending ? (hotelSaveMutation.variables?.field ?? null) : null
+                }
+                onSaveField={async (field, value) => {
+                  await hotelSaveMutation.mutateAsync({ field, value });
+                }}
+              />
+            ) : (
+              <Text style={styles.tabEmpty}>No hotel preferences available yet.</Text>
+            )
+          ) : null}
+
+          {activeTab === 'air' ? (
+            airlinePrefs ? (
+              <AirlinesCard
+                airlinePrefs={airlinePrefs}
+                initiallyExpanded
+                savingField={
+                  airlineSaveMutation.isPending
+                    ? (airlineSaveMutation.variables?.field ?? null)
+                    : null
+                }
+                onSaveField={async (field, value) => {
+                  await airlineSaveMutation.mutateAsync({ field, value });
+                }}
+              />
+            ) : (
+              <Text style={styles.tabEmpty}>No airline preferences available yet.</Text>
+            )
           ) : null}
         </View>
       ) : null}
@@ -224,34 +311,22 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
 
 const styles = StyleSheet.create({
   stack: {
-    gap: 14,
+    gap: 16,
   },
-  centered: {
-    paddingVertical: 32,
-    alignItems: 'center',
+  tabsWrap: {
+    gap: 0,
   },
-  errorBox: {
-    borderRadius: 16,
-    backgroundColor: '#F8F7F4',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: 20,
-    gap: 10,
-    alignItems: 'center',
+  tabsBaseLine: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginTop: -2,
   },
-  errorText: {
+  tabEmpty: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.muted,
     textAlign: 'center',
-  },
-  retry: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  retryLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
-    color: colors.forest,
+    paddingVertical: 24,
   },
 });

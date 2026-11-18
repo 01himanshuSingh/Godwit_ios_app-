@@ -5,6 +5,8 @@
 
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 
+export type TripDocumentIconKind = 'stay' | 'flight' | 'tour' | 'file';
+
 export type TripDocumentItem = {
   saleId: string;
   title: string;
@@ -18,6 +20,16 @@ export type TripDocumentItem = {
    * Falls back to "Trips" when CRM has no label.
    */
   groupLabel: string;
+  /** STAY / FLIGHT / TOUR from CRM serviceName — null when unknown. */
+  badgeLabel: string | null;
+  iconKind: TripDocumentIconKind;
+  /** PDF / PKPASS when detectable from confirmationDoc URL. */
+  formatLabel: string | null;
+  /**
+   * List meta — date · format from CRM-derived parts only.
+   * e.g. "11 July 2026 · PDF"
+   */
+  metaLine: string | null;
   documentPath: string;
 };
 

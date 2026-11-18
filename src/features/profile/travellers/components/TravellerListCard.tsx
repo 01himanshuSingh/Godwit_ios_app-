@@ -1,10 +1,10 @@
 /**
- * Travellers list card — name (medium) + detail line + chevron.
- * Visual styles on View; Pressable is a plain touch wrapper (NativeWind-safe).
+ * Travellers list — single white card, avatar · name · badges · meta · chevron.
+ * Only renders fields present on ClientTraveller (no invented identity).
+ * Visual styles on View; Pressable is a plain touch wrapper.
  */
 import Feather from '@expo/vector-icons/Feather';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ClientTraveller } from '@/lib/firebase/customers';
 import { colors } from '@/ui/tokens/colors';
@@ -15,137 +15,99 @@ type TravellerListCardProps = {
   onPressTraveller?: (traveller: ClientTraveller) => void;
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      padH: 18,
-      padV: 12,
-      rowPadV: 14,
-      textGap: 6,
-      nameSize: 15,
-      nameLineHeight: 20,
-      detailSize: 12,
-      detailLineHeight: 16,
-      chevronSize: 16,
-      chevronGap: 12,
-      radius: 20,
-    };
-  }
-  if (width < 768) {
-    return {
-      padH: 22,
-      padV: 14,
-      rowPadV: 16,
-      textGap: 6,
-      nameSize: 16,
-      nameLineHeight: 22,
-      detailSize: 13,
-      detailLineHeight: 18,
-      chevronSize: 18,
-      chevronGap: 14,
-      radius: 20,
-    };
-  }
-  return {
-    padH: 26,
-    padV: 16,
-    rowPadV: 18,
-    textGap: 8,
-    nameSize: 17,
-    nameLineHeight: 24,
-    detailSize: 14,
-    detailLineHeight: 20,
-    chevronSize: 18,
-    chevronGap: 16,
-    radius: 20,
-  };
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  const first = parts[0]?.charAt(0) ?? '';
+  const last = parts[parts.length - 1]?.charAt(0) ?? '';
+  return `${first}${last}`.toUpperCase();
+}
+
+function isPrincipalRelationship(relationship: string | null | undefined): boolean {
+  const r = relationship?.trim().toLowerCase() ?? '';
+  return r === 'principal' || r.includes('principal');
+}
+
+function TravellerRow({
+  traveller,
+  isLast,
+  onPress,
+}: {
+  traveller: ClientTraveller;
+  isLast: boolean;
+  onPress?: (traveller: ClientTraveller) => void;
+}) {
+  const name = traveller.name?.trim() ?? '';
+  const detail = traveller.detailLine?.trim() || null;
+  const showPrincipal = isPrincipalRelationship(traveller.relationship);
+  const showMinor = traveller.isMinor === true;
+  const initials = initialsFromName(name);
+  const a11y = name || detail || 'Traveller';
+
+  return (
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={a11y}
+        onPress={() => onPress?.(traveller)}
+        style={styles.rowPressable}
+      >
+        <View style={styles.row}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarInitials}>{initials}</Text>
+          </View>
+
+          <View style={styles.copyCol}>
+            <View style={styles.nameLine}>
+              {name ? (
+                <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+                  {name}
+                </Text>
+              ) : null}
+
+              {showPrincipal ? (
+                <View style={styles.principalBadge}>
+                  <Text style={styles.principalBadgeLabel}>PRINCIPAL</Text>
+                </View>
+              ) : null}
+
+              {showMinor ? (
+                <View style={styles.minorBadge}>
+                  <Text style={styles.minorBadgeLabel}>MINOR</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {detail ? (
+              <Text style={styles.detail} numberOfLines={2} ellipsizeMode="tail">
+                {detail}
+              </Text>
+            ) : null}
+          </View>
+
+          <Feather name="chevron-right" size={16} color="#C4C0B8" style={styles.chevron} />
+        </View>
+      </Pressable>
+      {!isLast ? <View style={styles.divider} /> : null}
+    </View>
+  );
 }
 
 export function TravellerListCard({ travellers, onPressTraveller }: TravellerListCardProps) {
-  const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
-
   if (travellers.length === 0) {
-    return (
-      <View
-        style={[
-          styles.card,
-          {
-            borderRadius: layout.radius,
-            paddingHorizontal: layout.padH,
-            paddingVertical: layout.padV + 8,
-          },
-        ]}
-      >
-        <Text style={styles.empty}>No travellers linked to this client yet.</Text>
-      </View>
-    );
+    return null;
   }
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          borderRadius: layout.radius,
-          paddingHorizontal: layout.padH,
-          paddingTop: layout.padV,
-          paddingBottom: layout.padV,
-        },
-      ]}
-    >
+    <View style={styles.card}>
       {travellers.map((traveller, index) => (
-        <View key={traveller.customerId}>
-          {index > 0 ? <View style={styles.divider} /> : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={traveller.name}
-            onPress={() => onPressTraveller?.(traveller)}
-            style={styles.rowPressable}
-          >
-            <View
-              style={[
-                styles.row,
-                {
-                  paddingVertical: layout.rowPadV,
-                  gap: layout.textGap,
-                },
-              ]}
-            >
-              <View style={[styles.nameRow, { gap: layout.chevronGap }]}>
-                <Text
-                  style={[
-                    styles.name,
-                    {
-                      fontSize: layout.nameSize,
-                      lineHeight: layout.nameLineHeight,
-                    },
-                  ]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {traveller.name || '—'}
-                </Text>
-                <Feather name="chevron-right" size={layout.chevronSize} color="#C4C0B8" />
-              </View>
-              {traveller.detailLine ? (
-                <Text
-                  style={[
-                    styles.detail,
-                    {
-                      fontSize: layout.detailSize,
-                      lineHeight: layout.detailLineHeight,
-                    },
-                  ]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {traveller.detailLine}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-        </View>
+        <TravellerRow
+          key={traveller.customerId}
+          traveller={traveller}
+          isLast={index === travellers.length - 1}
+          onPress={onPressTraveller}
+        />
       ))}
     </View>
   );
@@ -154,40 +116,94 @@ export function TravellerListCard({ travellers, onPressTraveller }: TravellerLis
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    backgroundColor: '#F8F7F4',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
   rowPressable: {
     width: '100%',
   },
   row: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-  },
-  nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 0,
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  name: {
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sand,
+  },
+  avatarInitials: {
+    fontFamily: fontFamily.cormorant.medium,
+    fontSize: 14,
+    lineHeight: 17,
+    color: colors.forest,
+  },
+  copyCol: {
     flex: 1,
     minWidth: 0,
+    gap: 4,
+  },
+  nameLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  name: {
+    flexShrink: 1,
+    fontFamily: fontFamily.cormorant.medium,
+    fontSize: 17,
+    lineHeight: 22,
+    color: colors.forest,
+  },
+  principalBadge: {
+    borderRadius: 999,
+    backgroundColor: colors.sand,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  principalBadgeLabel: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 0.6,
+    color: colors.forest,
+  },
+  minorBadge: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.forest,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  minorBadgeLabel: {
     fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 0.6,
     color: colors.forest,
   },
   detail: {
     fontFamily: fontFamily.manrope.regular,
+    fontSize: 11,
+    lineHeight: 15,
     color: colors.muted,
+  },
+  chevron: {
+    marginTop: 1,
   },
   divider: {
+    marginLeft: 78,
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
-  },
-  empty: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
   },
 });

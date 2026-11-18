@@ -1,6 +1,6 @@
 /**
- * Expandable Personal Details card — collapsed summary + field list.
- * Matches traveller detail mock (open / closed chevron).
+ * Expandable Personal Details card — only renders fields present on the view model.
+ * Visual styles on View; Pressable is a plain touch wrapper.
  */
 import Feather from '@expo/vector-icons/Feather';
 import { useMemo, useState } from 'react';
@@ -11,7 +11,6 @@ import {
   StyleSheet,
   Text,
   UIManager,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -25,7 +24,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 type PersonalDetailsCardProps = {
   details: TravellerPersonalDetails;
-  /** Start expanded (mock default is open). */
   initiallyExpanded?: boolean;
 };
 
@@ -34,37 +32,6 @@ type DetailField = {
   label: string;
   value: string;
 };
-
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      padH: 18,
-      padV: 16,
-      radius: 18,
-      sectionLabelSize: 11,
-      summarySize: 14,
-      summaryLineHeight: 20,
-      fieldLabelSize: 11,
-      fieldValueSize: 15,
-      fieldValueLineHeight: 20,
-      fieldGap: 16,
-      chevronSize: 18,
-    };
-  }
-  return {
-    padH: 22,
-    padV: 18,
-    radius: 20,
-    sectionLabelSize: 11,
-    summarySize: 15,
-    summaryLineHeight: 22,
-    fieldLabelSize: 11,
-    fieldValueSize: 16,
-    fieldValueLineHeight: 22,
-    fieldGap: 18,
-    chevronSize: 20,
-  };
-}
 
 function buildFields(details: TravellerPersonalDetails): DetailField[] {
   const rows: { key: string; label: string; value: string | null }[] = [
@@ -76,23 +43,23 @@ function buildFields(details: TravellerPersonalDetails): DetailField[] {
     { key: 'telephone', label: 'TELEPHONE', value: details.telephone },
   ];
   return rows
-    .filter((r): r is DetailField => Boolean(r.value))
-    .map((r) => ({ key: r.key, label: r.label, value: r.value as string }));
+    .filter((r): r is DetailField => Boolean(r.value?.trim()))
+    .map((r) => ({ key: r.key, label: r.label, value: r.value!.trim() }));
 }
 
 export function PersonalDetailsCard({
   details,
   initiallyExpanded = true,
 }: PersonalDetailsCardProps) {
-  const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const fields = useMemo(() => buildFields(details), [details]);
 
   const summary =
-    details.summaryLine ||
-    [details.nationality, details.relationship].filter(Boolean).join(' · ') ||
-    'Personal details';
+    details.summaryLine?.trim() ||
+    [details.nationality, details.dateOfBirthLabel ? `born ${details.dateOfBirthLabel}` : null]
+      .filter(Boolean)
+      .join(' · ') ||
+    null;
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -100,17 +67,7 @@ export function PersonalDetailsCard({
   };
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          borderRadius: layout.radius,
-          paddingHorizontal: layout.padH,
-          paddingTop: layout.padV,
-          paddingBottom: layout.padV,
-        },
-      ]}
-    >
+    <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -119,64 +76,35 @@ export function PersonalDetailsCard({
         hitSlop={8}
         style={styles.headerPressable}
       >
-        <View style={styles.header}>
-          <Text
-            style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
-          >
-            PERSONAL DETAILS
-          </Text>
-          <View style={styles.summaryRow}>
-            <Text
-              style={[
-                styles.summary,
-                {
-                  fontSize: layout.summarySize,
-                  lineHeight: layout.summaryLineHeight,
-                },
-              ]}
-              numberOfLines={2}
-              ellipsizeMode="tail"
-            >
-              {summary}
-            </Text>
-            <View style={styles.chevronWrap} pointerEvents="none">
-              <Feather
-                name={expanded ? 'chevron-up' : 'chevron-down'}
-                size={layout.chevronSize}
-                color="#C4C0B8"
-              />
+        <View style={styles.headerTop}>
+          <Text style={styles.sectionLabel}>PERSONAL DETAILS</Text>
+          <View style={styles.headerTrailing}>
+            <View style={styles.managedBadge}>
+              <Feather name="lock" size={9} color={colors.forest} />
+              <Text style={styles.managedLabel}>Managed by Godwit</Text>
             </View>
+            <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color="#C4C0B8" />
           </View>
         </View>
+
+        {summary ? (
+          <Text style={styles.summary} numberOfLines={2} ellipsizeMode="tail">
+            {summary}
+          </Text>
+        ) : null}
       </Pressable>
 
       {expanded ? (
         <>
           <View style={styles.divider} />
-          <View style={[styles.fields, { gap: layout.fieldGap }]}>
+          <View style={styles.fields}>
             {fields.length === 0 ? (
               <Text style={styles.empty}>No personal details available yet.</Text>
             ) : (
               fields.map((field) => (
                 <View key={field.key} style={styles.field}>
-                  <Text
-                    style={[
-                      styles.fieldLabel,
-                      { fontSize: layout.fieldLabelSize, letterSpacing: 0.7 },
-                    ]}
-                  >
-                    {field.label}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.fieldValue,
-                      {
-                        fontSize: layout.fieldValueSize,
-                        lineHeight: layout.fieldValueLineHeight,
-                      },
-                    ]}
-                    selectable
-                  >
+                  <Text style={styles.fieldLabel}>{field.label}</Text>
+                  <Text style={styles.fieldValue} selectable>
                     {field.value}
                   </Text>
                 </View>
@@ -192,65 +120,88 @@ export function PersonalDetailsCard({
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    backgroundColor: '#F8F7F4',
+    borderRadius: 20,
+    backgroundColor: colors.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   headerPressable: {
     width: '100%',
-  },
-  header: {
-    width: '100%',
     gap: 8,
   },
-  sectionLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
-    textTransform: 'uppercase',
-  },
-  summaryRow: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    width: '100%',
+    gap: 10,
+  },
+  sectionLabel: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    color: colors.muted,
+    textTransform: 'uppercase',
+    flexShrink: 1,
+  },
+  headerTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  managedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    backgroundColor: colors.sand,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  managedLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.forest,
   },
   summary: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
-  },
-  chevronWrap: {
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingLeft: 4,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 14,
+    marginBottom: 14,
   },
   fields: {
     width: '100%',
+    gap: 14,
   },
   field: {
-    gap: 6,
+    gap: 4,
   },
   fieldLabel: {
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 9,
+    letterSpacing: 0.8,
     color: colors.muted,
     textTransform: 'uppercase',
   },
   fieldValue: {
-    fontFamily: fontFamily.manrope.regular,
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.forest,
   },
   empty: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
+    fontSize: 10,
     color: colors.muted,
   },
 });

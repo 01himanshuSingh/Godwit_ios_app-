@@ -29,6 +29,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AirActiveTripBody } from '@/features/trips/air/AirActiveTripBody';
 import { ChauffeurActiveTripBody } from '@/features/trips/chauffeur/ChauffeurActiveTripBody';
 import { GenericActiveTripBody } from '@/features/trips/components/GenericActiveTripBody';
+import {
+  TripsExceptionCard,
+  type TripsExceptionVariant,
+} from '@/features/trips/components/TripsExceptionCard';
 import { TripDocumentsCard } from '@/features/trips/components/TripDocumentsCard';
 import { HotelActiveTripBody } from '@/features/trips/hotel/HotelActiveTripBody';
 import { PrivateJetActiveTripBody } from '@/features/trips/private-jet/PrivateJetActiveTripBody';
@@ -96,11 +100,33 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
     : isError
       ? mapTripsLoadErrorToMessage(error)
       : null;
-  const loadError = !hasSaleId
-    ? 'Missing booking reference.'
-    : !hasScope
-      ? 'Account details are missing. Please sign in again.'
-      : queryErrorMessage;
+
+  const exception = useMemo((): {
+    variant: TripsExceptionVariant;
+    message?: string | null;
+    title?: string;
+    canRetry: boolean;
+  } | null => {
+    if (!hasSaleId) {
+      return { variant: 'missing_sale', canRetry: false };
+    }
+    if (!hasScope) {
+      return { variant: 'missing_scope', canRetry: false };
+    }
+    if (queryErrorMessage) {
+      return {
+        variant: 'load_error',
+        title: 'Couldn’t load booking',
+        message: queryErrorMessage,
+        canRetry: true,
+      };
+    }
+    if (!isPending && !detail) {
+      return { variant: 'not_found', canRetry: true };
+    }
+    return null;
+  }, [hasSaleId, hasScope, queryErrorMessage, isPending, detail]);
+
   const isHotel = detail?.serviceType === 'hotel' || detail?.serviceType === 'hotelRoomExtension';
   const isAir =
     detail?.serviceType === 'air' ||
@@ -144,15 +170,14 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
         </View>
       ) : null}
 
-      {!canFetch || (!isPending && (loadError || !detail)) ? (
-        <View style={styles.centered}>
-          <Text style={styles.empty}>{loadError || 'Booking not found.'}</Text>
-          {canFetch ? (
-            <Pressable onPress={() => void refetch()} style={styles.retry}>
-              <Text style={styles.retryLabel}>{isFetching ? 'Retrying…' : 'Retry'}</Text>
-            </Pressable>
-          ) : null}
-        </View>
+      {exception && !isPending ? (
+        <TripsExceptionCard
+          variant={exception.variant}
+          title={exception.title}
+          message={exception.message}
+          isRetrying={isFetching}
+          onRetry={exception.canRetry ? () => void refetch() : undefined}
+        />
       ) : null}
 
       {detail ? (
@@ -228,21 +253,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    gap: 12,
-  },
-  empty: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  retry: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  retryLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
-    color: colors.forest,
   },
 });

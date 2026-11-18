@@ -1,13 +1,13 @@
 /**
- * Profile tab — client scope same as Trips / Testing.
+ * Profile tab — client scope same as Trips.
+ * Never invents another guest’s identity when load fails / scope missing.
  * Menu rows navigate to /profile/[section] feature screens.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,46 +15,78 @@ import {
   View,
 } from 'react-native';
 
+import { useAuth } from '@/auth/providers/AuthProvider';
 import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
 import { ProfileAccountCard } from '@/features/profile/components/ProfileAccountCard';
-import { ProfileMenuCard } from '@/features/profile/components/ProfileMenuCard';
+import { ProfileExceptionCard } from '@/features/profile/components/ProfileExceptionCard';
+import { ProfileHubFooter } from '@/features/profile/components/ProfileHubFooter';
 import {
-  PROFILE_MENU_ITEMS,
+  ProfileMenuCard,
+  type ProfileMenuCardItem,
+  type ProfileMenuGroupCard,
+  type ProfileMenuTrailing,
+} from '@/features/profile/components/ProfileMenuCard';
+import { ProfileSupportCard } from '@/features/profile/components/ProfileSupportCard';
+import {
+  getProfileMenuItem,
+  PROFILE_MENU_GROUPS,
   type ProfileMenuSectionId,
 } from '@/features/profile/menu/profileMenuItems';
 import { getClientProfileSafe } from '@/lib/firebase/clients';
+import { classifyProfileLoadError } from '@/lib/firebase/clients/mapProfileLoadError';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
 const TAB_BAR_CLEARANCE = 96;
 
+function trailingForItem(
+  id: ProfileMenuSectionId,
+  travellerCount: number | null | undefined,
+): ProfileMenuTrailing | null {
+  if (id === 'travellers' && typeof travellerCount === 'number' && travellerCount > 0) {
+    return { kind: 'badge', label: `${travellerCount} Active` };
+  }
+  if (id === 'security') {
+    return { kind: 'secured' };
+  }
+  return null;
+}
+
 export function ProfileScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { signOut } = useAuth();
   const { width } = useWindowDimensions();
   const { profile: sessionProfile, isHydrating } = useActiveClientProfile();
   const tabBarScroll = useHomeTabBarScrollProps();
+  const [signingOut, setSigningOut] = useState(false);
 
   const pagePad = width < 360 ? 16 : width >= 768 ? 40 : 24;
-  const titleSize = width < 360 ? 34 : width >= 768 ? 48 : 42;
   const contentMax = Math.min(width, width >= 768 ? 680 : width);
+  const showLedgerBadge = width >= 360;
 
-  const adminId = sessionProfile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
-  const clientId = sessionProfile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
+  const adminId = sessionProfile?.adminId?.trim() ?? '';
+  const clientId = sessionProfile?.clientId?.trim() ?? '';
+  const hasScope = Boolean(adminId && clientId);
 
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['profile', 'client', adminId, clientId],
     queryFn: () => getClientProfileSafe(adminId, clientId),
-    enabled: !isHydrating && Boolean(adminId && clientId),
+    enabled: !isHydrating && hasScope,
     retry: 2,
   });
 
+  /** Only real fetched profile — never TEST / session invent for the identity card. */
   const client = data?.profile ?? null;
-  const loadError = data?.errorMessage ?? (isError ? String(error) : null);
-
-  const familyLabel = client?.familyLabel || 'Family';
-  const displayName = (client?.displayName || sessionProfile?.name || '').trim() || '—';
+  const rawError = data?.errorMessage ? new Error(data.errorMessage) : isError ? error : null;
+  /** Classify only — never surface raw error / adminId / clientId in the UI. */
+  const hasLoadFailure = Boolean(rawError) || (Boolean(data) && !client);
+  const errorKind = rawError
+    ? classifyProfileLoadError(rawError)
+    : hasLoadFailure
+      ? 'unknown'
+      : null;
 
   const openSection = useCallback(
     (section: ProfileMenuSectionId) => {
@@ -63,26 +95,46 @@ export function ProfileScreen() {
     [router],
   );
 
-  const menuItems = useMemo(() => {
-    const count = client?.travellerCount;
-
-    return PROFILE_MENU_ITEMS.map((item) => {
-      const subtitle =
-        item.id === 'travellers' && typeof count === 'number' && count > 0
-          ? `${count} travellers - details, documents, loyalty, preferences`
-          : item.subtitle;
+  const menuGroups = useMemo((): ProfileMenuGroupCard[] => {
+    return PROFILE_MENU_GROUPS.map((group) => {
+      const items: ProfileMenuCardItem[] = group.itemIds.map((id) => {
+        const def = getProfileMenuItem(id);
+        return {
+          key: def.id,
+          icon: def.icon,
+          title: def.title,
+          subtitle: def.subtitle,
+          trailing: trailingForItem(id, client?.travellerCount),
+          onPress: () => openSection(def.id),
+        };
+      });
 
       return {
-        key: item.id,
-        icon: item.icon,
-        title: item.title,
-        subtitle,
-        onPress: () => openSection(item.id),
+        key: group.id,
+        title: group.title,
+        trailing: group.trailing ?? null,
+        items,
       };
     });
   }, [client?.travellerCount, openSection]);
 
-  if (isHydrating || (isPending && !client && !loadError)) {
+  const onSignOut = useCallback(() => {
+    void (async () => {
+      setSigningOut(true);
+      try {
+        await signOut();
+        queryClient.clear();
+        router.replace('/(auth)/sign-in');
+      } finally {
+        setSigningOut(false);
+      }
+    })();
+  }, [queryClient, router, signOut]);
+
+  const showIdentityCard = Boolean(client);
+  const showException = !isHydrating && !isPending && !showIdentityCard;
+
+  if (isHydrating || (hasScope && isPending && !client && !hasLoadFailure)) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.forest} />
@@ -107,38 +159,47 @@ export function ProfileScreen() {
       scrollEventThrottle={tabBarScroll.scrollEventThrottle}
     >
       <View style={styles.hero}>
-        <Text
-          style={[styles.title, { fontSize: titleSize, lineHeight: titleSize + 6 }]}
-          accessibilityRole="header"
-        >
-          Profile
-        </Text>
-        <Text style={styles.family} selectable>
-          {familyLabel}
-        </Text>
+        <View style={styles.heroTitleRow}>
+          <Text style={styles.title} accessibilityRole="header">
+            Profile
+          </Text>
+          {showLedgerBadge ? (
+            <View style={styles.ledgerBadge}>
+              <Text style={styles.ledgerBadgeLabel} numberOfLines={1}>
+                LEDGER INTEGRATION PREVIEW — OPTIONAL
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.heroSubtitle}>Private Client Desk & Ledger Portal</Text>
       </View>
 
-      {loadError && !client ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{loadError}</Text>
-          <Text style={styles.errorHint} selectable>
-            adminId: {adminId} · clientId: {clientId}
-          </Text>
-          <Pressable onPress={() => void refetch()} style={styles.retry}>
-            <Text style={styles.retryLabel}>{isFetching ? 'Retrying…' : 'Retry'}</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <ProfileAccountCard
-          displayName={displayName}
-          contactEmail={client?.contactEmail ?? sessionProfile?.contactEmail ?? null}
-          accountRole={client?.accountRole ?? null}
-          directorName={client?.directorName ?? null}
-          directorTitle={client?.directorTitle ?? null}
-        />
-      )}
+      {!hasScope ? <ProfileExceptionCard variant="missing_scope" /> : null}
 
-      <ProfileMenuCard items={menuItems} />
+      {hasScope && showException ? (
+        <ProfileExceptionCard
+          variant={errorKind === 'not_found' ? 'not_found' : 'load_error'}
+          isRetrying={isFetching}
+          onRetry={() => void refetch()}
+        />
+      ) : null}
+
+      {showIdentityCard && client ? (
+        <ProfileAccountCard
+          familyLabel={client.familyLabel?.trim() || ''}
+          displayName={client.displayName?.trim() || ''}
+          contactEmail={client.contactEmail?.trim() || null}
+          accountRole={client.accountRole?.trim() || null}
+          directorName={client.directorName?.trim() || null}
+          directorTitle={client.directorTitle?.trim() || null}
+        />
+      ) : null}
+
+      <ProfileMenuCard groups={menuGroups ?? []} />
+
+      <ProfileSupportCard onOpenSupport={() => openSection('support')} />
+
+      <ProfileHubFooter isSigningOut={signingOut} onSignOut={onSignOut} />
     </ScrollView>
   );
 }
@@ -151,20 +212,47 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 8,
     paddingBottom: TAB_BAR_CLEARANCE,
-    gap: 16,
+    gap: 20,
   },
   hero: {
-    gap: 6,
+    gap: 8,
     marginBottom: 4,
   },
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   title: {
-    fontFamily: fontFamily.cormorant.regular,
+    flexShrink: 1,
+    fontFamily: fontFamily.cormorant.medium,
+    fontSize: 26,
+    lineHeight: 32,
     color: colors.forest,
   },
-  family: {
+  ledgerBadge: {
+    flexShrink: 1,
+    maxWidth: '52%',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  ledgerBadgeLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 0.3,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  heroSubtitle: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.muted,
   },
   centered: {
@@ -172,36 +260,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
-  },
-  errorBox: {
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: 20,
-    gap: 10,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  errorHint: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  retry: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  retryLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
-    color: colors.forest,
   },
 });

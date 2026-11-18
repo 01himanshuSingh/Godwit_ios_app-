@@ -1,9 +1,9 @@
 /**
- * Expandable Commercial Airlines prefs card — inline Edit like Hotels.
- * Edit mode: simple bordered input + forest Save pill / Cancel.
+ * Expandable Commercial Airlines prefs card — same edit UX as Hotels.
+ * CRM fields only: preferredAirlines, specialMeal, seatPreference, airportVipRequirement.
  */
 import Feather from '@expo/vector-icons/Feather';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   LayoutAnimation,
@@ -13,7 +13,6 @@ import {
   Text,
   TextInput,
   UIManager,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -42,59 +41,21 @@ const FIELD_VALUE: Record<
   airportVipRequirement: (p) => p.airportVipRequirement,
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      padH: 18,
-      padV: 16,
-      radius: 18,
-      sectionLabelSize: 11,
-      summarySize: 14,
-      summaryLineHeight: 20,
-      fieldLabelSize: 11,
-      fieldValueSize: 15,
-      fieldValueLineHeight: 20,
-      editSize: 13,
-      chevronSize: 18,
-      fieldGap: 8,
-      inputPadH: 14,
-      inputPadV: 12,
-      inputRadius: 10,
-      savePadH: 20,
-      savePadV: 8,
-      saveSize: 14,
-    };
-  }
-  return {
-    padH: 22,
-    padV: 18,
-    radius: 20,
-    sectionLabelSize: 11,
-    summarySize: 15,
-    summaryLineHeight: 22,
-    fieldLabelSize: 11,
-    fieldValueSize: 16,
-    fieldValueLineHeight: 22,
-    editSize: 14,
-    chevronSize: 20,
-    fieldGap: 8,
-    inputPadH: 16,
-    inputPadV: 14,
-    inputRadius: 12,
-    savePadH: 22,
-    savePadV: 9,
-    saveSize: 15,
-  };
-}
+const EDITABLE_ROWS: { field: TravellerAirlinePrefField; label: string }[] = [
+  { field: 'preferredAirlines', label: 'PREFERRED AIRLINES' },
+  { field: 'specialMeal', label: 'SPECIAL MEAL' },
+  { field: 'seatPreference', label: 'SEAT PREFERENCE' },
+  { field: 'airportVipRequirement', label: 'AIRPORT VIP REQUIREMENT' },
+];
 
 function PrefRow({
   field,
   label,
   value,
-  layout,
   editing,
   draft,
   saving,
+  canStartEdit,
   onChangeDraft,
   onStartEdit,
   onSave,
@@ -103,10 +64,10 @@ function PrefRow({
   field: TravellerAirlinePrefField;
   label: string;
   value: string | null;
-  layout: ReturnType<typeof layoutForWidth>;
   editing: boolean;
   draft: string;
   saving: boolean;
+  canStartEdit: boolean;
   onChangeDraft: (text: string) => void;
   onStartEdit: (field: TravellerAirlinePrefField) => void;
   onSave: () => void;
@@ -114,10 +75,15 @@ function PrefRow({
 }) {
   if (editing) {
     return (
-      <View style={[styles.prefRow, { gap: layout.fieldGap }]}>
-        <Text style={[styles.fieldLabel, { fontSize: layout.fieldLabelSize, letterSpacing: 0.7 }]}>
-          {label}
-        </Text>
+      <View style={styles.prefRow}>
+        <View style={styles.prefHeader}>
+          <Text style={styles.fieldLabel}>{label}</Text>
+          <View style={styles.editingBadge}>
+            <View style={styles.editingDot} />
+            <Text style={styles.editingLabel}>Editing</Text>
+          </View>
+        </View>
+
         <TextInput
           value={draft}
           onChangeText={onChangeDraft}
@@ -128,29 +94,12 @@ function PrefRow({
           onSubmitEditing={onSave}
           placeholder="Enter value"
           placeholderTextColor={colors.muted}
-          style={[
-            styles.input,
-            {
-              borderRadius: layout.inputRadius,
-              paddingHorizontal: layout.inputPadH,
-              paddingVertical: layout.inputPadV,
-              fontSize: layout.fieldValueSize,
-              lineHeight: layout.fieldValueLineHeight,
-            },
-          ]}
+          style={styles.input}
           accessibilityLabel={label}
         />
+
         <View style={styles.actions}>
-          <View
-            style={[
-              styles.saveBtn,
-              {
-                paddingHorizontal: layout.savePadH,
-                paddingVertical: layout.savePadV,
-                opacity: saving ? 0.85 : 1,
-              },
-            ]}
-          >
+          <View style={[styles.saveBtn, saving && styles.saveBtnDisabled]}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Save"
@@ -161,7 +110,7 @@ function PrefRow({
               {saving ? (
                 <ActivityIndicator size="small" color={colors.sand} />
               ) : (
-                <Text style={[styles.saveLabel, { fontSize: layout.saveSize }]}>Save</Text>
+                <Text style={styles.saveLabel}>Save</Text>
               )}
             </Pressable>
           </View>
@@ -173,41 +122,36 @@ function PrefRow({
             hitSlop={8}
             style={({ pressed }) => [styles.cancelHit, pressed && styles.pressed]}
           >
-            <Text style={[styles.cancelLabel, { fontSize: layout.editSize }]}>Cancel</Text>
+            <Text style={styles.cancelLabel}>Cancel</Text>
           </Pressable>
         </View>
       </View>
     );
   }
 
+  const display = value?.trim() || null;
+
   return (
-    <View style={[styles.prefRow, { gap: layout.fieldGap }]}>
+    <View style={styles.prefRow}>
       <View style={styles.prefHeader}>
-        <Text style={[styles.fieldLabel, { fontSize: layout.fieldLabelSize, letterSpacing: 0.7 }]}>
-          {label}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Edit ${label}`}
-          onPress={() => onStartEdit(field)}
-          hitSlop={8}
-          style={({ pressed }) => pressed && styles.pressed}
-        >
-          <Text style={[styles.editLabel, { fontSize: layout.editSize }]}>Edit</Text>
-        </Pressable>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        {canStartEdit ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${label}`}
+            onPress={() => onStartEdit(field)}
+            hitSlop={8}
+            style={({ pressed }) => pressed && styles.pressed}
+          >
+            <Text style={styles.editLabel}>Edit</Text>
+          </Pressable>
+        ) : null}
       </View>
       <Text
-        style={[
-          styles.fieldValue,
-          {
-            fontSize: layout.fieldValueSize,
-            lineHeight: layout.fieldValueLineHeight,
-            color: value ? colors.forest : colors.muted,
-          },
-        ]}
-        selectable={Boolean(value)}
+        style={[styles.fieldValue, !display && styles.fieldValueEmpty]}
+        selectable={Boolean(display)}
       >
-        {value || 'Not set'}
+        {display || 'Not set'}
       </Text>
     </View>
   );
@@ -219,13 +163,22 @@ export function AirlinesCard({
   savingField = null,
   onSaveField,
 }: AirlinesCardProps) {
-  const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [editingField, setEditingField] = useState<TravellerAirlinePrefField | null>(null);
   const [draft, setDraft] = useState('');
 
-  const summary = airlinePrefs.summaryLine || 'Airline preferences';
+  const summary =
+    airlinePrefs.summaryLine?.trim() ||
+    [
+      airlinePrefs.preferredAirlines,
+      airlinePrefs.preferredClass,
+      airlinePrefs.seatPreference,
+      airlinePrefs.specialMeal,
+    ]
+      .map((v) => v?.trim())
+      .filter(Boolean)
+      .join(' · ') ||
+    null;
 
   const toggle = () => {
     if (editingField) return;
@@ -234,6 +187,7 @@ export function AirlinesCard({
   };
 
   const startEdit = (field: TravellerAirlinePrefField) => {
+    if (!onSaveField || savingField) return;
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setEditingField(field);
     setDraft(FIELD_VALUE[field](airlinePrefs) ?? '');
@@ -259,17 +213,7 @@ export function AirlinesCard({
   };
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          borderRadius: layout.radius,
-          paddingHorizontal: layout.padH,
-          paddingTop: layout.padV,
-          paddingBottom: layout.padV,
-        },
-      ]}
-    >
+    <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -278,100 +222,50 @@ export function AirlinesCard({
         hitSlop={8}
         style={styles.headerPressable}
       >
-        <View style={styles.header}>
-          <Text
-            style={[styles.sectionLabel, { fontSize: layout.sectionLabelSize, letterSpacing: 0.8 }]}
-          >
-            COMMERCIAL AIRLINES
-          </Text>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryTextWrap}>
-              <Text
-                style={[
-                  styles.summary,
-                  {
-                    fontSize: layout.summarySize,
-                    lineHeight: layout.summaryLineHeight,
-                  },
-                ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {summary}
-              </Text>
-            </View>
-            <View style={styles.chevronWrap} pointerEvents="none">
-              <Feather
-                name={expanded ? 'chevron-up' : 'chevron-down'}
-                size={layout.chevronSize}
-                color="#C4C0B8"
-              />
-            </View>
+        <View style={styles.headerTop}>
+          <Text style={styles.sectionLabel}>COMMERCIAL AIRLINES</Text>
+          <View style={styles.headerTrailing}>
+            {onSaveField ? (
+              <View style={styles.editBadge}>
+                <Feather name="edit-2" size={9} color={colors.forest} />
+                <Text style={styles.editBadgeLabel}>You can edit</Text>
+              </View>
+            ) : null}
+            <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color="#C4C0B8" />
           </View>
         </View>
+        {summary ? (
+          <Text style={styles.summary} numberOfLines={2} ellipsizeMode="tail">
+            {summary}
+          </Text>
+        ) : null}
       </Pressable>
 
       {expanded ? (
-        <>
-          <View style={styles.divider} />
-          <View style={styles.fields}>
-            <PrefRow
-              field="preferredAirlines"
-              label="PREFERRED AIRLINES"
-              value={airlinePrefs.preferredAirlines}
-              layout={layout}
-              editing={editingField === 'preferredAirlines'}
-              draft={draft}
-              saving={savingField === 'preferredAirlines'}
-              onChangeDraft={setDraft}
-              onStartEdit={startEdit}
-              onSave={() => void saveEdit()}
-              onCancel={cancelEdit}
-            />
-            <View style={styles.rowDivider} />
-            <PrefRow
-              field="specialMeal"
-              label="SPECIAL MEAL"
-              value={airlinePrefs.specialMeal}
-              layout={layout}
-              editing={editingField === 'specialMeal'}
-              draft={draft}
-              saving={savingField === 'specialMeal'}
-              onChangeDraft={setDraft}
-              onStartEdit={startEdit}
-              onSave={() => void saveEdit()}
-              onCancel={cancelEdit}
-            />
-            <View style={styles.rowDivider} />
-            <PrefRow
-              field="seatPreference"
-              label="SEAT PREFERENCE"
-              value={airlinePrefs.seatPreference}
-              layout={layout}
-              editing={editingField === 'seatPreference'}
-              draft={draft}
-              saving={savingField === 'seatPreference'}
-              onChangeDraft={setDraft}
-              onStartEdit={startEdit}
-              onSave={() => void saveEdit()}
-              onCancel={cancelEdit}
-            />
-            <View style={styles.rowDivider} />
-            <PrefRow
-              field="airportVipRequirement"
-              label="AIRPORT VIP REQUIREMENT"
-              value={airlinePrefs.airportVipRequirement}
-              layout={layout}
-              editing={editingField === 'airportVipRequirement'}
-              draft={draft}
-              saving={savingField === 'airportVipRequirement'}
-              onChangeDraft={setDraft}
-              onStartEdit={startEdit}
-              onSave={() => void saveEdit()}
-              onCancel={cancelEdit}
-            />
-          </View>
-        </>
+        <View style={styles.body}>
+          {EDITABLE_ROWS.map((row, index) => (
+            <View key={row.field}>
+              {index > 0 ? <View style={styles.rowDivider} /> : null}
+              <PrefRow
+                field={row.field}
+                label={row.label}
+                value={FIELD_VALUE[row.field](airlinePrefs)}
+                editing={editingField === row.field}
+                draft={draft}
+                saving={savingField === row.field}
+                canStartEdit={Boolean(onSaveField) && editingField === null}
+                onChangeDraft={setDraft}
+                onStartEdit={startEdit}
+                onSave={() => void saveEdit()}
+                onCancel={cancelEdit}
+              />
+            </View>
+          ))}
+
+          {editingField ? (
+            <Text style={styles.helper}>Only one field is edited at a time</Text>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
@@ -380,55 +274,68 @@ export function AirlinesCard({
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    backgroundColor: '#F8F7F4',
+    borderRadius: 20,
+    backgroundColor: colors.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   headerPressable: {
     width: '100%',
+    gap: 6,
   },
-  header: {
-    width: '100%',
-    gap: 8,
-  },
-  sectionLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
-    textTransform: 'uppercase',
-  },
-  summaryRow: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  summaryTextWrap: {
-    flex: 1,
+  sectionLabel: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    color: colors.muted,
+    textTransform: 'uppercase',
     flexShrink: 1,
-    minWidth: 0,
+  },
+  headerTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  editBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    backgroundColor: colors.sand,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  editBadgeLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.forest,
   },
   summary: {
-    width: '100%',
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
   },
-  chevronWrap: {
-    flexGrow: 0,
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginTop: 16,
-    marginBottom: 4,
-  },
-  fields: {
-    width: '100%',
+  body: {
+    marginTop: 14,
+    paddingTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
   prefRow: {
     paddingVertical: 14,
+    gap: 8,
   },
   prefHeader: {
     flexDirection: 'row',
@@ -437,48 +344,87 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   fieldLabel: {
-    fontFamily: fontFamily.manrope.medium,
+    flex: 1,
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 9,
+    letterSpacing: 0.7,
     color: colors.muted,
     textTransform: 'uppercase',
-    flex: 1,
   },
   editLabel: {
     fontFamily: fontFamily.manrope.medium,
+    fontSize: 13,
+    color: colors.forest,
+  },
+  editingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  editingDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: colors.muted,
+  },
+  editingLabel: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    fontStyle: 'italic',
     color: colors.muted,
   },
   fieldValue: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.forest,
+  },
+  fieldValueEmpty: {
+    color: colors.muted,
     fontFamily: fontFamily.manrope.regular,
   },
   input: {
     width: '100%',
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: colors.forest,
     backgroundColor: '#FFFFFF',
-    fontFamily: fontFamily.manrope.regular,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.forest,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginTop: 12,
+    marginTop: 4,
   },
   saveBtn: {
     backgroundColor: colors.forest,
-    borderRadius: 999,
+    borderRadius: 10,
     overflow: 'hidden',
     alignSelf: 'flex-start',
+  },
+  saveBtnDisabled: {
+    opacity: 0.85,
   },
   savePressable: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 78,
+    minWidth: 72,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
   },
   savePressed: {
     opacity: 0.88,
   },
   saveLabel: {
     fontFamily: fontFamily.manrope.medium,
+    fontSize: 13,
     color: colors.sand,
     includeFontPadding: false,
   },
@@ -488,7 +434,17 @@ const styles = StyleSheet.create({
   },
   cancelLabel: {
     fontFamily: fontFamily.manrope.medium,
+    fontSize: 13,
     color: colors.muted,
+  },
+  helper: {
+    alignSelf: 'flex-end',
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    fontStyle: 'italic',
+    color: colors.muted,
+    marginTop: 2,
+    marginBottom: 2,
   },
   rowDivider: {
     height: StyleSheet.hairlineWidth,

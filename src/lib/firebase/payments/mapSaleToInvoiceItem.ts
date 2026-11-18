@@ -56,7 +56,7 @@ function formatIssuedLabel(d: Date | null): string | null {
   if (!d) return null;
   const label = d.toLocaleDateString('en-GB', {
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   });
   return `Issued ${label}`;

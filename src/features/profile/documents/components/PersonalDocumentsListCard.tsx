@@ -1,8 +1,10 @@
 /**
- * Personal tab list — passports / visas / memberships with View + Download.
+ * Personal tab — passports / visas / memberships with View + Download.
+ * CRM PersonalDocumentItem fields only.
  */
 import Feather from '@expo/vector-icons/Feather';
-import { useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
+import { memo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,210 +14,320 @@ import {
   View,
 } from 'react-native';
 
-import type { PersonalDocumentItem } from '@/lib/firebase/documents';
+import type { PersonalDocType, PersonalDocumentItem } from '@/lib/firebase/documents';
 import { downloadSaleVoucherPdf, openSaleVoucherPdf } from '@/lib/firebase/sales/getSaleVoucherPdf';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
 type PersonalDocumentsListCardProps = {
   documents: PersonalDocumentItem[];
+  isScanning?: boolean;
 };
 
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      padH: 16,
-      padV: 14,
-      radius: 18,
-      sectionSize: 11,
-      titleSize: 14,
-      metaSize: 12,
-      actionSize: 13,
-      iconSize: 16,
-    };
+type FeatherName = ComponentProps<typeof Feather>['name'];
+
+function iconForType(type: PersonalDocType): FeatherName {
+  switch (type) {
+    case 'passport':
+      return 'book';
+    case 'visa':
+      return 'credit-card';
+    case 'membership':
+      return 'award';
+    default:
+      return 'file-text';
   }
-  return {
-    padH: 20,
-    padV: 16,
-    radius: 20,
-    sectionSize: 12,
-    titleSize: 15,
-    metaSize: 13,
-    actionSize: 14,
-    iconSize: 18,
-  };
 }
 
-function DocumentRow({
-  item,
-  layout,
-  showDivider,
-}: {
-  item: PersonalDocumentItem;
-  layout: ReturnType<typeof layoutForWidth>;
-  showDivider: boolean;
-}) {
+function badgeForType(type: PersonalDocType): string {
+  switch (type) {
+    case 'passport':
+      return 'PASSPORT';
+    case 'visa':
+      return 'VISA';
+    case 'membership':
+      return 'MEMBER';
+    default:
+      return 'DOC';
+  }
+}
+
+function DocumentRow({ item, showDivider }: { item: PersonalDocumentItem; showDivider: boolean }) {
   const [downloading, setDownloading] = useState(false);
+  const meta = item.metaLine || item.dateLabel;
 
   return (
     <View>
       {showDivider ? <View style={styles.divider} /> : null}
-      <View style={styles.row}>
-        <Feather name="file-text" size={layout.iconSize} color={colors.muted} style={styles.icon} />
-        <View style={styles.textCol}>
-          <Text
-            style={[styles.title, { fontSize: layout.titleSize }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {item.title}
-          </Text>
-          {item.metaLine ? (
-            <Text style={[styles.meta, { fontSize: layout.metaSize }]} numberOfLines={1}>
-              {item.metaLine}
+      <View style={styles.rowPad}>
+        <View style={styles.topRow}>
+          <View style={styles.iconWell}>
+            <Feather name={iconForType(item.type)} size={18} color={colors.forest} />
+          </View>
+
+          <View style={styles.textCol}>
+            <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+              {item.title}
             </Text>
-          ) : null}
-          <Text style={[styles.label, { fontSize: layout.metaSize }]} numberOfLines={1}>
-            {item.label}
-          </Text>
+            {meta ? (
+              <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">
+                {meta}
+              </Text>
+            ) : item.travellerName.trim() ? (
+              <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">
+                {item.travellerName.trim()}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.badge}>
+            <Text style={styles.badgeLabel}>{badgeForType(item.type)}</Text>
+          </View>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`View ${item.title}`}
-          onPress={() => void openSaleVoucherPdf(item.url)}
-          hitSlop={8}
-          style={({ pressed }) => [styles.actionHit, pressed && styles.pressed]}
-        >
-          <Text style={[styles.action, { fontSize: layout.actionSize }]}>View</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Download ${item.title}`}
-          disabled={downloading}
-          onPress={() => {
-            void (async () => {
-              setDownloading(true);
-              try {
-                await downloadSaleVoucherPdf(item.url, item.title);
-              } finally {
-                setDownloading(false);
-              }
-            })();
-          }}
-          hitSlop={8}
-          style={({ pressed }) => [styles.actionHit, pressed && styles.pressed]}
-        >
-          {downloading ? (
-            <ActivityIndicator size="small" color={colors.muted} />
-          ) : (
-            <Text style={[styles.action, { fontSize: layout.actionSize }]}>Download</Text>
-          )}
-        </Pressable>
+
+        <View style={styles.actions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View ${item.title}`}
+            onPress={() => void openSaleVoucherPdf(item.url)}
+            style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
+          >
+            <Feather name="eye" size={14} color={colors.primaryForeground} />
+            <Text style={styles.viewLabel}>View</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              downloading ? `Downloading ${item.title}` : `Download ${item.title}`
+            }
+            disabled={downloading}
+            onPress={() => {
+              void (async () => {
+                setDownloading(true);
+                try {
+                  await downloadSaleVoucherPdf(item.url, item.title);
+                } finally {
+                  setDownloading(false);
+                }
+              })();
+            }}
+            style={({ pressed }) => [
+              styles.downloadBtn,
+              downloading && styles.downloadBusy,
+              pressed && styles.pressed,
+            ]}
+          >
+            {downloading ? (
+              <>
+                <ActivityIndicator size="small" color={colors.forest} />
+                <Text style={styles.downloadLabel}>Downloading…</Text>
+              </>
+            ) : (
+              <>
+                <Feather name="download" size={14} color={colors.forest} />
+                <Text style={styles.downloadLabel}>Download</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
-export function PersonalDocumentsListCard({ documents }: PersonalDocumentsListCardProps) {
+const DocumentRowMemo = memo(DocumentRow);
+
+export function PersonalDocumentsListCard({
+  documents,
+  isScanning = false,
+}: PersonalDocumentsListCardProps) {
   const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
+  const radius = width < 360 ? 18 : 20;
+  const count = documents.length;
 
   if (documents.length === 0) {
     return (
-      <View
-        style={[
-          styles.card,
-          {
-            borderRadius: layout.radius,
-            paddingHorizontal: layout.padH,
-            paddingVertical: layout.padV,
-          },
-        ]}
-      >
-        <Text style={styles.empty}>No personal documents uploaded yet.</Text>
+      <View style={[styles.emptyCard, { borderRadius: radius }]}>
+        {isScanning ? (
+          <View style={styles.scanning}>
+            <ActivityIndicator color={colors.forest} />
+            <Text style={styles.empty}>Looking for personal documents…</Text>
+          </View>
+        ) : (
+          <Text style={styles.empty}>No personal documents uploaded yet.</Text>
+        )}
       </View>
     );
   }
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          borderRadius: layout.radius,
-          paddingHorizontal: layout.padH,
-          paddingTop: layout.padV,
-          paddingBottom: layout.padV,
-        },
-      ]}
-    >
-      <Text style={[styles.sectionLabel, { fontSize: layout.sectionSize }]}>PERSONAL</Text>
-      {documents.map((item, index) => (
-        <DocumentRow key={item.id} item={item} layout={layout} showDivider={index > 0} />
-      ))}
+    <View style={styles.group}>
+      <View style={styles.groupHeader}>
+        <Text style={styles.groupLabel}>PERSONAL</Text>
+        <Text style={styles.fileCount}>{count === 1 ? '1 File' : `${count} Files`}</Text>
+      </View>
+
+      <View style={[styles.card, { borderRadius: radius }]}>
+        {documents.map((item, index) => (
+          <DocumentRowMemo key={item.id} item={item} showDivider={index > 0} />
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  group: {
+    width: '100%',
+    gap: 10,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 2,
+  },
+  groupLabel: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 9,
+    letterSpacing: 0.9,
+    color: colors.muted,
+  },
+  fileCount: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    letterSpacing: 0.4,
+    color: colors.muted,
+  },
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
-  sectionLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
-    letterSpacing: 0.8,
-    marginBottom: 4,
+  emptyCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 18,
+    paddingVertical: 22,
   },
-  row: {
-    flexDirection: 'row',
+  scanning: {
     alignItems: 'center',
-    paddingVertical: 14,
     gap: 10,
   },
-  icon: {
-    marginTop: 1,
+  empty: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  rowPad: {
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
+    gap: 12,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  iconWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sand,
+    flexShrink: 0,
   },
   textCol: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: 4,
+    paddingTop: 2,
   },
   title: {
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.forest,
   },
   meta: {
     fontFamily: fontFamily.manrope.regular,
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.muted,
   },
-  label: {
-    fontFamily: fontFamily.manrope.regular,
-    color: colors.muted,
-  },
-  actionHit: {
+  badge: {
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    paddingHorizontal: 2,
-    minWidth: 28,
-    alignItems: 'center',
+    borderRadius: 999,
+    backgroundColor: colors.sand,
+    flexShrink: 0,
+    marginTop: 2,
   },
-  action: {
+  badgeLabel: {
     fontFamily: fontFamily.manrope.medium,
-    color: colors.muted,
+    fontSize: 9,
+    lineHeight: 11,
+    letterSpacing: 0.4,
+    color: colors.forest,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  viewBtn: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    backgroundColor: colors.forest,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  viewLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.primaryForeground,
+  },
+  downloadBtn: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.forest,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  downloadBusy: {
+    opacity: 0.9,
+  },
+  downloadLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.forest,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
   },
-  empty: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-  },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.78,
   },
 });

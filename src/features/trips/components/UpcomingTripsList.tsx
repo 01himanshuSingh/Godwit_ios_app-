@@ -1,10 +1,11 @@
 import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
 
 import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
 import { TripsEmptyCard } from '@/features/trips/components/TripsEmptyCard';
+import { TripsExceptionCard } from '@/features/trips/components/TripsExceptionCard';
 import { TripsScreenSkeleton } from '@/features/trips/components/TripsScreenSkeleton';
 import { UpcomingDayCard } from '@/features/trips/components/UpcomingDayCard';
 import {
@@ -20,7 +21,6 @@ import {
 } from '@/lib/firebase/sales/getClientUpcomingSales';
 import { mapTripsLoadErrorToMessage } from '@/lib/firebase/sales/mapTripsLoadError';
 import { colors } from '@/ui/tokens/colors';
-import { fontFamily } from '@/ui/tokens/typography';
 
 /** Clears floating Home tab bar so last rows can scroll fully into view. */
 const TAB_BAR_CLEARANCE = 96;
@@ -119,11 +119,7 @@ export function UpcomingTripsList({
   );
 
   if (!canFetch) {
-    return (
-      <Text style={styles.empty}>
-        Account details are missing. Please sign in again to see your trips.
-      </Text>
-    );
+    return <TripsExceptionCard variant="missing_scope" />;
   }
 
   if (isPending || (dayGroups.length === 0 && hasNextPage)) {
@@ -132,17 +128,12 @@ export function UpcomingTripsList({
 
   if (isError) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.emptyInline}>{mapTripsLoadErrorToMessage(error)}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Retry loading trips"
-          onPress={() => void refetch()}
-          style={styles.retry}
-        >
-          <Text style={styles.retryLabel}>{isFetching ? 'Retrying…' : 'Retry'}</Text>
-        </Pressable>
-      </View>
+      <TripsExceptionCard
+        variant="load_error"
+        message={mapTripsLoadErrorToMessage(error)}
+        isRetrying={isFetching}
+        onRetry={() => void refetch()}
+      />
     );
   }
 
@@ -185,36 +176,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: TAB_BAR_CLEARANCE,
-  },
-  centered: {
-    flex: 1,
-    paddingTop: 48,
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  empty: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-    marginTop: 48,
-    paddingHorizontal: 24,
-  },
-  emptyInline: {
-    fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  retry: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  retryLabel: {
-    fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
-    color: colors.forest,
   },
   footerLoader: {
     marginVertical: 20,

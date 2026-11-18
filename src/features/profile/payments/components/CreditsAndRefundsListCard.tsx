@@ -1,17 +1,10 @@
 /**
- * Payments → CREDITS AND REFUNDS.
- * One white card with inset dividers (mock). Empty → same card shell + copy.
- * Cursor pagination via Load more.
+ * Payments → CREDITS AND REFUNDS (tab body).
+ * White card of return-icon rows + DIRECT REMITTANCES chrome + in-card Load more.
+ * CRM CreditRefundItem fields only.
  */
-import { useMemo } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CreditRefundRow } from '@/features/profile/payments/components/CreditRefundRow';
 import type { CreditRefundItem } from '@/lib/firebase/payments';
@@ -22,81 +15,39 @@ type CreditsAndRefundsListCardProps = {
   items: CreditRefundItem[];
   hasMore?: boolean;
   isFetchingMore?: boolean;
+  isLoading?: boolean;
   onLoadMore?: () => void;
   isScanning?: boolean;
 };
-
-function layoutForWidth(width: number) {
-  if (width < 360) {
-    return {
-      sectionSize: 10,
-      labelToList: 10,
-      radius: 16,
-      emptyPadH: 16,
-      emptyPadV: 14,
-    };
-  }
-  if (width < 400) {
-    return {
-      sectionSize: 11,
-      labelToList: 12,
-      radius: 18,
-      emptyPadH: 18,
-      emptyPadV: 16,
-    };
-  }
-  return {
-    sectionSize: 11,
-    labelToList: 14,
-    radius: 20,
-    emptyPadH: 22,
-    emptyPadV: 20,
-  };
-}
 
 export function CreditsAndRefundsListCard({
   items,
   hasMore = false,
   isFetchingMore = false,
+  isLoading = false,
   onLoadMore,
   isScanning = false,
 }: CreditsAndRefundsListCardProps) {
-  const { width } = useWindowDimensions();
-  const layout = useMemo(() => layoutForWidth(width), [width]);
+  const showBusyEmpty = (isLoading || isScanning) && items.length === 0;
 
   return (
     <View style={styles.section}>
-      <Text
-        style={[
-          styles.sectionLabel,
-          {
-            fontSize: layout.sectionSize,
-            letterSpacing: 1.2,
-            marginBottom: layout.labelToList,
-          },
-        ]}
-      >
-        CREDITS AND REFUNDS
-      </Text>
+      <View style={styles.header}>
+        <Text style={styles.sectionLabel}>CREDITS AND REFUNDS</Text>
+        {items.length > 0 ? <Text style={styles.remittanceLabel}>DIRECT REMITTANCES</Text> : null}
+      </View>
 
-      <View style={[styles.card, { borderRadius: layout.radius }]}>
-        {items.length === 0 ? (
-          <View
-            style={{
-              paddingHorizontal: layout.emptyPadH,
-              paddingVertical: layout.emptyPadV,
-              alignItems: isScanning ? 'center' : undefined,
-              gap: isScanning ? 10 : 0,
-            }}
-          >
-            {isScanning ? (
-              <>
-                <ActivityIndicator color={colors.forest} />
-                <Text style={styles.empty}>Looking for credits and refunds…</Text>
-              </>
-            ) : (
-              <Text style={styles.empty}>No credits or refunds yet.</Text>
-            )}
+      <View style={styles.card}>
+        {showBusyEmpty ? (
+          <View style={styles.emptyScanning}>
+            <ActivityIndicator color={colors.forest} />
+            <Text style={styles.empty}>
+              {isScanning ? 'Looking for credits and refunds…' : 'Loading credits…'}
+            </Text>
+          </View>
+        ) : items.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.empty}>No credits or refunds yet.</Text>
           </View>
         ) : (
           items.map((item, index) => (
@@ -107,23 +58,31 @@ export function CreditsAndRefundsListCard({
             />
           ))
         )}
-      </View>
 
-      {hasMore && items.length > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Load more credits and refunds"
-          disabled={isFetchingMore}
-          onPress={onLoadMore}
-          style={styles.loadMore}
-        >
-          {isFetchingMore ? (
-            <ActivityIndicator color={colors.forest} />
-          ) : (
-            <Text style={styles.loadMoreLabel}>Load more</Text>
-          )}
-        </Pressable>
-      ) : null}
+        {hasMore && items.length > 0 ? (
+          <>
+            <View style={styles.loadMoreDivider} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isFetchingMore ? 'Loading more' : 'Load more'}
+              disabled={isFetchingMore || !onLoadMore}
+              onPress={onLoadMore}
+              style={styles.loadMoreHit}
+            >
+              <View style={styles.loadMoreRow}>
+                {isFetchingMore ? (
+                  <ActivityIndicator size="small" color={colors.forest} />
+                ) : (
+                  <>
+                    <Text style={styles.loadMoreLabel}>Load more</Text>
+                    <Feather name="chevron-down" size={14} color={colors.forest} />
+                  </>
+                )}
+              </View>
+            </Pressable>
+          </>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -131,37 +90,72 @@ export function CreditsAndRefundsListCard({
 const styles = StyleSheet.create({
   section: {
     width: '100%',
+    gap: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   sectionLabel: {
-    fontFamily: fontFamily.manrope.medium,
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 9,
+    letterSpacing: 0.9,
     color: colors.muted,
     textTransform: 'uppercase',
+    flexShrink: 1,
+  },
+  remittanceLabel: {
+    fontFamily: fontFamily.manrope.medium,
+    fontSize: 9,
+    letterSpacing: 0.7,
+    color: colors.muted,
+    textTransform: 'uppercase',
+    flexShrink: 0,
   },
   card: {
     width: '100%',
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     overflow: 'hidden',
-    shadowColor: '#1B2915',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
+  },
+  emptyWrap: {
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+  },
+  emptyScanning: {
+    paddingHorizontal: 16,
+    paddingVertical: 22,
+    alignItems: 'center',
+    gap: 10,
   },
   empty: {
     fontFamily: fontFamily.manrope.regular,
-    fontSize: 14,
+    fontSize: 11,
     color: colors.muted,
   },
-  loadMore: {
-    marginTop: 8,
+  loadMoreDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  loadMoreHit: {
+    width: '100%',
+  },
+  loadMoreRow: {
+    minHeight: 44,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
   },
   loadMoreLabel: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 14,
+    fontSize: 11,
+    lineHeight: 15,
     color: colors.forest,
   },
 });

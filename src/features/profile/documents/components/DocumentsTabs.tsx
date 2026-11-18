@@ -1,5 +1,6 @@
 /**
  * Documents hub tabs — Trips | Personal.
+ * Active 11 semibold · inactive 11 medium.
  */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -20,54 +21,64 @@ const TABS: { id: DocumentsTabId; label: string }[] = [
 
 export function DocumentsTabs({ active, onChange }: DocumentsTabsProps) {
   return (
-    <View style={styles.row} accessibilityRole="tablist">
-      {TABS.map((tab) => {
-        const selected = tab.id === active;
-        return (
-          <Pressable
-            key={tab.id}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            onPress={() => onChange(tab.id)}
-            style={({ pressed }) => [
-              styles.tab,
-              selected && styles.tabActive,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={[styles.label, selected && styles.labelActive]}>{tab.label}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={styles.wrap}>
+      <View style={styles.row} accessibilityRole="tablist">
+        {TABS.map((tab) => {
+          const selected = tab.id === active;
+          return (
+            <Pressable
+              key={tab.id}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              onPress={() => onChange(tab.id)}
+              style={styles.hit}
+            >
+              <Text style={[styles.label, selected && styles.labelActive]}>{tab.label}</Text>
+              <View style={[styles.underline, selected && styles.underlineActive]} />
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.baseLine} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    gap: 22,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+  wrap: {
+    width: '100%',
     marginBottom: 4,
   },
-  tab: {
-    paddingBottom: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 22,
   },
-  tabActive: {
-    borderBottomColor: colors.forest,
+  hit: {
+    paddingBottom: 0,
   },
   label: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 15,
+    fontSize: 11,
+    lineHeight: 15,
     color: colors.muted,
+    paddingBottom: 10,
   },
   labelActive: {
+    fontFamily: fontFamily.manrope.semibold,
     color: colors.forest,
   },
-  pressed: {
-    opacity: 0.7,
+  underline: {
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'transparent',
+  },
+  underlineActive: {
+    backgroundColor: colors.forest,
+  },
+  baseLine: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginTop: -2,
   },
 });
