@@ -22,7 +22,6 @@ const TABS: TabItem[] = [
   { key: 'trips', label: 'Trips' },
   { key: 'messages', label: 'Messages', icon: 'message-square' },
   { key: 'profile', label: 'Profile', icon: 'user' },
-  { key: 'testing', label: 'Testing', icon: 'tool' },
 ];
 
 /** Content row height above the home-indicator safe area. */

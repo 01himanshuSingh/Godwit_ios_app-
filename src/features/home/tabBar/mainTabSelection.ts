@@ -3,9 +3,9 @@
  * Trip detail (stack) can request a tab before `router.replace('/')`.
  */
 
-export type MainTabKey = 'home' | 'trips' | 'messages' | 'profile' | 'testing';
+export type MainTabKey = 'home' | 'trips' | 'messages' | 'profile';
 
-const VALID: ReadonlySet<string> = new Set(['home', 'trips', 'messages', 'profile', 'testing']);
+const VALID: ReadonlySet<string> = new Set(['home', 'trips', 'messages', 'profile']);
 
 let pendingTab: MainTabKey | null = null;
 const listeners = new Set<(tab: MainTabKey) => void>();

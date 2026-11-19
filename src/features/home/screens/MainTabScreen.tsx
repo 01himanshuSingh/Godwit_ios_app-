@@ -3,7 +3,6 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { HomeTabBar } from '@/features/home/components/HomeTabBar';
 import { HomeScreen } from '@/features/home/screens/HomeScreen';
-import { TestingClientsScreen } from '@/features/home/screens/TestingClientsScreen';
 import { HomeTabBarVisibilityProvider } from '@/features/home/tabBar/HomeTabBarVisibility';
 import {
   isMainTabKey,
@@ -46,7 +45,6 @@ function MainTabBody() {
     <View style={styles.root}>
       <View style={styles.body}>
         {activeTab === 'home' ? <HomeScreen /> : null}
-        {activeTab === 'testing' ? <TestingClientsScreen /> : null}
         {activeTab === 'trips' ? <TripsScreen /> : null}
         {activeTab === 'messages' ? <MessagesScreen /> : null}
         {activeTab === 'profile' ? <ProfileScreen /> : null}
