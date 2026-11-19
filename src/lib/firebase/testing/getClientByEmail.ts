@@ -14,12 +14,7 @@ import {
 import { db } from '@/lib/firebase/firestore';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
 import { setActiveClientProfile } from '@/lib/session/activeClientProfile';
-import {
-  TEST_CLIENT_LOOKUP_ADMIN_ID,
-  TEST_CLIENT_LOOKUP_EMAIL,
-  TEST_CLIENT_LOOKUP_ID,
-  type TestingClientSession,
-} from '@/mocks/testingClientSession';
+import type { TestingClientSession } from '@/mocks/testingClientSession';
 
 /**
  * Path: `admins/{adminId}/clients/{clientId}` — use `collectionGroup(db, 'clients')`
@@ -116,11 +111,17 @@ export type ClientNameEmail = {
 };
 
 export async function getClientByAdminAndClientId(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<ClientNameEmail | null> {
+  const aid = adminId.trim();
+  const cid = clientId.trim();
+  if (!aid || !cid) {
+    throw new Error('adminId and clientId are required');
+  }
+
   return withFirestoreRetry('getClientByAdminAndClientId', async () => {
-    const ref = doc(db, 'admins', adminId, 'clients', clientId);
+    const ref = doc(db, 'admins', aid, 'clients', cid);
     const snap = await getDoc(ref);
 
     if (!snap.exists()) {
@@ -133,19 +134,19 @@ export async function getClientByAdminAndClientId(
     const name = readNonEmptyString(data.name);
 
     await setActiveClientProfile({
-      clientId,
-      adminId,
+      clientId: cid,
+      adminId: aid,
       name: name ?? '',
       contactEmail: contactEmail ?? '',
     });
 
-    return { adminId, clientId, name, contactEmail };
+    return { adminId: aid, clientId: cid, name, contactEmail };
   });
 }
 
 export async function getClientByAdminAndClientIdSafe(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<{ client: ClientNameEmail | null; errorMessage: string | null }> {
   try {
     const client = await getClientByAdminAndClientId(adminId, clientId);
@@ -214,12 +215,12 @@ export type GetAllClientEmailsResult = {
   errorMessage: string | null;
 };
 
-/** Lightweight read — known path, not a collection-group scan. */
+/** Lightweight read — any admins doc probe (no pinned test client). */
 export async function checkFirebaseConnection(): Promise<FirebaseConnectionStatus> {
   try {
     await withFirestoreRetry('checkFirebaseConnection', async () => {
-      const ref = doc(db, 'admins', TEST_CLIENT_LOOKUP_ADMIN_ID, 'clients', TEST_CLIENT_LOOKUP_ID);
-      await getDoc(ref);
+      const snap = await getDocs(query(collection(db, 'admins'), limit(1)));
+      void snap;
     });
     return { connected: true, message: 'Firebase connected successfully' };
   } catch (error) {
@@ -235,9 +236,7 @@ export async function checkFirebaseConnection(): Promise<FirebaseConnectionStatu
  * Clients with email under one admin — path query (much more reliable than
  * full `collectionGroup('clients')` on Expo Go cold start).
  */
-export async function getClientEmailsForAdmin(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-): Promise<ClientEmailSummary[]> {
+export async function getClientEmailsForAdmin(adminId: string): Promise<ClientEmailSummary[]> {
   return withFirestoreRetry('getClientEmailsForAdmin', async () => {
     const snapshot = await getDocs(collection(db, 'admins', adminId, 'clients'));
 
@@ -251,7 +250,7 @@ export async function getClientEmailsForAdmin(
 }
 
 export async function getClientEmailsForAdminSafe(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
+  adminId: string,
 ): Promise<GetAllClientEmailsResult> {
   try {
     const clients = await getClientEmailsForAdmin(adminId);
@@ -330,7 +329,7 @@ export { getClientTrips, type ClientTripSummary } from './getClientTrips';
  * Read-only: resolve client + admin ids for a CRM email.
  */
 export async function testGetClientByEmail(
-  contactEmail: string = TEST_CLIENT_LOOKUP_EMAIL,
+  contactEmail: string,
 ): Promise<ClientLookupResult | null> {
   try {
     const hit = await getClientByEmailOnly(contactEmail);

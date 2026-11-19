@@ -54,7 +54,6 @@ import {
   type ClientTripSummary,
 } from '../../../lib/firebase/testing/getClientTrips';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { GODWIT_BIRD_VARIANTS, type GodwitBirdVariant } from '@/ui/brand/GodwitBirdMark';
 import {
   GODWIT_HEADER_LOGO,
@@ -101,7 +100,7 @@ async function fetchTestingClientsData(
     throw new Error(tripsResult.salesError);
   }
 
-  const emailList = await getClientEmailsForAdminSafe(adminId || TEST_CLIENT_LOOKUP_ADMIN_ID);
+  const emailList = await getClientEmailsForAdminSafe(adminId);
 
   const tripsNoteParts = [
     tripsResult.salesError ? `sales: ${tripsResult.salesError}` : null,
@@ -517,8 +516,8 @@ export function TestingClientsScreen() {
   const [bootPreview, setBootPreview] = useState<'idle' | 'show' | 'exit'>('idle');
   const [bootVariant, setBootVariant] = useState<GodwitBirdVariant>('standing');
   const [bootMode, setBootMode] = useState<GodwitBootMode>('mark');
-  const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
-  const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
+  const adminId = profile?.adminId?.trim() ?? '';
+  const clientId = profile?.clientId?.trim() ?? '';
 
   const openBootPreview = (variant: GodwitBirdVariant) => {
     setBootMode('mark');
@@ -861,7 +860,9 @@ export function TestingClientsScreen() {
                   <Text style={styles.emptyText}>
                     {pinnedError
                       ? `Could not load client: ${pinnedError}`
-                      : `Not found at admins/${TEST_CLIENT_LOOKUP_ADMIN_ID}/clients/${TEST_CLIENT_LOOKUP_ID}`}
+                      : adminId && clientId
+                        ? `Not found at admins/${adminId}/clients/${clientId}`
+                        : 'Sign in with a magic link to load a client.'}
                   </Text>
                 )}
 

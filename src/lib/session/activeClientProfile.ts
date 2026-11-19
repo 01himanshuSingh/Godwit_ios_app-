@@ -4,17 +4,14 @@
  * Auth (SecureStore): access/refresh tokens + clientId for API scope.
  * Profile (AsyncStorage): name/email for Home header & greeting — non-secret UI state.
  *
- * Writers: Testing bootstrap / future magic-link completion.
+ * Writers: magic-link completion (`establishClientSessionFromUser`) only.
  * Readers: Home and any feature that needs the signed-in client's display identity.
+ *
+ * Never seed a hardcoded test client — empty profile means signed out / unresolved.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import {
-  setTestingClientSession,
-  TEST_CLIENT_LOOKUP_ADMIN_ID,
-  TEST_CLIENT_LOOKUP_EMAIL,
-  TEST_CLIENT_LOOKUP_ID,
-} from '@/mocks/testingClientSession';
+import { setTestingClientSession } from '@/mocks/testingClientSession';
 
 const STORAGE_KEY = 'godwit.activeClientProfile.v1';
 
@@ -164,25 +161,16 @@ export async function setActiveClientProfile(
 
 export async function clearActiveClientProfile(): Promise<void> {
   memoryProfile = null;
+  setTestingClientSession({
+    clientId: '',
+    adminId: '',
+    contactEmail: '',
+    name: '',
+  });
   notify();
   try {
     await AsyncStorage.removeItem(STORAGE_KEY);
   } catch (error) {
     console.warn('[activeClientProfile] clear failed:', error);
   }
-}
-
-/**
- * Dev seed when nothing is persisted yet — uses the pinned Testing client ids.
- * Name stays empty until Testing (or a Firestore read) fills it.
- */
-export function getDevFallbackProfileIds(): Pick<
-  ActiveClientProfile,
-  'clientId' | 'adminId' | 'contactEmail'
-> {
-  return {
-    clientId: TEST_CLIENT_LOOKUP_ID,
-    adminId: TEST_CLIENT_LOOKUP_ADMIN_ID,
-    contactEmail: TEST_CLIENT_LOOKUP_EMAIL,
-  };
 }

@@ -161,6 +161,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const signInWithTestingEmail = useCallback(async (email: string) => {
+    // Dev-only CRM stub login — never available in staging/production APKs.
+    if (!__DEV__) {
+      throw new Error('Use the email sign-in link to access Godwit.');
+    }
     const result = await signInWithClientEmail(email);
     setSession(result.session);
     setMagicLinkError(null);

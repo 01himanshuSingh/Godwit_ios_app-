@@ -21,7 +21,6 @@ import {
 import { db } from '@/lib/firebase/firestore';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
 import { mapYachtUpcomingCardFields } from '@/lib/firebase/sales/yachtServices';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 
 export const SALES_PAGE_SIZE = 40;
 
@@ -802,8 +801,8 @@ function matchesTripsListMode(
  * Filter to upcoming in the app layer after mapping.
  */
 export async function getClientSalesPage(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
   cursor: SalesPageCursor = null,
   pageSize: number = SALES_PAGE_SIZE,
 ): Promise<ClientSalesPage> {
@@ -832,10 +831,7 @@ export async function getClientSalesPage(
 }
 
 /** All Instant Sale docs for a client (paginated under the hood). */
-export async function getClientSales(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
-): Promise<ClientSaleTrip[]> {
+export async function getClientSales(adminId: string, clientId: string): Promise<ClientSaleTrip[]> {
   const all: ClientSaleTrip[] = [];
   let cursor: SalesPageCursor = null;
   let hasMore = true;
@@ -851,8 +847,8 @@ export async function getClientSales(
 }
 
 export async function getClientUpcomingSales(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
   options?: {
     includeCurrent?: boolean;
     includeCancelled?: boolean;
@@ -918,8 +914,8 @@ export async function getClientUpcomingSalesPage(
 }
 
 export async function getClientUpcomingSalesSafe(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<GetClientUpcomingSalesResult> {
   try {
     const trips = await getClientUpcomingSales(adminId, clientId);
@@ -932,16 +928,16 @@ export async function getClientUpcomingSalesSafe(
 }
 
 export async function getClientUpcomingTripsCard(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<UpcomingTripsCardSummary> {
   const upcoming = await getClientUpcomingSales(adminId, clientId);
   return buildUpcomingTripsCardSummary(upcoming);
 }
 
 export async function getClientUpcomingTripsCardSafe(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<GetUpcomingTripsCardResult> {
   try {
     const card = await getClientUpcomingTripsCard(adminId, clientId);

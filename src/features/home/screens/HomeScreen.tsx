@@ -21,7 +21,6 @@ import {
   greetingForLocalTime,
 } from '@/lib/session/activeClientProfile';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { useGodwitFonts } from '@/ui/fonts/useGodwitFonts';
 import { isScreenBooting, ScreenBootLoader } from '@/ui/loading';
 import { colors } from '@/ui/tokens/colors';
@@ -35,8 +34,9 @@ export function HomeScreen() {
   const [showRequests, setShowRequests] = useState(false);
   const tabBarScroll = useHomeTabBarScrollProps();
 
-  const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
-  const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
+  /** Real magic-link session only — never fall back to a hardcoded test client. */
+  const adminId = profile?.adminId?.trim() ?? '';
+  const clientId = profile?.clientId?.trim() ?? '';
   const ready = !isHydrating && Boolean(adminId && clientId);
   const hasProfileName = Boolean(profile?.name?.trim());
 
@@ -50,8 +50,8 @@ export function HomeScreen() {
 
   const profileResolveQuery = useQuery({
     queryKey: ['home', 'resolve-profile', adminId, clientId],
-    queryFn: () => getClientByAdminAndClientIdSafe(),
-    enabled: !isHydrating && !hasProfileName,
+    queryFn: () => getClientByAdminAndClientIdSafe(adminId, clientId),
+    enabled: ready && !hasProfileName,
     retry: 1,
   });
 

@@ -7,7 +7,6 @@ import {
 
 import { db } from '@/lib/firebase/firestore';
 import { withFirestoreRetry } from '@/lib/firebase/withFirestoreRetry';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 
 /** CRM: visitType 0 = sale / booking; Instant Sale v1 often omits the field entirely. */
 const VISIT_TYPE_SALE = 0;
@@ -153,8 +152,8 @@ function mapVisitDoc(
  * then keep sale/booking docs in memory (missing visitType is Instant Sale v1).
  */
 export async function getClientInstantSales(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<ClientTripSummary[]> {
   return withFirestoreRetry('getClientInstantSales', async () => {
     const ref = collection(db, 'admins', adminId, 'clients', clientId, 'sales');
@@ -197,8 +196,8 @@ export async function getTravellerIdsForClient(
  * Legacy visits — path reads only (no collectionGroup indexes).
  */
 export async function getClientCustomerServicesViaTravellers(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<ClientTripSummary[]> {
   const travellerIds = await getTravellerIdsForClient(adminId, clientId);
   const trips: ClientTripSummary[] = [];
@@ -247,8 +246,8 @@ function sortTripsNewestFirst(trips: ClientTripSummary[]): ClientTripSummary[] {
  * Sales load first (small path). Traveller scan is best-effort — never blocks bookings.
  */
 export async function getClientTrips(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<{
   trips: ClientTripSummary[];
   salesError: string | null;

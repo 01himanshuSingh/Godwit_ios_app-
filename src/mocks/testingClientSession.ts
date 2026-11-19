@@ -1,6 +1,7 @@
 /**
- * Temporary dev tenant context from Firestore lookup — NOT production auth.
- * Future: bind to `bffSession` / magic-link; do not use in production builds.
+ * In-memory mirror of the signed-in client — for legacy testing helpers only.
+ * Production Home / Trips / Payments must read `useActiveClientProfile()` / magic-link session.
+ * Never seed a hardcoded Himanshu (or any) client id here.
  */
 
 export type TestingClientSession = {
@@ -13,23 +14,22 @@ export type TestingClientSession = {
   name: string;
 };
 
-/** Email used by `testGetClientByEmail` — change for other test users. */
-export const TEST_CLIENT_LOOKUP_EMAIL = 'hr1411687@gmail.com';
-
-/** Direct path: `admins/{adminId}/clients/{clientId}`. */
-export const TEST_CLIENT_LOOKUP_ADMIN_ID = '11EzdfcBKxrLQGULPBfY';
-export const TEST_CLIENT_LOOKUP_ID = 'dW7BJQMTJoA54JcWO4Cv';
-
 /**
- * In-memory values filled by `testGetClientByEmail()` (or paste manually after one successful run).
- * Prefer `getTestingClientSession()` when you need clientId/adminId in features during dev.
+ * Empty until magic-link / profile hydrate fills it via `setTestingClientSession`.
  */
 export const testingClientSession: TestingClientSession = {
   clientId: '',
   adminId: '',
-  contactEmail: TEST_CLIENT_LOOKUP_EMAIL,
+  contactEmail: '',
   name: '',
 };
+
+/** @deprecated Kept only for orphan TestingClientsScreen copy — do not use in product UI. */
+export const TEST_CLIENT_LOOKUP_EMAIL = '';
+/** @deprecated */
+export const TEST_CLIENT_LOOKUP_ADMIN_ID = '';
+/** @deprecated */
+export const TEST_CLIENT_LOOKUP_ID = '';
 
 export function setTestingClientSession(partial: Partial<TestingClientSession>): void {
   Object.assign(testingClientSession, partial);
@@ -39,7 +39,6 @@ export function getTestingClientSession(): TestingClientSession {
   return testingClientSession;
 }
 
-/** Dev helper — returns clientId when lookup has run; otherwise null. */
 export function getTestingClientId(): string | null {
   const id = testingClientSession.clientId.trim();
   return id.length > 0 ? id : null;

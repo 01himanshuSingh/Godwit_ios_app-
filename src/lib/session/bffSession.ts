@@ -1,9 +1,8 @@
 /**
- * BFF access/refresh tokens + clientId (Keychain). Separate from Firebase Auth in `src/lib/firebase`.
+ * App session markers (Keychain) — clientId scope for features.
+ * Firebase Auth RN persistence owns real ID/refresh tokens.
  */
 import * as SecureStore from 'expo-secure-store';
-
-import { staticAuthSession, USE_STATIC_SESSION } from '@/mocks/staticSession';
 
 const ACCESS_TOKEN_KEY = 'godwit.accessToken';
 const REFRESH_TOKEN_KEY = 'godwit.refreshToken';
@@ -12,17 +11,11 @@ const CLIENT_ID_KEY = 'godwit.clientId';
 export type AuthSession = {
   accessToken: string;
   refreshToken: string;
-  /** CRM client scope for BFF /v1 calls — required on every authenticated request. */
+  /** CRM client scope — set only after magic-link + entitlement. */
   clientId: string;
 };
 
 export async function getStoredSession(): Promise<AuthSession | null> {
-  // Dev: always use the manual static client — do not let stale SecureStore
-  // tokens shadow staticAuthSession.clientId (breaks Profile / Trips scope).
-  if (USE_STATIC_SESSION) {
-    return staticAuthSession;
-  }
-
   const [accessToken, refreshToken, clientId] = await Promise.all([
     SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
     SecureStore.getItemAsync(REFRESH_TOKEN_KEY),

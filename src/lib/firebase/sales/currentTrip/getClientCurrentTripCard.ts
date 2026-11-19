@@ -6,27 +6,20 @@
 import { buildHomeTripSpotlightCard } from '@/lib/firebase/sales/currentTrip/buildClientCurrentTripCard';
 import type { GetClientCurrentTripCardResult } from '@/lib/firebase/sales/currentTrip/currentTripCardTypes';
 import { getClientSales } from '@/lib/firebase/sales/getClientUpcomingSales';
-import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 
-export async function getClientCurrentTripCard(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
-) {
+export async function getClientCurrentTripCard(adminId: string, clientId: string) {
   const sales = await getClientSales(adminId, clientId);
   return buildHomeTripSpotlightCard(sales);
 }
 
 /** Alias — same fetch; name reflects current → upcoming fallback. */
-export async function getHomeTripSpotlightCard(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
-) {
+export async function getHomeTripSpotlightCard(adminId: string, clientId: string) {
   return getClientCurrentTripCard(adminId, clientId);
 }
 
 export async function getClientCurrentTripCardSafe(
-  adminId: string = TEST_CLIENT_LOOKUP_ADMIN_ID,
-  clientId: string = TEST_CLIENT_LOOKUP_ID,
+  adminId: string,
+  clientId: string,
 ): Promise<GetClientCurrentTripCardResult> {
   try {
     const card = await getClientCurrentTripCard(adminId, clientId);
