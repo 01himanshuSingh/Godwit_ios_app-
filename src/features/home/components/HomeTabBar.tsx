@@ -1,14 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
-import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useHomeTabBarVisibility } from '@/features/home/tabBar/HomeTabBarVisibility';
@@ -24,8 +17,7 @@ type TabItem = {
   icon?: FeatherIconName;
 };
 
-/** Phase 1 tabs — visual only until Expo Router tab shell is wired. */
-const PHASE1_TABS: TabItem[] = [
+const TABS: TabItem[] = [
   { key: 'home', label: 'Home', icon: 'home' },
   { key: 'trips', label: 'Trips' },
   { key: 'messages', label: 'Messages', icon: 'message-square' },
@@ -33,124 +25,133 @@ const PHASE1_TABS: TabItem[] = [
   { key: 'testing', label: 'Testing', icon: 'tool' },
 ];
 
+/** Content row height above the home-indicator safe area. */
+export const HOME_TAB_BAR_CONTENT_HEIGHT = 52;
+
 type HomeTabBarProps = {
   activeTab?: string;
   onTabPress?: (tabKey: string) => void;
 };
 
-function TabIcon({ tabKey, icon, tint }: { tabKey: string; icon?: FeatherIconName; tint: string }) {
+function TabIcon({
+  tabKey,
+  icon,
+  tint,
+  active,
+}: {
+  tabKey: string;
+  icon?: FeatherIconName;
+  tint: string;
+  active: boolean;
+}) {
   if (tabKey === 'trips') {
     return (
       <View style={styles.tripsIconTilt}>
-        <Ionicons name="airplane-outline" size={20} color={tint} />
+        <Ionicons name={active ? 'airplane' : 'airplane-outline'} size={22} color={tint} />
       </View>
     );
   }
 
-  return <Feather name={icon ?? 'circle'} size={20} color={tint} />;
+  return <Feather name={icon ?? 'circle'} size={22} color={tint} />;
 }
 
 export function HomeTabBar({ activeTab = 'home', onTabPress }: HomeTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { hidden, suppressed } = useHomeTabBarVisibility();
-  const translateY = useSharedValue(0);
-  const opacity = useSharedValue(1);
+  const { suppressed } = useHomeTabBarVisibility();
+  const bottomPad = Math.max(insets.bottom, 8);
 
-  const bottomPad = Math.max(insets.bottom, 12);
-  /** Enough to clear the pill + safe area when sliding off-screen. */
-  const hideDistance = 72 + bottomPad;
-  const offScreen = suppressed || hidden;
-
-  useEffect(() => {
-    translateY.value = withTiming(offScreen ? hideDistance : 0, {
-      duration: suppressed ? 0 : 240,
-      easing: Easing.out(Easing.cubic),
-    });
-    opacity.value = withTiming(offScreen ? 0 : 1, {
-      duration: suppressed ? 0 : 200,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [hideDistance, offScreen, opacity, suppressed, translateY]);
-
-  /** Hooks must run every render — never return before this. */
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
+  if (suppressed) {
+    return null;
+  }
 
   return (
-    <Animated.View
-      style={[styles.wrapper, { paddingBottom: bottomPad }, animatedStyle]}
-      pointerEvents={offScreen ? 'none' : 'box-none'}
-      accessibilityElementsHidden={offScreen}
-      importantForAccessibility={offScreen ? 'no-hide-descendants' : 'auto'}
-    >
-      <View style={styles.pill}>
-        {PHASE1_TABS.map((tab) => {
+    <View style={[styles.bar, { paddingBottom: bottomPad }]} accessibilityRole="tablist">
+      <View style={styles.hairline} />
+      <View style={styles.row}>
+        {TABS.map((tab) => {
           const isActive = tab.key === activeTab;
           const tint = isActive ? colors.forest : colors.muted;
 
           return (
             <Pressable
               key={tab.key}
-              accessibilityRole="button"
+              accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
               accessibilityLabel={tab.label}
               onPress={() => onTabPress?.(tab.key)}
-              style={styles.tabPressable}
+              style={({ pressed }) => [styles.tabPressable, pressed && styles.tabPressed]}
             >
               <View style={styles.tab}>
-                <TabIcon tabKey={tab.key} icon={tab.icon} tint={tint} />
-                <Text style={[styles.tabLabel, { color: tint }]}>{tab.label}</Text>
+                {isActive ? <View style={styles.activeTick} /> : null}
+                <TabIcon tabKey={tab.key} icon={tab.icon} tint={tint} active={isActive} />
+                <Text
+                  style={[styles.tabLabel, { color: tint }, isActive && styles.tabLabelActive]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
               </View>
             </Pressable>
           );
         })}
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
+  bar: {
+    width: '100%',
+    backgroundColor: colors.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.headerBorder,
+  },
+  hairline: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    zIndex: 50,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.headerBorder,
   },
-  pill: {
+  row: {
+    height: HOME_TAB_BAR_CONTENT_HEIGHT,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    shadowColor: colors.forest,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    alignItems: 'stretch',
   },
   tabPressable: {
     flex: 1,
+    minWidth: 0,
+  },
+  tabPressed: {
+    opacity: 0.72,
   },
   tab: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 4,
+    gap: 3,
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  activeTick: {
+    position: 'absolute',
+    top: 0,
+    width: 28,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: colors.forest,
   },
   tripsIconTilt: {
     transform: [{ rotate: '-45deg' }],
   },
   tabLabel: {
     fontFamily: fontFamily.manrope.medium,
-    fontSize: 11,
+    fontSize: 10,
+    lineHeight: 12,
+    letterSpacing: 0.1,
+  },
+  tabLabelActive: {
+    fontFamily: fontFamily.manrope.semibold,
   },
 });

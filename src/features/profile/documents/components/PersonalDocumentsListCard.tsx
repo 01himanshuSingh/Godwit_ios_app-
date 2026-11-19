@@ -89,7 +89,7 @@ function DocumentRow({ item, showDivider }: { item: PersonalDocumentItem; showDi
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`View ${item.title}`}
-            onPress={() => void openSaleVoucherPdf(item.url)}
+            onPress={() => void openSaleVoucherPdf(item.url, item.title)}
             style={({ pressed }) => [styles.viewBtn, pressed && styles.pressed]}
           >
             <Feather name="eye" size={14} color={colors.primaryForeground} />

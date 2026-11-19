@@ -12,9 +12,8 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +25,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HomeTabBar, HOME_TAB_BAR_CONTENT_HEIGHT } from '@/features/home/components/HomeTabBar';
+import { isMainTabKey, requestMainTab } from '@/features/home/tabBar/mainTabSelection';
 import { AirActiveTripBody } from '@/features/trips/air/AirActiveTripBody';
 import { ChauffeurActiveTripBody } from '@/features/trips/chauffeur/ChauffeurActiveTripBody';
 import { GenericActiveTripBody } from '@/features/trips/components/GenericActiveTripBody';
@@ -40,6 +41,7 @@ import { VipActiveTripBody } from '@/features/trips/vip/VipActiveTripBody';
 import { YachtActiveTripBody } from '@/features/trips/yacht/YachtActiveTripBody';
 import { getClientSaleActiveTripDetailSafe } from '@/lib/firebase/sales/getActiveTripDetail';
 import { mapTripsLoadErrorToMessage } from '@/lib/firebase/sales/mapTripsLoadError';
+import { isScreenBooting, ScreenBootLoader } from '@/ui/loading';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -59,6 +61,7 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
     const isWide = width >= 768;
     const pagePad = isCompact ? 16 : isWide ? 40 : 24;
     const contentMaxWidth = Math.min(width, isWide ? 680 : width);
+    const tabBarPad = HOME_TAB_BAR_CONTENT_HEIGHT + Math.max(insets.bottom, 8);
 
     return {
       pagePad,
@@ -67,7 +70,7 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
       titleLineHeight: isCompact ? 34 : isWide ? 46 : 40,
       subtitleSize: isCompact ? 14 : 16,
       detailValueSize: isCompact ? 14 : 16,
-      bottomPad: Math.max(insets.bottom, 16) + 24,
+      bottomPad: tabBarPad + 20,
     };
   }, [width, insets.bottom]);
 
@@ -144,10 +147,42 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
     detailValueSize: layout.detailValueSize,
   };
 
+  const handleTabPress = useCallback(
+    (tabKey: string) => {
+      if (!isMainTabKey(tabKey)) return;
+      requestMainTab(tabKey);
+      router.replace('/');
+    },
+    [router],
+  );
+
+  const booting = isScreenBooting({
+    enabled: canFetch,
+    isPending,
+    hasContent: Boolean(detail),
+    hasTerminalError: Boolean(exception) && !isPending,
+  });
+
+  if (booting) {
+    return (
+      <View style={styles.root}>
+        <ScreenBootLoader accessibilityLabel="Loading your trip" />
+        <HomeTabBar activeTab="trips" onTabPress={handleTabPress} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
-      {/* AppChromeHeader from app/_layout.tsx */}
-      <View style={contentColumnStyle}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          contentColumnStyle,
+          { paddingBottom: layout.bottomPad },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back to itinerary"
@@ -162,58 +197,46 @@ export function ActiveTripDetailScreen({ adminId, clientId, saleId }: ActiveTrip
             </Text>
           </View>
         </Pressable>
-      </View>
 
-      {canFetch && isPending ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.forest} />
-        </View>
-      ) : null}
+        {exception ? (
+          <TripsExceptionCard
+            embedded
+            variant={exception.variant}
+            title={exception.title}
+            message={exception.message}
+            isRetrying={isFetching}
+            onRetry={exception.canRetry ? () => void refetch() : undefined}
+          />
+        ) : null}
 
-      {exception && !isPending ? (
-        <TripsExceptionCard
-          variant={exception.variant}
-          title={exception.title}
-          message={exception.message}
-          isRetrying={isFetching}
-          onRetry={exception.canRetry ? () => void refetch() : undefined}
-        />
-      ) : null}
+        {detail ? (
+          <>
+            {isHotel ? (
+              <HotelActiveTripBody detail={detail} layout={bodyLayout} />
+            ) : isAir ? (
+              <AirActiveTripBody detail={detail} layout={bodyLayout} />
+            ) : isVip ? (
+              <VipActiveTripBody detail={detail} layout={bodyLayout} />
+            ) : isChauffeur ? (
+              <ChauffeurActiveTripBody detail={detail} layout={bodyLayout} />
+            ) : isPrivateJet ? (
+              <PrivateJetActiveTripBody detail={detail} layout={bodyLayout} />
+            ) : isYacht ? (
+              <YachtActiveTripBody detail={detail} layout={bodyLayout} />
+            ) : (
+              <GenericActiveTripBody detail={detail} layout={bodyLayout} />
+            )}
 
-      {detail ? (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[
-            styles.scrollContent,
-            contentColumnStyle,
-            { paddingBottom: layout.bottomPad },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {isHotel ? (
-            <HotelActiveTripBody detail={detail} layout={bodyLayout} />
-          ) : isAir ? (
-            <AirActiveTripBody detail={detail} layout={bodyLayout} />
-          ) : isVip ? (
-            <VipActiveTripBody detail={detail} layout={bodyLayout} />
-          ) : isChauffeur ? (
-            <ChauffeurActiveTripBody detail={detail} layout={bodyLayout} />
-          ) : isPrivateJet ? (
-            <PrivateJetActiveTripBody detail={detail} layout={bodyLayout} />
-          ) : isYacht ? (
-            <YachtActiveTripBody detail={detail} layout={bodyLayout} />
-          ) : (
-            <GenericActiveTripBody detail={detail} layout={bodyLayout} />
-          )}
+            {!isHotel ? (
+              <View style={styles.documentsSlot}>
+                <TripDocumentsCard voucherUrl={detail.voucherUrl} fileLabel={detail.title} />
+              </View>
+            ) : null}
+          </>
+        ) : null}
+      </ScrollView>
 
-          {/* Hotel owns documents in-body; other services append below with spacing */}
-          {!isHotel ? (
-            <View style={styles.documentsSlot}>
-              <TripDocumentsCard voucherUrl={detail.voucherUrl} fileLabel={detail.title} />
-            </View>
-          ) : null}
-        </ScrollView>
-      ) : null}
+      <HomeTabBar activeTab="trips" onTabPress={handleTabPress} />
     </View>
   );
 }
@@ -247,11 +270,5 @@ const styles = StyleSheet.create({
   },
   documentsSlot: {
     width: '100%',
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
   },
 });

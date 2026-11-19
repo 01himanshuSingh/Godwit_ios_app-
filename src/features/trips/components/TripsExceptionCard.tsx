@@ -90,7 +90,13 @@ export function TripsExceptionCard({
   const showRetry = typeof onRetry === 'function';
 
   return (
-    <View style={[styles.wrap, embedded && styles.wrapEmbedded, { paddingHorizontal: pagePad }]}>
+    <View
+      style={[
+        styles.wrap,
+        embedded && styles.wrapEmbedded,
+        { paddingHorizontal: embedded ? 0 : pagePad },
+      ]}
+    >
       <View style={styles.card}>
         <View style={styles.iconWell}>
           <Feather name={copy.icon} size={22} color={colors.forest} />

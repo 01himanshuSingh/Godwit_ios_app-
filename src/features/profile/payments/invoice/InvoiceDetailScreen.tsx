@@ -8,7 +8,6 @@ import { useMemo } from 'react';
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
 import { PaymentsExceptionCard } from '@/features/profile/payments/components/PaymentsExceptionCard';
 import { InvoiceDetailCard } from '@/features/profile/payments/invoice/components/InvoiceDetailCard';
-import { InvoiceDetailSkeleton } from '@/features/profile/payments/invoice/components/InvoiceDetailSkeleton';
 import {
   classifyPaymentsLoadError,
   getClientInvoiceSafe,
@@ -16,6 +15,7 @@ import {
   type PaymentsLoadErrorKind,
 } from '@/lib/firebase/payments';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
+import { isScreenBooting, ScreenBootLoader } from '@/ui/loading';
 
 type InvoiceDetailScreenProps = {
   saleId: string;
@@ -86,10 +86,20 @@ export function InvoiceDetailScreen({ saleId }: InvoiceDetailScreenProps) {
     isHydrating,
   ]);
 
-  const loading = isHydrating || (ready && invoiceQuery.isPending && !invoice && !exception);
+  const loading = isScreenBooting({
+    isHydrating,
+    enabled: hasScope,
+    isPending: invoiceQuery.isPending,
+    hasContent: Boolean(invoice),
+    hasTerminalError: Boolean(exception),
+  });
+
+  if (loading) {
+    return <ScreenBootLoader accessibilityLabel="Loading invoice" />;
+  }
 
   /** CRM invoiceNo / service title only — never placeholders while loading. */
-  const title = invoice?.invoiceNumber?.trim() || (!loading && exception ? 'Invoice' : null);
+  const title = invoice?.invoiceNumber?.trim() || (exception ? 'Invoice' : null);
   const subtitle = invoice?.title?.trim() || null;
 
   return (
@@ -99,9 +109,7 @@ export function InvoiceDetailScreen({ saleId }: InvoiceDetailScreenProps) {
       backLabel="Payments"
       layoutPreset="invoiceDetail"
     >
-      {loading ? <InvoiceDetailSkeleton /> : null}
-
-      {!loading && exception ? (
+      {exception ? (
         <PaymentsExceptionCard
           kind={exception.kind}
           message={exception.message}
@@ -111,7 +119,7 @@ export function InvoiceDetailScreen({ saleId }: InvoiceDetailScreenProps) {
         />
       ) : null}
 
-      {!loading && !exception && invoice ? <InvoiceDetailCard invoice={invoice} /> : null}
+      {!exception && invoice ? <InvoiceDetailCard invoice={invoice} /> : null}
     </ProfileSectionShell>
   );
 }

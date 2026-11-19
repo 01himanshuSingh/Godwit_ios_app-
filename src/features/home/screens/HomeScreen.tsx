@@ -23,9 +23,10 @@ import {
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
 import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
 import { useGodwitFonts } from '@/ui/fonts/useGodwitFonts';
+import { isScreenBooting, ScreenBootLoader } from '@/ui/loading';
 import { colors } from '@/ui/tokens/colors';
 
-const TAB_BAR_CLEARANCE = 96;
+const TAB_BAR_CLEARANCE = 24;
 
 export function HomeScreen() {
   const router = useRouter();
@@ -110,26 +111,24 @@ export function HomeScreen() {
     router.push('/profile/payments');
   }, [router]);
 
-  const tripLoading = ready && currentTripQuery.isPending && !currentTripQuery.data;
   const paymentsLoading = ready && paymentsDueQuery.isPending && !paymentsDueQuery.data;
-  const bootLoading = !fontsLoaded || isHydrating;
+  /** Screen boot: fonts / session / first trip. Payments wait → skeleton below. */
+  const startingLoad = isScreenBooting({
+    fontsReady: fontsLoaded,
+    isHydrating,
+    enabled: ready,
+    isPending: currentTripQuery.isPending,
+    hasContent: Boolean(currentTripQuery.data),
+    hasTerminalError: currentTripQuery.isError,
+  });
   const hasIdentity = Boolean(sessionHome);
 
   if (showRequests) {
     return <RequestsScreen onBack={handleRequestsBack} />;
   }
 
-  if (bootLoading) {
-    return (
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={false}
-      >
-        <HomeScreenSkeleton />
-      </ScrollView>
-    );
+  if (startingLoad) {
+    return <ScreenBootLoader accessibilityLabel="Loading your Godwit home" />;
   }
 
   return (
@@ -154,31 +153,25 @@ export function HomeScreen() {
         />
       )}
 
-      {tripLoading ? <HomeScreenSkeleton hideGreeting /> : null}
-
-      {!tripLoading && currentTrip ? (
+      {currentTrip ? (
         <CurrentTripCard
           card={currentTrip}
           onViewTrip={(saleId) => {
             onViewTrip(saleId);
           }}
         />
-      ) : null}
-
-      {!tripLoading && !currentTrip ? (
+      ) : (
         <CurrentTripEmptyCard
           variant={tripLoadFailed ? 'error' : 'empty'}
           onNewRequest={handleNewRequest}
         />
-      ) : null}
+      )}
 
-      {!tripLoading ? (
-        <HomeQuickActions onNewRequest={handleNewRequest} onPayments={onViewPayments} />
-      ) : null}
+      <HomeQuickActions onNewRequest={handleNewRequest} onPayments={onViewPayments} />
 
-      {!tripLoading && paymentsLoading ? <HomeScreenSkeleton paymentsOnly /> : null}
+      {paymentsLoading ? <HomeScreenSkeleton paymentsOnly /> : null}
 
-      {!tripLoading && !paymentsLoading && paymentsDue ? (
+      {!paymentsLoading && paymentsDue ? (
         <PaymentsDueCard card={paymentsDue} onViewPayments={onViewPayments} />
       ) : null}
     </ScrollView>

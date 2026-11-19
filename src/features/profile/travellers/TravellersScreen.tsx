@@ -2,9 +2,9 @@
  * Profile → Travellers list.
  *
  * States:
- *   loading   → TravellersListSkeleton
- *   exception → TravellersExceptionCard (auth / permission / offline / default)
- *   empty     → TravellersEmptyCard (success, zero travellers)
+ *   boot      → ScreenBootLoader (Godwit bird)
+ *   exception → TravellersExceptionCard
+ *   empty     → TravellersEmptyCard
  *   data      → TravellerListCard
  *
  * Never invents travellers; never surfaces adminId / clientId / raw DB errors.
@@ -17,7 +17,6 @@ import { ProfileSectionShell } from '@/features/profile/components/ProfileSectio
 import { TravellerListCard } from '@/features/profile/travellers/components/TravellerListCard';
 import { TravellersEmptyCard } from '@/features/profile/travellers/components/TravellersEmptyCard';
 import { TravellersExceptionCard } from '@/features/profile/travellers/components/TravellersExceptionCard';
-import { TravellersListSkeleton } from '@/features/profile/travellers/components/TravellersListSkeleton';
 import type { ClientTraveller } from '@/lib/firebase/customers';
 import {
   classifyTravellersLoadError,
@@ -25,6 +24,7 @@ import {
   mapTravellersLoadErrorToMessage,
 } from '@/lib/firebase/customers';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
+import { isScreenBooting, ScreenBootLoader } from '@/ui/loading';
 
 export function TravellersScreen() {
   const router = useRouter();
@@ -49,11 +49,11 @@ export function TravellersScreen() {
   const travellers = data?.travellers ?? [];
 
   const exception = useMemo(() => {
-    if (!isHydrating && !hasScope) {
-      const scopeError = new Error('Missing adminId or clientId');
+    if (isHydrating) return null;
+    if (!hasScope) {
       return {
-        kind: classifyTravellersLoadError(scopeError),
-        message: mapTravellersLoadErrorToMessage(scopeError),
+        kind: classifyTravellersLoadError(new Error('Missing adminId or clientId')),
+        message: mapTravellersLoadErrorToMessage(new Error('Missing adminId or clientId')),
         canRetry: false,
       };
     }
@@ -70,9 +70,20 @@ export function TravellersScreen() {
     };
   }, [isHydrating, hasScope, data, isError, error]);
 
-  const loading = isHydrating || (hasScope && isPending && travellers.length === 0 && !exception);
-  const showEmpty = !loading && !exception && travellers.length === 0;
-  const showList = !loading && !exception && travellers.length > 0;
+  const loading = isScreenBooting({
+    isHydrating,
+    enabled: hasScope,
+    isPending,
+    hasContent: travellers.length > 0,
+    hasTerminalError: Boolean(exception),
+  });
+
+  if (loading) {
+    return <ScreenBootLoader accessibilityLabel="Loading travellers" />;
+  }
+
+  const showEmpty = !exception && travellers.length === 0;
+  const showList = !exception && travellers.length > 0;
 
   return (
     <ProfileSectionShell
@@ -81,9 +92,7 @@ export function TravellersScreen() {
       backLabel="Profile"
       layoutPreset="travellers"
     >
-      {loading ? <TravellersListSkeleton /> : null}
-
-      {!loading && exception ? (
+      {exception ? (
         <TravellersExceptionCard
           kind={exception.kind}
           message={exception.message}

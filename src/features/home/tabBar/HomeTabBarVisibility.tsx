@@ -1,7 +1,6 @@
 /**
- * Coordinates floating HomeTabBar visibility across tab screens.
- * - On scroll: hide; after idle delay: show again.
- * - New request flow: fully suppress (unmount) the tab bar for full-screen forms.
+ * Coordinates fixed HomeTabBar visibility across tab screens.
+ * Bar stays docked (no scroll-hide). New request flow can fully suppress it.
  */
 import {
   createContext,
@@ -9,101 +8,49 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
-const HIDE_IDLE_MS = 1100;
-const SCROLL_DELTA = 4;
-
 type HomeTabBarVisibilityValue = {
-  /** true when bar should be off-screen (scroll hide) */
+  /** Always false for the static dock — kept for API compatibility. */
   hidden: boolean;
-  /** true when bar must not render at all (New request overlay) */
+  /** true when bar must not render (New request overlay). */
   suppressed: boolean;
   setSuppressed: (next: boolean) => void;
-  /** Attach to ScrollView / FlashList / FlatList */
+  /** No-op for static bar; kept so scroll props stay valid. */
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   scrollEventThrottle: number;
-  /** Force visible (e.g. tab change) — ignored while suppressed */
+  /** No-op for static bar; kept for tab-change call sites. */
   reveal: () => void;
 };
 
 const HomeTabBarVisibilityContext = createContext<HomeTabBarVisibilityValue | null>(null);
 
 export function HomeTabBarVisibilityProvider({ children }: { children: ReactNode }) {
-  const [hidden, setHidden] = useState(false);
   const [suppressed, setSuppressedState] = useState(false);
-  const lastYRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
+  const setSuppressed = useCallback((next: boolean) => {
+    setSuppressedState(next);
   }, []);
 
-  const scheduleReveal = useCallback(() => {
-    if (suppressed) return;
-    clearTimer();
-    timerRef.current = setTimeout(() => {
-      setHidden(false);
-      timerRef.current = null;
-    }, HIDE_IDLE_MS);
-  }, [clearTimer, suppressed]);
+  const reveal = useCallback(() => undefined, []);
 
-  const reveal = useCallback(() => {
-    clearTimer();
-    if (!suppressed) setHidden(false);
-  }, [clearTimer, suppressed]);
-
-  const setSuppressed = useCallback(
-    (next: boolean) => {
-      setSuppressedState(next);
-      if (next) {
-        clearTimer();
-        setHidden(true);
-      } else {
-        setHidden(false);
-      }
-    },
-    [clearTimer],
-  );
-
-  const onScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (suppressed) return;
-
-      const y = event.nativeEvent.contentOffset.y;
-      const dy = y - lastYRef.current;
-      lastYRef.current = y;
-
-      if (Math.abs(dy) < SCROLL_DELTA && y > 0) {
-        scheduleReveal();
-        return;
-      }
-
-      setHidden(true);
-      scheduleReveal();
-    },
-    [scheduleReveal, suppressed],
-  );
-
-  useEffect(() => () => clearTimer(), [clearTimer]);
+  const onScroll = useCallback((_event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // Static dock — ignore scroll.
+  }, []);
 
   const value = useMemo(
     () => ({
-      hidden: suppressed || hidden,
+      hidden: false,
       suppressed,
       setSuppressed,
       onScroll,
       scrollEventThrottle: 16,
       reveal,
     }),
-    [hidden, onScroll, reveal, setSuppressed, suppressed],
+    [onScroll, reveal, setSuppressed, suppressed],
   );
 
   return (
@@ -135,7 +82,7 @@ export function useHomeTabBarScrollProps() {
 }
 
 /**
- * While mounted, hide the floating HomeTabBar completely (New request flow).
+ * While mounted, hide the HomeTabBar completely (New request flow).
  * Restores the tab bar on unmount.
  */
 export function useSuppressHomeTabBar(enabled = true) {

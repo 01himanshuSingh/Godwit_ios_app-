@@ -23,7 +23,7 @@ import { mapTripsLoadErrorToMessage } from '@/lib/firebase/sales/mapTripsLoadErr
 import { colors } from '@/ui/tokens/colors';
 
 /** Clears floating Home tab bar so last rows can scroll fully into view. */
-const TAB_BAR_CLEARANCE = 96;
+const TAB_BAR_CLEARANCE = 24;
 
 type UpcomingTripsListProps = {
   adminId: string;

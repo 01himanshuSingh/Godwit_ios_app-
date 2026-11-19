@@ -28,6 +28,7 @@ import {
   type TripDocumentsPageCursor,
 } from '@/lib/firebase/documents';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
+import { ScreenBootLoader } from '@/ui/loading';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -210,6 +211,10 @@ export function DocumentsScreen() {
     }
     return null;
   }, [hasScope, isHydrating, personal.error, personal.isError, tab]);
+
+  if (isHydrating) {
+    return <ScreenBootLoader accessibilityLabel="Loading documents" />;
+  }
 
   return (
     <ProfileSectionShell

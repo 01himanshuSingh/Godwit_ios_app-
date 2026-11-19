@@ -6,14 +6,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useAuth } from '@/auth/providers/AuthProvider';
 import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
@@ -35,10 +28,11 @@ import {
 import { getClientProfileSafe } from '@/lib/firebase/clients';
 import { classifyProfileLoadError } from '@/lib/firebase/clients/mapProfileLoadError';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
+import { isScreenBooting, ScreenBootLoader } from '@/ui/loading';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
-const TAB_BAR_CLEARANCE = 96;
+const TAB_BAR_CLEARANCE = 24;
 
 function trailingForItem(
   id: ProfileMenuSectionId,
@@ -46,9 +40,6 @@ function trailingForItem(
 ): ProfileMenuTrailing | null {
   if (id === 'travellers' && typeof travellerCount === 'number' && travellerCount > 0) {
     return { kind: 'badge', label: `${travellerCount} Active` };
-  }
-  if (id === 'security') {
-    return { kind: 'secured' };
   }
   return null;
 }
@@ -134,12 +125,16 @@ export function ProfileScreen() {
   const showIdentityCard = Boolean(client);
   const showException = !isHydrating && !isPending && !showIdentityCard;
 
-  if (isHydrating || (hasScope && isPending && !client && !hasLoadFailure)) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.forest} />
-      </View>
-    );
+  if (
+    isScreenBooting({
+      isHydrating,
+      enabled: hasScope,
+      isPending,
+      hasContent: Boolean(client),
+      hasTerminalError: hasLoadFailure,
+    })
+  ) {
+    return <ScreenBootLoader accessibilityLabel="Loading your Godwit profile" />;
   }
 
   return (
@@ -254,11 +249,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: colors.muted,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
   },
 });

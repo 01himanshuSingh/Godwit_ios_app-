@@ -12,7 +12,6 @@ import {
 } from '@/features/profile/menu/profileMenuItems';
 import { NotificationsScreen } from '@/features/profile/notifications';
 import { PaymentsScreen } from '@/features/profile/payments';
-import { SecurityScreen } from '@/features/profile/security';
 import { SupportScreen } from '@/features/profile/support';
 import { TravellersScreen } from '@/features/profile/travellers';
 import { colors } from '@/ui/tokens/colors';
@@ -24,7 +23,6 @@ const SECTION_SCREENS: Record<ProfileMenuSectionId, ComponentType> = {
   documents: DocumentsScreen,
   notifications: NotificationsScreen,
   'account-access': AccountAccessScreen,
-  security: SecurityScreen,
   support: SupportScreen,
 };
 

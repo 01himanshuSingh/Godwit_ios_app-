@@ -64,9 +64,10 @@ function Field({
   );
 }
 
-/** Prefer dedicated invoice PDF; fall back to CRM confirmation/voucher doc only. */
+/** CRM has no dedicated invoice PDF — use confirmation/voucher doc when present. */
 function documentUrl(invoice: ClientInvoiceDetail): string | null {
-  return invoice.pdfUrl?.trim() || invoice.voucherUrl?.trim() || null;
+  const voucher = invoice.voucherUrl?.trim();
+  return voucher || null;
 }
 
 export function InvoiceDetailCard({ invoice }: InvoiceDetailCardProps) {
@@ -90,7 +91,7 @@ export function InvoiceDetailCard({ invoice }: InvoiceDetailCardProps) {
     if (!url) return;
     setBusy('view');
     try {
-      await openSaleVoucherPdf(url);
+      await openSaleVoucherPdf(url, fileLabel);
     } finally {
       setBusy(null);
     }

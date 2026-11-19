@@ -325,7 +325,8 @@ const styles = StyleSheet.create({
   },
   hero: {
     width: '100%',
-    aspectRatio: 16 / 11,
+    // Shorter cover than 16/11 — keeps the previous card layout, less image height.
+    aspectRatio: 16 / 9,
     backgroundColor: colors.surface,
     justifyContent: 'flex-end',
   },

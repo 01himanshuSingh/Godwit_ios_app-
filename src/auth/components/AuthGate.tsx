@@ -1,10 +1,11 @@
 /**
  * Auth gate: Firebase + validated client session required for app surfaces.
  * Pending magic-link wait → complete-login (survives Expo Go reload).
+ * Cold-start spinner is handled by GodwitBootGate — keep this surface quiet.
  */
 import { useRouter, useSegments, type Href } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/providers/AuthProvider';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
@@ -50,20 +51,9 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }, [ready, signedIn, inAuthGroup, waitingForLink, onCompleteLogin, router]);
 
-  if (!ready) {
-    return (
-      <View style={styles.boot}>
-        <ActivityIndicator color={colors.forest} />
-      </View>
-    );
-  }
-
-  if (!signedIn && !inAuthGroup) {
-    return (
-      <View style={styles.boot}>
-        <ActivityIndicator color={colors.forest} />
-      </View>
-    );
+  // Boot splash covers first paint; keep a quiet brand surface while redirecting.
+  if (!ready || (!signedIn && !inAuthGroup)) {
+    return <View style={styles.boot} />;
   }
 
   return <>{children}</>;
@@ -72,8 +62,6 @@ export function AuthGate({ children }: AuthGateProps) {
 const styles = StyleSheet.create({
   boot: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.background,
   },
 });

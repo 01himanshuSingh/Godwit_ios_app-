@@ -22,6 +22,7 @@ import { TravelDocumentsCard } from '@/features/profile/travellers/components/Tr
 import { TravellerDetailExceptionCard } from '@/features/profile/travellers/components/TravellerDetailExceptionCard';
 import { TravellerDetailHero } from '@/features/profile/travellers/components/TravellerDetailHero';
 import { TravellerDetailSkeleton } from '@/features/profile/travellers/components/TravellerDetailSkeleton';
+import { ScreenBootLoader } from '@/ui/loading';
 import {
   TravellerDetailTabs,
   type TravellerDetailTabId,
@@ -226,11 +227,13 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
     hotelsQuery.isFetching ||
     airlinesQuery.isFetching;
 
+  if (loading) {
+    return <ScreenBootLoader accessibilityLabel="Loading traveller" />;
+  }
+
   return (
     <ProfileSectionShell backLabel="Travellers" layoutPreset="travellers">
-      {loading ? <TravellerDetailSkeleton /> : null}
-
-      {!loading && exception ? (
+      {exception ? (
         <TravellerDetailExceptionCard
           kind={exception.kind}
           message={exception.message}
@@ -239,7 +242,7 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
         />
       ) : null}
 
-      {!loading && !exception && details ? (
+      {!exception && details ? (
         <View style={styles.stack}>
           <TravellerDetailHero fullName={details.fullName} relationship={details.relationship} />
 
@@ -253,7 +256,9 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
           ) : null}
 
           {activeTab === 'documents' ? (
-            travelDocs ? (
+            travelDocsQuery.isPending && !travelDocsQuery.data ? (
+              <TravellerDetailSkeleton />
+            ) : travelDocs ? (
               <TravelDocumentsCard travelDocs={travelDocs} initiallyExpanded />
             ) : (
               <Text style={styles.tabEmpty}>No travel documents available yet.</Text>
@@ -261,7 +266,9 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
           ) : null}
 
           {activeTab === 'loyalty' ? (
-            loyalty ? (
+            loyaltyQuery.isPending && !loyaltyQuery.data ? (
+              <TravellerDetailSkeleton />
+            ) : loyalty ? (
               <LoyaltyCard loyalty={loyalty} initiallyExpanded />
             ) : (
               <Text style={styles.tabEmpty}>No loyalty details available yet.</Text>
@@ -269,7 +276,9 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
           ) : null}
 
           {activeTab === 'hotels' ? (
-            hotelPrefs ? (
+            hotelsQuery.isPending && !hotelsQuery.data ? (
+              <TravellerDetailSkeleton />
+            ) : hotelPrefs ? (
               <HotelsCard
                 hotelPrefs={hotelPrefs}
                 initiallyExpanded
@@ -286,7 +295,9 @@ export function TravellerDetailScreen({ customerId }: TravellerDetailScreenProps
           ) : null}
 
           {activeTab === 'air' ? (
-            airlinePrefs ? (
+            airlinesQuery.isPending && !airlinesQuery.data ? (
+              <TravellerDetailSkeleton />
+            ) : airlinePrefs ? (
               <AirlinesCard
                 airlinePrefs={airlinePrefs}
                 initiallyExpanded

@@ -11,7 +11,7 @@ import { ProfileSectionShell } from '@/features/profile/components/ProfileSectio
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
-const TAB_BAR_CLEARANCE = 96;
+const TAB_BAR_CLEARANCE = 24;
 
 type RequestFormScreenShellProps = {
   title: string;

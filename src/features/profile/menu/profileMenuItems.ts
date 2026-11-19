@@ -9,13 +9,7 @@ import type Feather from '@expo/vector-icons/Feather';
 export type ProfileMenuIcon = ComponentProps<typeof Feather>['name'];
 
 export type ProfileMenuSectionId =
-  | 'travellers'
-  | 'payments'
-  | 'documents'
-  | 'notifications'
-  | 'account-access'
-  | 'security'
-  | 'support';
+  'travellers' | 'payments' | 'documents' | 'notifications' | 'account-access' | 'support';
 
 export type ProfileMenuItemDef = {
   id: ProfileMenuSectionId;
@@ -73,13 +67,6 @@ export const PROFILE_MENU_ITEMS: readonly ProfileMenuItemDef[] = [
     href: '/profile/account-access',
   },
   {
-    id: 'security',
-    title: 'Security',
-    subtitle: 'Biometric key & encrypted passkeys',
-    icon: 'shield',
-    href: '/profile/security',
-  },
-  {
     id: 'support',
     title: 'Godwit Support',
     subtitle: 'Private desk direct dispatch. Average response under 90 seconds.',
@@ -105,7 +92,7 @@ export const PROFILE_MENU_GROUPS: readonly ProfileMenuGroupDef[] = [
   {
     id: 'account',
     title: 'ACCOUNT',
-    itemIds: ['notifications', 'account-access', 'security'],
+    itemIds: ['notifications', 'account-access'],
   },
 ] as const;
 

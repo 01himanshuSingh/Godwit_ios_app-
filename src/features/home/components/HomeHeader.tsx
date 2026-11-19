@@ -5,6 +5,9 @@ import type { HomeViewModel } from '@/features/home/schemas/homeViewModel';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
+/** Content row height under the status-bar safe area. */
+export const APP_HEADER_HEIGHT = 58;
+
 type HomeHeaderProps = Pick<HomeViewModel, 'notificationsCount' | 'profileInitials'>;
 
 export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderProps) {
@@ -16,11 +19,9 @@ export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderPr
     <View style={[styles.container, compact && styles.containerCompact]}>
       <View style={styles.wordmarkWrap}>
         <Text
-          style={[styles.wordmark, compact && styles.wordmarkCompact]}
+          style={styles.wordmark}
           accessibilityRole="header"
           numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.7}
           allowFontScaling={false}
         >
           GODWIT
@@ -35,10 +36,12 @@ export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderPr
           style={styles.pressable}
         >
           <View style={styles.iconButton}>
-            <Feather name="bell" size={22} color={colors.forest} />
+            <Feather name="bell" size={21} color={colors.forest} />
             {notificationsCount > 0 ? (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{badgeLabel}</Text>
+                <Text style={styles.badgeText} allowFontScaling={false}>
+                  {badgeLabel}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -51,7 +54,9 @@ export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderPr
           style={styles.pressable}
         >
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{profileInitials}</Text>
+            <Text style={styles.avatarText} allowFontScaling={false}>
+              {profileInitials}
+            </Text>
           </View>
         </Pressable>
       </View>
@@ -61,18 +66,17 @@ export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderPr
 
 const styles = StyleSheet.create({
   container: {
+    height: APP_HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingVertical: 14,
     backgroundColor: colors.background,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0.5,
     borderBottomColor: colors.headerBorder,
   },
   containerCompact: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   wordmarkWrap: {
     flex: 1,
@@ -81,20 +85,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wordmark: {
-    // Brand: 25 / Manrope 600 (shared chrome — Home + New request + tabs).
     fontFamily: fontFamily.manrope.semibold,
-    fontSize: 25,
-    lineHeight: 28,
-    letterSpacing: 2.5,
+    fontSize: 18,
+    lineHeight: 22,
+    letterSpacing: 2,
     color: colors.forest,
     textTransform: 'uppercase',
-    // Extra pad so RN letterSpacing does not clip the last letter.
     paddingRight: 4,
-  },
-  wordmarkCompact: {
-    fontSize: 21,
-    lineHeight: 26,
-    letterSpacing: 2,
   },
   actions: {
     flexDirection: 'row',
@@ -124,8 +121,8 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: fontFamily.manrope.semibold,
     fontSize: 10,
-    color: colors.primaryForeground,
     lineHeight: 12,
+    color: colors.primaryForeground,
   },
   avatar: {
     width: 36,
@@ -137,8 +134,9 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontFamily: fontFamily.manrope.semibold,
-    fontSize: 14,
+    fontSize: 12,
+    lineHeight: 14,
     color: colors.primaryForeground,
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
 });

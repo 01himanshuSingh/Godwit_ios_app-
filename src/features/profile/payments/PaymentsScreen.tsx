@@ -2,17 +2,18 @@
  * Profile → Payments.
  *
  * States:
- *   boot loading → PaymentsSkeleton
+ *   boot loading → ScreenBootLoader (Godwit bird)
  *   scope/auth   → PaymentsExceptionCard (full screen)
- *   ready        → hero + tabs; each tab has own loading / exception / list + pagination
+ *   ready        → hero + tabs; each tab has own skeleton / exception / list + pagination
  *
  * Never invents balances; never surfaces adminId / clientId / raw DB errors.
  */
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ProfileSectionShell } from '@/features/profile/components/ProfileSectionShell';
+import { AccountStatementSheet } from '@/features/profile/payments/components/AccountStatementSheet';
 import { AmountDueCard } from '@/features/profile/payments/components/AmountDueCard';
 import { CreditsAndRefundsListCard } from '@/features/profile/payments/components/CreditsAndRefundsListCard';
 import { InvoicesListCard } from '@/features/profile/payments/components/InvoicesListCard';
@@ -42,6 +43,7 @@ import {
   type UpcomingPaymentItem,
 } from '@/lib/firebase/payments';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
+import { isScreenBooting, ScreenBootLoader } from '@/ui/loading';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -87,6 +89,7 @@ export function PaymentsScreen() {
   const [activeTab, setActiveTab] = useState<PaymentsTabId>('upcoming');
   const [upcomingVisibleCount, setUpcomingVisibleCount] = useState(UPCOMING_PAGE_SIZE);
   const [upcomingResetKey, setUpcomingResetKey] = useState('');
+  const [statementOpen, setStatementOpen] = useState(false);
   const [visitedTabs, setVisitedTabs] = useState<Record<PaymentsTabId, boolean>>({
     upcoming: true,
     invoices: false,
@@ -348,7 +351,13 @@ export function PaymentsScreen() {
     !creditsIsError &&
     (creditsIsPending || creditsIsFetchingNextPage);
 
-  const bootLoading = isHydrating || (ready && paymentsQuery.isPending && !card && !heroException);
+  const bootLoading = isScreenBooting({
+    isHydrating,
+    enabled: hasScope,
+    isPending: paymentsQuery.isPending,
+    hasContent: Boolean(card),
+    hasTerminalError: Boolean(heroException) || Boolean(screenException),
+  });
 
   const upcomingLoading =
     upcomingQuery.isPending && upcomingItems.length === 0 && !upcomingException;
@@ -368,6 +377,10 @@ export function PaymentsScreen() {
   };
 
   const showStickyChrome = !bootLoading && !screenException;
+
+  if (bootLoading) {
+    return <ScreenBootLoader accessibilityLabel="Loading your Godwit payments" />;
+  }
 
   const heroBlock = showStickyChrome ? (
     card ? (
@@ -487,42 +500,39 @@ export function PaymentsScreen() {
   );
 
   return (
-    <ProfileSectionShell
-      title="Payments"
-      subtitle="Everything owed to Godwit, and everything you have paid."
-      layoutPreset="payments"
-      titleTrailing={
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Account statement"
-          hitSlop={8}
-          onPress={() => {
-            Alert.alert(
-              'Account statement',
-              'Your Godwit account statement will be available here soon.',
-            );
-          }}
-        >
-          <View style={styles.statementPill}>
-            <Text style={styles.statementLabel}>Account / statement</Text>
-          </View>
-        </Pressable>
-      }
-      collapsibleBody={heroBlock}
-      stickyHeader={tabsBlock}
-    >
-      {bootLoading ? <PaymentsSkeleton /> : null}
+    <>
+      <ProfileSectionShell
+        title="Payments"
+        subtitle="Everything owed to Godwit, and everything you have paid."
+        layoutPreset="payments"
+        titleTrailing={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Account statement"
+            hitSlop={8}
+            onPress={() => setStatementOpen(true)}
+          >
+            <View style={styles.statementPill}>
+              <Text style={styles.statementLabel}>Account / statement</Text>
+            </View>
+          </Pressable>
+        }
+        collapsibleBody={heroBlock}
+        stickyHeader={tabsBlock}
+      >
+        {screenException ? (
+          <PaymentsExceptionCard
+            kind={screenException.kind}
+            message={screenException.message}
+            scope="screen"
+          />
+        ) : null}
 
-      {!bootLoading && screenException ? (
-        <PaymentsExceptionCard
-          kind={screenException.kind}
-          message={screenException.message}
-          scope="screen"
-        />
-      ) : null}
+        {tabBody}
+      </ProfileSectionShell>
 
-      {tabBody}
-    </ProfileSectionShell>
+      <AccountStatementSheet visible={statementOpen} onClose={() => setStatementOpen(false)} />
+    </>
   );
 }
 

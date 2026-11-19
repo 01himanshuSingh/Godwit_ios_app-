@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     width: '100%',
-    aspectRatio: 16 / 11,
+    aspectRatio: 16 / 9,
     borderRadius: 0,
   },
   tripBody: {

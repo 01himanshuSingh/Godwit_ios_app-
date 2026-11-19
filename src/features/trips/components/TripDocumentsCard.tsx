@@ -35,7 +35,7 @@ export function TripDocumentsCard({
 
   const onView = () => {
     if (!url) return;
-    void openSaleVoucherPdf(url);
+    void openSaleVoucherPdf(url, label);
   };
 
   const onDownload = async () => {

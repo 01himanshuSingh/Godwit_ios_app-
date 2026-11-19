@@ -87,6 +87,7 @@ module.exports = ({ config }) => {
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     platforms: ['ios', 'android'],
+    /** Home-screen / store icon — Godwit bird + key mark */
     icon: './assets/icon.png',
     ios: {
       supportsTablet: false,
@@ -94,6 +95,7 @@ module.exports = ({ config }) => {
       usesAppleSignIn: true,
       associatedDomains: firebaseLinkHosts.map((host) => `applinks:${host}`),
       infoPlist: {
+        CFBundleDisplayName: 'Godwit',
         ITSAppUsesNonExemptEncryption: false,
         NSPhotoLibraryUsageDescription:
           'Godwit needs access to your photo library so you can attach images to messages and upload travel documents.',
@@ -103,9 +105,12 @@ module.exports = ({ config }) => {
     },
     android: {
       package: androidPackage(appEnv),
+      /** Launcher label under the icon */
+      label: 'Godwit',
       adaptiveIcon: {
-        foregroundImage: './assets/icon.png',
-        backgroundColor: '#FFFFFF',
+        foregroundImage: './assets/android-icon-foreground.png',
+        backgroundImage: './assets/android-icon-background.png',
+        backgroundColor: '#1B2915',
       },
       softwareKeyboardLayoutMode: 'resize',
       intentFilters: [
@@ -153,7 +158,7 @@ module.exports = ({ config }) => {
         {
           image: './assets/splash-icon.png',
           resizeMode: 'contain',
-          backgroundColor: '#ffffff',
+          backgroundColor: '#EDECEA',
         },
       ],
     ],

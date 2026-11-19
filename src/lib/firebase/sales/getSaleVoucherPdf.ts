@@ -3,14 +3,13 @@
  * Same for hotel / air / yacht / VIP / any service.
  *
  * Path: admins/{adminId}/clients/{clientId}/sales/{saleId}
+ *
+ * Open / download are delegated to `documentFileActions` (in-app viewer).
  */
 
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { doc, getDoc } from 'firebase/firestore';
-import { Alert, Linking } from 'react-native';
 
-import { mapDocumentFileErrorToMessage } from '@/lib/firebase/documents/mapDocumentsLoadError';
+import { downloadDocumentFile, openDocumentInApp } from '@/lib/documents/documentFileActions';
 import { db } from '@/lib/firebase/firestore';
 
 export type SaleVoucherPdf = {
@@ -66,78 +65,15 @@ export async function getSaleVoucherPdf(
   };
 }
 
-/** Open voucher PDF URL in the system browser / viewer. */
-export async function openSaleVoucherPdf(voucherUrl: string): Promise<void> {
-  const url = voucherUrl.trim();
-  if (!url) {
-    Alert.alert('Document', 'This file isn’t available.');
-    return;
-  }
-
-  try {
-    const can = await Linking.canOpenURL(url);
-    if (!can) {
-      Alert.alert('Document', 'Couldn’t open this file. Please try again.');
-      return;
-    }
-    await Linking.openURL(url);
-  } catch (error) {
-    console.error('[openSaleVoucherPdf]', error);
-    Alert.alert('Document', mapDocumentFileErrorToMessage(error, 'open'));
-  }
+/** Open voucher / confirmation in the in-app document viewer. */
+export async function openSaleVoucherPdf(voucherUrl: string, title = 'Document'): Promise<void> {
+  await openDocumentInApp(voucherUrl, title);
 }
 
-function safeFileStem(label: string): string {
-  const stem = label
-    .trim()
-    .replace(/[^\w\s-]+/g, '')
-    .replace(/\s+/g, '-')
-    .slice(0, 48);
-  return stem.length ? stem : 'trip-voucher';
-}
-
-/** Download voucher PDF then open the native share sheet. */
+/** Download voucher then open the native share sheet. */
 export async function downloadSaleVoucherPdf(
   voucherUrl: string,
   fileLabel = 'trip-voucher',
 ): Promise<void> {
-  const url = voucherUrl.trim();
-  if (!url) {
-    Alert.alert('Document', 'This file isn’t available.');
-    return;
-  }
-
-  const base = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
-  if (!base) {
-    Alert.alert('Document', 'Couldn’t download this file. Please try again.');
-    return;
-  }
-
-  try {
-    const dest = `${base}${safeFileStem(fileLabel)}.pdf`;
-    const result = await FileSystem.downloadAsync(url, dest);
-    if (result.status === 403 || result.status === 401) {
-      Alert.alert('Document', 'This file isn’t available to open.');
-      return;
-    }
-    if (result.status !== 200) {
-      Alert.alert('Document', 'Couldn’t download this file. Please try again.');
-      return;
-    }
-
-    const canShare = await Sharing.isAvailableAsync();
-    if (!canShare) {
-      Alert.alert('Download saved', 'File saved on this device.');
-      return;
-    }
-
-    await Sharing.shareAsync(result.uri, {
-      mimeType: 'application/pdf',
-      dialogTitle: 'Save document',
-      UTI: 'com.adobe.pdf',
-    });
-  } catch (error) {
-    console.error('[downloadSaleVoucherPdf]', error);
-    Alert.alert('Document', mapDocumentFileErrorToMessage(error, 'download'));
-  }
+  await downloadDocumentFile(voucherUrl, fileLabel);
 }

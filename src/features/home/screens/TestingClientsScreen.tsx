@@ -1,8 +1,16 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { useAuth } from '@/auth/providers/AuthProvider';
 import { useHomeTabBarScrollProps } from '@/features/home/tabBar/HomeTabBarVisibility';
@@ -47,10 +55,17 @@ import {
 } from '../../../lib/firebase/testing/getClientTrips';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
 import { TEST_CLIENT_LOOKUP_ADMIN_ID, TEST_CLIENT_LOOKUP_ID } from '@/mocks/testingClientSession';
+import { GODWIT_BIRD_VARIANTS, type GodwitBirdVariant } from '@/ui/brand/GodwitBirdMark';
+import {
+  GODWIT_HEADER_LOGO,
+  GODWIT_MARK_CIRCLE,
+  type GodwitBootMode,
+} from '@/ui/brand/godwitBrandAssets';
+import { GodwitBootSplash } from '@/ui/boot/GodwitBootSplash';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
-const TAB_BAR_CLEARANCE = 96;
+const TAB_BAR_CLEARANCE = 24;
 
 type TestingClientsData = {
   connected: boolean;
@@ -499,8 +514,22 @@ export function TestingClientsScreen() {
   const { profile } = useActiveClientProfile();
   const tabBarScroll = useHomeTabBarScrollProps();
   const [signingOut, setSigningOut] = useState(false);
+  const [bootPreview, setBootPreview] = useState<'idle' | 'show' | 'exit'>('idle');
+  const [bootVariant, setBootVariant] = useState<GodwitBirdVariant>('standing');
+  const [bootMode, setBootMode] = useState<GodwitBootMode>('mark');
   const adminId = profile?.adminId?.trim() || TEST_CLIENT_LOOKUP_ADMIN_ID;
   const clientId = profile?.clientId?.trim() || TEST_CLIENT_LOOKUP_ID;
+
+  const openBootPreview = (variant: GodwitBirdVariant) => {
+    setBootMode('mark');
+    setBootVariant(variant);
+    setBootPreview('show');
+  };
+
+  const openLockupPreview = () => {
+    setBootMode('lockup');
+    setBootPreview('show');
+  };
 
   const onLogout = () => {
     void (async () => {
@@ -599,6 +628,14 @@ export function TestingClientsScreen() {
     void personalDocsQuery.refetch();
   };
 
+  // Preview cold-start splash, then fade out.
+  useEffect(() => {
+    if (bootPreview !== 'show') return;
+    const holdMs = bootMode === 'lockup' ? 2200 : 1600;
+    const t = setTimeout(() => setBootPreview('exit'), holdMs);
+    return () => clearTimeout(t);
+  }, [bootMode, bootPreview]);
+
   return (
     <View style={styles.root}>
       <View style={styles.pageHeader}>
@@ -645,6 +682,66 @@ export function TestingClientsScreen() {
         onScroll={tabBarScroll.onScroll}
         scrollEventThrottle={tabBarScroll.scrollEventThrottle}
       >
+        <Text style={styles.sectionLabel}>BOOT LOADER · OFFICIAL</Text>
+        <Text style={styles.clientMeta}>
+          Live website lockup — bird on key. Tap to preview; tap again to dismiss.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Preview official Godwit website logo boot loader"
+          disabled={signingOut || bootPreview !== 'idle'}
+          onPress={openLockupPreview}
+          style={({ pressed }) => [
+            styles.bootOfficialCard,
+            pressed && styles.bootPreviewCardPressed,
+          ]}
+        >
+          <View style={styles.bootOfficialStage}>
+            <View style={styles.bootOfficialCircle}>
+              <Image
+                source={GODWIT_MARK_CIRCLE}
+                style={styles.bootOfficialCircleMark}
+                resizeMode="contain"
+              />
+              <View style={styles.bootOfficialRing} />
+            </View>
+            <Image
+              source={GODWIT_HEADER_LOGO}
+              style={styles.bootOfficialLogo}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.bootOfficialCopy}>
+            <Text style={styles.bootOfficialTitle}>Website logo · circle</Text>
+            <Text style={styles.bootOfficialHint}>
+              Official bird-on-key in circular loader · dark premium splash
+            </Text>
+          </View>
+        </Pressable>
+
+        <Text style={styles.sectionLabel}>BOOT LOADER · BIRD MARKS</Text>
+        <Text style={styles.clientMeta}>
+          SVG poses for comparison — tap a style to play the cold-start splash.
+        </Text>
+        <View style={styles.bootPreviewGrid}>
+          {GODWIT_BIRD_VARIANTS.map((item) => (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Preview ${item.label} Godwit boot loader`}
+              disabled={signingOut || bootPreview !== 'idle'}
+              onPress={() => openBootPreview(item.id)}
+              style={({ pressed }) => [
+                styles.bootPreviewCard,
+                pressed && styles.bootPreviewCardPressed,
+              ]}
+            >
+              <Text style={styles.bootPreviewCardTitle}>{item.label}</Text>
+              <Text style={styles.bootPreviewCardHint}>{item.hint}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         <Text style={styles.sectionLabel}>TRIPS UI · EXCEPTION CARDS</Text>
         <Text style={styles.clientMeta}>
           Preview only — same surfaces used on Trips list / detail. Retry is a no-op here.
@@ -809,6 +906,24 @@ export function TestingClientsScreen() {
           </>
         )}
       </ScrollView>
+
+      {bootPreview !== 'idle' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss Godwit boot loader preview"
+          onPress={() => setBootPreview('exit')}
+          style={StyleSheet.absoluteFill}
+        >
+          <GodwitBootSplash
+            key={`${bootMode}-${bootVariant}`}
+            mode={bootMode}
+            birdVariant={bootVariant}
+            previewOnly
+            exiting={bootPreview === 'exit'}
+            onExited={() => setBootPreview('idle')}
+          />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -835,6 +950,102 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  bootOfficialCard: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#1F1F1F',
+    backgroundColor: '#0A0A0A',
+    marginBottom: 4,
+  },
+  bootOfficialStage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    paddingHorizontal: 28,
+    paddingTop: 28,
+    paddingBottom: 22,
+    backgroundColor: '#0A0A0A',
+  },
+  bootOfficialCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#141210',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(216, 205, 184, 0.14)',
+  },
+  bootOfficialCircleMark: {
+    width: 58,
+    height: 58,
+  },
+  bootOfficialRing: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 44,
+    borderWidth: 1.5,
+    borderColor: 'rgba(216, 205, 184, 0.22)',
+    borderTopColor: colors.sand,
+    borderRightColor: 'rgba(216, 205, 184, 0.08)',
+  },
+  bootOfficialLogo: {
+    width: '100%',
+    height: 28,
+    opacity: 0.9,
+  },
+  bootOfficialCopy: {
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(216, 205, 184, 0.18)',
+    backgroundColor: '#111111',
+  },
+  bootOfficialTitle: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.sand,
+  },
+  bootOfficialHint: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 11,
+    lineHeight: 15,
+    color: 'rgba(216, 205, 184, 0.62)',
+  },
+  bootPreviewGrid: {
+    gap: 10,
+    marginBottom: 8,
+  },
+  bootPreviewCard: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 4,
+  },
+  bootPreviewCardPressed: {
+    opacity: 0.82,
+  },
+  bootPreviewCardTitle: {
+    fontFamily: fontFamily.manrope.semibold,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.forest,
+  },
+  bootPreviewCardHint: {
+    fontFamily: fontFamily.manrope.regular,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
   },
   logoutButton: {
     paddingHorizontal: 10,

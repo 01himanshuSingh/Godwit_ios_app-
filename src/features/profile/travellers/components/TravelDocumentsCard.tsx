@@ -7,7 +7,6 @@ import Feather from '@expo/vector-icons/Feather';
 import { useState } from 'react';
 import {
   LayoutAnimation,
-  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
 } from 'react-native';
 
 import type { TravelDocItem, TravelDocStatus, TravellerTravelDocs } from '@/lib/firebase/customers';
+import { openDocumentInApp } from '@/lib/documents/documentFileActions';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -64,7 +64,7 @@ function DocItemCard({ item }: { item: TravelDocItem }) {
   const openDoc = () => {
     const url = item.docUrl?.trim();
     if (!url) return;
-    void Linking.openURL(url);
+    void openDocumentInApp(url, item.title?.trim() || 'Travel document');
   };
 
   const content = (

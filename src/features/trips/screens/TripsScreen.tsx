@@ -4,10 +4,10 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 
 import { RequestsScreen } from '@/features/requests';
 import { TripsExceptionCard } from '@/features/trips/components/TripsExceptionCard';
-import { TripsScreenSkeleton } from '@/features/trips/components/TripsScreenSkeleton';
 import { UpcomingTripsList } from '@/features/trips/components/UpcomingTripsList';
 import type { ClientSaleTrip } from '@/lib/firebase/sales/getClientUpcomingSales';
 import { useActiveClientProfile } from '@/lib/session/useActiveClientProfile';
+import { ScreenBootLoader } from '@/ui/loading';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
@@ -70,6 +70,11 @@ export function TripsScreen() {
     return <RequestsScreen onBack={handleRequestsBack} />;
   }
 
+  /** Session boot → bird loader. Segment list waits → skeleton inside list. */
+  if (isHydrating) {
+    return <ScreenBootLoader accessibilityLabel="Loading your Godwit trips" />;
+  }
+
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingHorizontal: pagePad, paddingTop: headerTop }]}>
@@ -101,11 +106,9 @@ export function TripsScreen() {
       </View>
 
       <View style={styles.body}>
-        {isHydrating ? <TripsScreenSkeleton /> : null}
+        {!hasScope ? <TripsExceptionCard variant="missing_scope" /> : null}
 
-        {!isHydrating && !hasScope ? <TripsExceptionCard variant="missing_scope" /> : null}
-
-        {!isHydrating && hasScope && segment === 'current' ? (
+        {hasScope && segment === 'current' ? (
           <UpcomingTripsList
             adminId={adminId}
             clientId={clientId}
@@ -115,7 +118,7 @@ export function TripsScreen() {
           />
         ) : null}
 
-        {!isHydrating && hasScope && segment === 'upcoming' ? (
+        {hasScope && segment === 'upcoming' ? (
           <UpcomingTripsList
             adminId={adminId}
             clientId={clientId}
@@ -125,7 +128,7 @@ export function TripsScreen() {
           />
         ) : null}
 
-        {!isHydrating && hasScope && segment === 'past' ? (
+        {hasScope && segment === 'past' ? (
           <UpcomingTripsList
             adminId={adminId}
             clientId={clientId}
