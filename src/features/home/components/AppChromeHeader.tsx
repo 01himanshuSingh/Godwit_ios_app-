@@ -5,7 +5,7 @@ import { HomeHeader } from '@/features/home/components/HomeHeader';
 import { useAppHeaderState } from '@/features/home/hooks/useAppHeaderState';
 import { colors } from '@/ui/tokens/colors';
 
-/** GODWIT header + safe area — use on every app surface (tabs + stack pages). */
+/** Godwit lockup header + safe area — use on every app surface (tabs + stack pages). */
 export function AppChromeHeader() {
   const { notificationsCount, profileInitials } = useAppHeaderState();
 

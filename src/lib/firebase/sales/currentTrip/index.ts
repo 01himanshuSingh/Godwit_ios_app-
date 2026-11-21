@@ -18,7 +18,7 @@ export type {
   GetClientCurrentTripCardResult,
 } from './currentTripCardTypes';
 
-export { coverUrlForServiceType } from './coverPlaceholders';
+export { coverSourceForServiceType, coverUrlForServiceType } from './coverPlaceholders';
 
 export {
   todayLocalKey,

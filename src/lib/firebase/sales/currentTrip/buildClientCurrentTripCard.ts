@@ -7,7 +7,7 @@
  *   3) else null
  */
 
-import { coverUrlForServiceType } from '@/lib/firebase/sales/currentTrip/coverPlaceholders';
+import { coverSourceForServiceType } from '@/lib/firebase/sales/currentTrip/coverPlaceholders';
 import type {
   ClientCurrentTripCard,
   CurrentTripNextUp,
@@ -379,7 +379,7 @@ export function composeTripClusterCard(
     serviceTypes: [...new Set(cluster.map((s) => s.serviceType))],
     services: uniqueServiceChips(cluster),
     nextUp: pickNextUp(cluster, allSales, now.getTime()),
-    coverUrl: coverUrlForServiceType(primary.serviceType),
+    coverSource: coverSourceForServiceType(primary.serviceType),
   };
 }
 

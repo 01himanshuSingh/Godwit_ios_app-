@@ -1,31 +1,40 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { HomeViewModel } from '@/features/home/schemas/homeViewModel';
+import { GODWIT_HEADER_LOGO_LIGHT } from '@/ui/brand/godwitBrandAssets';
 import { colors } from '@/ui/tokens/colors';
 import { fontFamily } from '@/ui/tokens/typography';
 
 /** Content row height under the status-bar safe area. */
 export const APP_HEADER_HEIGHT = 58;
 
+/** Intrinsic lockup ratio from GodwitHeader-Logo-Light.png (~3.64:1). */
+const LOGO_ASPECT = 1059 / 291;
+
 type HomeHeaderProps = Pick<HomeViewModel, 'notificationsCount' | 'profileInitials'>;
+
+function logoSizeForWidth(width: number): { height: number; width: number } {
+  const height = width < 360 ? 28 : width < 400 ? 31 : 33;
+  return { height, width: Math.round(height * LOGO_ASPECT) };
+}
 
 export function HomeHeader({ notificationsCount, profileInitials }: HomeHeaderProps) {
   const { width } = useWindowDimensions();
   const compact = width < 360;
+  const logo = logoSizeForWidth(width);
   const badgeLabel = notificationsCount > 99 ? '99+' : String(notificationsCount);
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
-      <View style={styles.wordmarkWrap}>
-        <Text
-          style={styles.wordmark}
-          accessibilityRole="header"
-          numberOfLines={1}
-          allowFontScaling={false}
-        >
-          GODWIT
-        </Text>
+      <View style={styles.brandWrap}>
+        <Image
+          source={GODWIT_HEADER_LOGO_LIGHT}
+          style={{ width: logo.width, height: logo.height }}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel="Godwit"
+        />
       </View>
 
       <View style={styles.actions}>
@@ -78,20 +87,12 @@ const styles = StyleSheet.create({
   containerCompact: {
     paddingHorizontal: 16,
   },
-  wordmarkWrap: {
+  brandWrap: {
     flex: 1,
     minWidth: 0,
     marginRight: 12,
     justifyContent: 'center',
-  },
-  wordmark: {
-    fontFamily: fontFamily.manrope.semibold,
-    fontSize: 18,
-    lineHeight: 22,
-    letterSpacing: 2,
-    color: colors.forest,
-    textTransform: 'uppercase',
-    paddingRight: 4,
+    alignItems: 'flex-start',
   },
   actions: {
     flexDirection: 'row',

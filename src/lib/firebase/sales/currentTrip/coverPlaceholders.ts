@@ -1,59 +1,94 @@
 /**
- * CRM has no trip cover image — high-res, intent-matched placeholders
- * by primary service type for Home CurrentTripCard.
+ * CRM has no trip cover image — local service heroes when present,
+ * otherwise the previous remote placeholders.
+ *
+ * Local map (`assets/images/`):
+ *   hotel.jpg       → hotel, hotelRoomExtension
+ *   Yacht.jpg       → yacht
+ *   privet-jet.jpg  → privateJet
+ *   flight.jpg      → air, airExtras, airReissue
+ *   chauffeur.jpg   → chauffeur
+ *   Airport.jpg     → vip
+ *
+ * Still remote: experiences, visa, other / default
  */
+
+import type { ImageSource } from 'expo-image';
 
 import type { SaleServiceType } from '@/lib/firebase/sales/getClientUpcomingSales';
 
-/** Retina-friendly crop for the trip hero. */
+export type TripCoverSource = ImageSource | number;
+
+const LOCAL_HOTEL: number = require('../../../../../assets/images/hotel.jpg');
+const LOCAL_YACHT: number = require('../../../../../assets/images/Yacht.jpg');
+const LOCAL_PRIVATE_JET: number = require('../../../../../assets/images/privet-jet.jpg');
+const LOCAL_FLIGHT: number = require('../../../../../assets/images/flight.jpg');
+const LOCAL_CHAUFFEUR: number = require('../../../../../assets/images/chauffeur.jpg');
+const LOCAL_AIRPORT: number = require('../../../../../assets/images/Airport.jpg');
+
+/** Retina-friendly crop for remote trip heroes (services without a local asset). */
 const Q = 'auto=format&fit=crop&w=1920&h=1280&q=85';
 
-/** Luxury alpine / resort stay. */
-const HOTEL = `https://images.unsplash.com/photo-1609137144813-7d9921338f24?${Q}`;
+const REMOTE_EXPERIENCE = `https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?${Q}`;
+const REMOTE_DEFAULT = `https://images.unsplash.com/photo-1488646953014-85cb44e25828?${Q}`;
 
-/** Superyacht on open water. */
-const YACHT = `https://images.unsplash.com/photo-1569263979104-865ab7cd8d13?${Q}`;
+function remote(uri: string): ImageSource {
+  return { uri };
+}
 
-/** Private jet on the apron. */
-const PRIVATE_JET = `https://images.unsplash.com/photo-1540339832862-474599807836?${Q}`;
-
-/** Scheduled / commercial flight. */
-const AIR = `https://images.unsplash.com/photo-1529074963764-98f45c47344b?${Q}`;
-
-/** Luxury chauffeur / black car. */
-const CHAUFFEUR = `https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?${Q}`;
-
-/** Curated destination experience. */
-const EXPERIENCE = `https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?${Q}`;
-
-/** Airport VIP / terminal arrival. */
-const VIP = `https://images.unsplash.com/photo-1556388158-158ea5ccacbd?${Q}`;
-
-/** Travel journey fallback. */
-const DEFAULT = `https://images.unsplash.com/photo-1488646953014-85cb44e25828?${Q}`;
-
-export function coverUrlForServiceType(type: SaleServiceType): string {
+/** Cover source for CurrentTripCard (local asset or remote URI). */
+export function coverSourceForServiceType(type: SaleServiceType): TripCoverSource {
   switch (type) {
     case 'hotel':
     case 'hotelRoomExtension':
-      return HOTEL;
+      return LOCAL_HOTEL;
     case 'yacht':
-      return YACHT;
+      return LOCAL_YACHT;
     case 'privateJet':
-      return PRIVATE_JET;
+      return LOCAL_PRIVATE_JET;
     case 'air':
     case 'airExtras':
     case 'airReissue':
-      return AIR;
+      return LOCAL_FLIGHT;
     case 'chauffeur':
-      return CHAUFFEUR;
-    case 'experiences':
-      return EXPERIENCE;
+      return LOCAL_CHAUFFEUR;
     case 'vip':
-      return VIP;
+      return LOCAL_AIRPORT;
+    case 'experiences':
+      return remote(REMOTE_EXPERIENCE);
     case 'visa':
     case 'other':
     default:
-      return DEFAULT;
+      return remote(REMOTE_DEFAULT);
   }
+}
+
+/** Debug / legacy string form — local assets report an asset: tag. */
+export function coverUrlForServiceType(type: SaleServiceType): string {
+  const source = coverSourceForServiceType(type);
+  if (typeof source === 'number') {
+    switch (type) {
+      case 'hotel':
+      case 'hotelRoomExtension':
+        return 'asset:hotel';
+      case 'yacht':
+        return 'asset:yacht';
+      case 'privateJet':
+        return 'asset:private-jet';
+      case 'air':
+      case 'airExtras':
+      case 'airReissue':
+        return 'asset:flight';
+      case 'chauffeur':
+        return 'asset:chauffeur';
+      case 'vip':
+        return 'asset:airport';
+      default:
+        return 'asset:local';
+    }
+  }
+  if (source && typeof source === 'object' && 'uri' in source && typeof source.uri === 'string') {
+    return source.uri;
+  }
+  return REMOTE_DEFAULT;
 }

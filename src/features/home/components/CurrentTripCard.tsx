@@ -115,7 +115,7 @@ export function CurrentTripCard({ card, onViewTrip }: CurrentTripCardProps) {
 
         <View style={styles.hero}>
           <Image
-            source={{ uri: card.coverUrl }}
+            source={card.coverSource}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             cachePolicy="memory-disk"

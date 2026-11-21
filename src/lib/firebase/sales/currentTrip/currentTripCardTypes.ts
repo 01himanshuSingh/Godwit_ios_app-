@@ -2,6 +2,8 @@
  * Home trip spotlight card — current in-window cluster, else next upcoming.
  */
 
+import type { ImageSource } from 'expo-image';
+
 import type { SaleServiceType } from '@/lib/firebase/sales/getClientUpcomingSales';
 
 /** Which window the card represents (drives section label + date copy). */
@@ -49,8 +51,11 @@ export type ClientCurrentTripCard = {
   serviceTypes: SaleServiceType[];
   services: CurrentTripServiceChip[];
   nextUp: CurrentTripNextUp | null;
-  /** Placeholder cover — CRM has no trip image field */
-  coverUrl: string;
+  /**
+   * Placeholder cover — CRM has no trip image field.
+   * Local `require()` asset (hotel) or `{ uri }` for remote placeholders.
+   */
+  coverSource: ImageSource | number;
 };
 
 export type GetClientCurrentTripCardResult = {
